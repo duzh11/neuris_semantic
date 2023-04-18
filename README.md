@@ -64,7 +64,16 @@ python exp_runner.py --mode validate_image  --conf ./confs/neuris_server.conf --
 ```
 python ./exp_evaluation.py --mode eval_3D_mesh_metrics --is_continue
 ```
+<<<<<<< HEAD
 
+=======
+### Git
+```
+git fetch
+git merge test
+git 
+```
+>>>>>>> neuris_semantic_init
 ## Citation
 Cite as below if you find this repository is helpful to your project:
 
