@@ -15,7 +15,8 @@ import utils.utils_io as IOUtils
 import utils.utils_normal as NormalUtils
 import utils.utils_semantic as SemanticUtils
 
-from confs.path import lis_name_scenes
+# from confs.path import lis_name_scenes
+
 
 cv2.destroyAllWindows
 if __name__ == '__main__':
@@ -29,10 +30,11 @@ if __name__ == '__main__':
     #eval_3D_mesh_metrics
     #eval_semantic_2D_metrices
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', type=str, default='3D_error_mesh')
+    parser.add_argument('--mode', type=str, default='eval_semantic_2D_metrices')
     parser.add_argument('--semantic_class', type=int, default=3,help='number of semantic class')
-
     args = parser.parse_args()
+
+    lis_name_scenes=['scene0050_00']
 
     if args.mode == 'eval_3D_mesh_metrics':
         dir_dataset = '../Data/dataset/indoor'
@@ -71,18 +73,20 @@ if __name__ == '__main__':
 
     if args.mode == 'eval_semantic_2D_metrices':
         data_dir='../Data/dataset/indoor'
-        exp_dir='../exps/indoor/neus'
-        metrics_eval_all = []
-        numclass=3
-        GT_name='semantic_3'
-        name_baseline='semantic_3_test13'
+        exp_dir='../exps/indoor/random_seed'
+        dir_results_baseline = f'../exps/random_seed'
+        numclass=40
+        GT_name=f'semantic_{numclass}'
+        name_baseline=f'semantic_{numclass}_test1'
         exp_name = name_baseline
         flag_old=False
-        
-        dir_results_baseline = f'../exps/evaluation'
+        metrics_average_all = []
+        metrics_iou_all = []
+        metrics_acc_all = []
 
+        logging.info(f'Eval semantic class: {numclass}')
         for scene_name in lis_name_scenes:
-            logging.info(f'eval semantic: {scene_name}')
+            logging.info(f'eval scene: {scene_name}')
             #dir
             GT_dir=os.path.join(data_dir,scene_name,GT_name)
   
@@ -120,23 +124,37 @@ if __name__ == '__main__':
                     semantic_GT=cv2.resize(semantic_GT, (semantic_render.shape[1],semantic_render.shape[0]), interpolation=cv2.INTER_NEAREST)
                 semantic_GT_list.append(semantic_GT)
                 semantic_render_list.append(semantic_render)
-            
-            acc_mean,acc_cls,acc_cls_mean, iou,iou_mean,iou_freq_mean=SemanticUtils.eval_semantic(semantic_GT_list,semantic_render_list,numclass)
-            
-            acc_list=np.append(acc_cls,[acc_cls_mean])
-            iou_list=np.append(iou,[iou_mean])
-            metrics_eval=np.append(acc_list,iou_list)
-            # metrics_eval=[acc_cls_mean,iou_mean]
-            metrics_eval_all.append(metrics_eval)
 
-            logging.info(f'{scene_name}: {metrics_eval}')
+            if numclass>3:
+                true_labels=np.array(semantic_GT_list)-1
+                predicted_labels=np.array(semantic_render_list)-1
+            else:
+                true_labels=np.array(semantic_GT_list)
+                predicted_labels=np.array(semantic_render_list)  
 
-        metrics_eval_all = np.array(metrics_eval_all)
+            acc_mean,acc_cls,acc_cls_mean, iou, iou_mean=SemanticUtils.calculate_segmentation_metrics(
+                                                                                    true_labels=true_labels, 
+                                                                                    predicted_labels=predicted_labels, 
+                                                                                    number_classes=numclass, 
+                                                                                    ignore_label=255)
+            metrics_average=np.array([acc_cls_mean,iou_mean])
+            metrics_acc=np.array(acc_cls)
+            metrics_iou=np.array(iou)
+            metrics_average_all.append(metrics_average)
+            metrics_acc_all.append(metrics_acc)
+            metrics_iou_all.append(metrics_iou)
+
+            logging.info(f'{scene_name}: {metrics_average}')
+
+        metrics_eval_all = np.array(metrics_average_all)
+        metrics_acc_all=np.array(metrics_acc_all)
+        metrics_iou_all=np.array(metrics_iou_all)
+
         str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
         path_log = f'{dir_results_baseline}/{name_baseline}/eval_{name_baseline}_semantic_{str_date}_markdown.txt'
         
-        markdown_header=f'3D mesh evaluation\n| scene_ name   |   Method|  Acc_o|  Acc_w|  Acc_f| Acc_mean| IoU_o| IoU_w| IoU_f| IoU_mean| \n'
-        markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- |\n'
+        markdown_header='Eval metrics\n| scene_ name   |   Method|  Acc_mean|  IoU_mean|\n'
+        markdown_header=markdown_header+'| -------------| ---------| ----- | ----- |\n'
         EvalScanNet.save_evaluation_results_to_markdown(path_log, 
                                                         header = markdown_header, 
                                                         exp_name=exp_name,
@@ -144,7 +162,24 @@ if __name__ == '__main__':
                                                         names_item = lis_name_scenes, 
                                                         save_mean = True, 
                                                         mode = 'w')
-            
+        
+        markdown_header='\nAccuracy\n'
+        EvalScanNet.save_evaluation_results_to_txt(path_log, 
+                                                        header = markdown_header, 
+                                                        exp_name=exp_name,
+                                                        results = metrics_acc_all, 
+                                                        names_item = lis_name_scenes, 
+                                                        save_mean = False, 
+                                                        mode = 'a')
+        markdown_header='\nIoU\n'
+        EvalScanNet.save_evaluation_results_to_txt(path_log, 
+                                                        header = markdown_header, 
+                                                        exp_name=exp_name,
+                                                        results = metrics_iou_all, 
+                                                        names_item = lis_name_scenes, 
+                                                        save_mean = False, 
+                                                        mode = 'a')        
+
     if args.mode == 'eval_mesh_2D_metrices':
         dir_dataset = '../Data/dataset/indoor'
         

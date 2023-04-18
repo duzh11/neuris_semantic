@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.metrics import confusion_matrix
 
 #得到混淆矩阵
 def ConfusionMatrix(label_true, label_pred, n_class):
@@ -40,3 +41,44 @@ def eval_semantic(label_trues, label_preds, n_class):
     freq = hist.sum(axis=1) / hist.sum()
     iou_freq_mean = (freq[freq > 0] * iou[freq > 0]).sum()
     return acc_mean,acc_cls,acc_cls_mean, iou,iou_mean,iou_freq_mean
+
+def nanmean(data, **args):
+    # This makes it ignore the first 'background' class
+    return np.ma.masked_array(data, np.isnan(data)).mean(**args)
+    # In np.ma.masked_array(data, np.isnan(data), elements of data == np.nan is invalid and will be ingorned during computation of np.mean()
+
+def calculate_segmentation_metrics(true_labels, predicted_labels, number_classes, ignore_label):
+    true_labels=np.array(true_labels)
+    predicted_labels=np.array(predicted_labels)
+    
+    if (true_labels == ignore_label).all():
+        return [0]*4
+
+    true_labels = true_labels.flatten()
+    predicted_labels = predicted_labels.flatten()
+    valid_pix_ids = true_labels!=ignore_label
+    predicted_labels = predicted_labels[valid_pix_ids] 
+    true_labels = true_labels[valid_pix_ids]
+    
+    conf_mat = confusion_matrix(true_labels, predicted_labels, labels=list(range(0, number_classes)))
+    norm_conf_mat = np.transpose(
+        np.transpose(conf_mat) / conf_mat.astype(np.float).sum(axis=1))
+
+    missing_class_mask = np.isnan(norm_conf_mat.sum(1)) # missing class will have NaN at corresponding class
+    exsiting_class_mask = ~ missing_class_mask
+
+    class_average_accuracy = nanmean(np.diagonal(norm_conf_mat))
+    total_accuracy = (np.sum(np.diagonal(conf_mat)) / np.sum(conf_mat))
+    class_accuray=np.diagonal(norm_conf_mat).copy()
+    # class_accuray[missing_class_mask]=-1
+    
+    ious = np.zeros(number_classes)
+
+    for class_id in range(number_classes):
+        ious[class_id] = (conf_mat[class_id, class_id] / (
+                np.sum(conf_mat[class_id, :]) + np.sum(conf_mat[:, class_id]) -
+                conf_mat[class_id, class_id]))
+    miou = nanmean(ious)
+    miou_valid_class = np.mean(ious[exsiting_class_mask])
+
+    return total_accuracy, class_accuray, class_average_accuracy, ious, miou_valid_class

@@ -325,6 +325,7 @@ def save_evaluation_results_to_markdown(path_log,
             write mode, default 'w'
     '''
     # save evaluation results to latex format
+    results=np.array(results)
     with open(path_log, mode) as f_log:
         if header:
             f_log.writelines(header)
@@ -333,9 +334,45 @@ def save_evaluation_results_to_markdown(path_log,
             if names_item is None:
                 names_item = np.arange(results.shape[0])
             for idx in range(num_lines):
-                f_log.writelines((f'|{names_item[idx]}  | {exp_name}|' + ("{: 8.3f} |" * num_metrices).format(*results[idx, :].tolist())) + " \n")
+                f_log.writelines((f'|{names_item[idx]}  | {exp_name}|' + ("{: 8.3f}|" * num_metrices).format(*results[idx, :].tolist())) + " \n")
         if save_mean:
-            mean_results = results.mean(axis=0)     # 4*7
+            mean_results = np.nanmax(results,axis=0)     # 4*7
             mean_results = np.round(mean_results, decimals=precision)
-            f_log.writelines(( f'|       Mean   | {exp_name}|' + "{: 8.3f} |" * num_metrices).format(*mean_results[:].tolist()) + " \n")
+            f_log.writelines(( f'|       Mean  | {exp_name}|' + "{: 8.3f}|" * num_metrices).format(*mean_results[:].tolist()) + " \n")
 
+def save_evaluation_results_to_txt(path_log, 
+                                        header = '                     Accu.      Comp.      Prec.     Recall     F-score \n', 
+                                        exp_name=None,
+                                        results = None, 
+                                        names_item = None, 
+                                        save_mean = None, 
+                                        mode = 'w',
+                                        precision = 3):
+    '''Save evaluation results to txt in latex mode
+    Args:
+        header:
+            for F-score: '                     Accu.      Comp.      Prec.     Recall     F-score \n'
+        results:
+            narray, N*M, N lines with M metrics
+        names_item:
+            N*1, item name for each line
+        save_mean: 
+            whether calculate the mean value for each metric
+        mode:
+            write mode, default 'w'
+    '''
+    # save evaluation results to latex format
+    results=np.array(results)
+    with open(path_log, mode) as f_log:
+        if header:
+            f_log.writelines(header)
+        if results is not None:
+            num_lines, num_metrices = results.shape
+            if names_item is None:
+                names_item = np.arange(results.shape[0])
+            for idx in range(num_lines):
+                f_log.writelines((f'{names_item[idx]} {exp_name}\n' + ("{: 6.3f}" * num_metrices).format(*results[idx, :].tolist())) + " \n")
+        if save_mean:
+            mean_results = np.nanmax(results,axis=0)     # 4*7
+            mean_results = np.round(mean_results, decimals=precision)
+            f_log.writelines(( f'    Mean {exp_name}\n' + "{: 6.3f}" * num_metrices).format(*mean_results[:].tolist()) + " \n")

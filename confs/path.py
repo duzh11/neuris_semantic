@@ -19,7 +19,7 @@ path_tiltedsn_pth_sr = f"{dir_tiltedsn_ckpt}/SR_only/model-latest.ckpt"
 # ['scene0009_01','scene0050_00','scene0084_00','scene0085_00','scene0114_02',
 #                      'scene0580_00','scene0603_00','scene0616_00','scene0617_00','scene0625_00']
 names_scenes_neuris = ['scene0009_01','scene0050_00', 'scene0084_00','scene0616_00']
-#'scene0050_00', 'scene0084_00', 'scene0580_00','scene0616_00'
+#'scene0009_01','scene0050_00', 'scene0084_00','scene0616_00'
 names_scenes_manhattansdf = [] 
 lis_name_scenes = names_scenes_neuris + names_scenes_manhattansdf
 

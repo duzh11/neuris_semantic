@@ -101,7 +101,7 @@ def compute_chamfer(exp_name,lis_name_scenes,down_sample=0.02):
 
         metrics_eval=chamfer(pcd_pred, pcd_gt, pcd_label, colour_map_np)
         logging.info(f'{metrics_eval}')
-    metrics_eval_all.append(metrics_eval*100)
+        metrics_eval_all.append(metrics_eval*100)
     
     path_log = f'{dir_results_baseline}/{name_baseline}/eval_{name_baseline}_Chamfer_markdown.txt'
     markdown_header=f'| scene_name   |    Method|    All|    Wall|  Floor|  Other|\n'
@@ -117,9 +117,8 @@ def compute_chamfer(exp_name,lis_name_scenes,down_sample=0.02):
 if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)
-    lis_exp_name=['neuris_512','semantic_3_test8','semantic_3_test1','semantic_3_test7','semantic_3_test13',
-                  'semantic_3_test15','semantic_3_test16','semantic_3_test19','semantic_3_test17','semantic_3_test18']
-    lis_name_scenes=['scene0009_01','scene0050_00','scene0084_00','scene0616_00']
+    lis_exp_name=['semantic_3_test29']
+    lis_name_scenes=['scene0050_00','scene0084_00']
     for exp_name in lis_exp_name:
         logging.info(f'compute chamfer: {exp_name}')
         compute_chamfer(exp_name,lis_name_scenes)

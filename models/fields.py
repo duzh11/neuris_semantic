@@ -303,13 +303,14 @@ class NeRF(nn.Module):
 class DenseLayer(nn.Linear):
     def __init__(self, input_dim: int, out_dim: int, *args, activation=None, **kwargs):
         super().__init__(input_dim, out_dim, *args, **kwargs)
+        self.MLP=nn.Linear(input_dim, out_dim)
         if activation is None:
             self.activation = nn.ReLU(inplace=True)
         else:
             self.activation = activation
 
     def forward(self, x):
-        out = super().forward(x)
+        out = self.MLP(x)
         out = self.activation(out)
         return out
 
@@ -323,7 +324,8 @@ class SemanticNetwork(nn.Module):
                 multires=-1,
                 scale=1,
                 activation='relu',
-                weight_norm=True):
+                weight_norm=True,
+                semantic_mode=''):
         super().__init__()
                 
         self.n_layers = n_layers
@@ -336,9 +338,8 @@ class SemanticNetwork(nn.Module):
         self.embed_fn = embed_fn
         d_in = d_in-3+input_ch
         logging.info(f'Semantic input dimension: {d_in}') 
-
         logging.info(f'Semantic output dimension: {d_out}') 
-
+        
         fc_layers = []
         # NOTE: as in IDR/NeuS, the network's has D+1 layers
         for l in range(self.n_layers + 1):
@@ -359,9 +360,15 @@ class SemanticNetwork(nn.Module):
             if l != self.n_layers:
                 layer = DenseLayer(in_dim, out_dim, activation=nn.ReLU(inplace=True))
             else:
-                layer = nn.Linear(in_dim, out_dim)
-                #DenseLayer(in_dim, out_dim, activation=nn.Sigmoid())
-                #nn.Linear(in_dim, out_dim)
+                if semantic_mode=='sigmoid':
+                    layer = DenseLayer(in_dim, out_dim, activation=nn.Sigmoid())
+                    logging.info(f'Semantic_mode: {semantic_mode}')
+                elif semantic_mode=='softmax':
+                    layer = DenseLayer(in_dim, out_dim, activation=nn.Softmax(dim=-1))
+                    logging.info(f'Semantic_mode: {semantic_mode}')
+                else:
+                    layer = nn.Linear(in_dim, out_dim)
+                    logging.info(f'Semantic_mode: {semantic_mode}')
             
             if weight_norm:
                 layer = nn.utils.weight_norm(layer)
@@ -382,6 +389,5 @@ class SemanticNetwork(nn.Module):
             if i in self.skips:
                 h = torch.cat([h, semantic_input], dim=-1)
             h = self.layers[i](h)
-        h=F.softmax(h, dim=-1)
         return h
 

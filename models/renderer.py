@@ -209,6 +209,7 @@ class NeuSRenderer:
         # color-network
         gradients = sdf_network.gradient(pts).squeeze() #法向量
         sampled_color = color_network(pts, gradients, dirs, feature_vector).reshape(batch_size, n_samples, 3) #batch_szie, n_samples, 3
+        
         #semantic-network
         sampled_semantic=torch.zeros([batch_size, n_samples, semantic_class])
         if semantic_network:

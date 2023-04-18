@@ -1,5 +1,6 @@
 import cv2 as cv
 import numpy as np
+import random
 import os, logging, argparse, trimesh, copy
 
 import torch
@@ -29,7 +30,7 @@ import utils.utils_colour as utils_colour
 class Runner:
     def __init__(self, conf_path, scene_name = '', mode='train', model_type='', 
                  is_continue=False, checkpoint_id = -1, 
-                 stop_semantic_grad=False,semantic_class=0):
+                 args=None):
         # Initial setting: Genreal
         self.device = torch.device('cuda')
         self.conf_path = conf_path
@@ -44,8 +45,10 @@ class Runner:
             self.conf['general']['scan_name']=scene_name
         
         self.exp_name = self.conf['general.exp_name']
-        self.stop_semantic_grad=stop_semantic_grad
-        self.semantic_class=semantic_class
+        self.stop_semantic_grad=args.stop_semantic_grad
+        self.semantic_class=args.semantic_class
+        self.server=args.server
+        self.semantic_mode=args.semantic_mode
         # parse cmd args
         self.is_continue = is_continue
         self.checkpoint_id = checkpoint_id
@@ -104,7 +107,25 @@ class Runner:
 
         self.nvs = self.conf.get_bool('train.nvs', default=False)
         self.save_normamap_npz = self.conf['train.save_normamap_npz']
+        
         # base_exp_dir='../exps/indoor/neus/scene0625_00/exp_scene0625_00
+        if self.server=='server4':
+            self.conf['general']['server']=self.server
+            self.conf['general']['exp_dir']='/home/home/raid/zhenhua2023/NeuRIS/exps'
+            self.conf['general']['data_dir']='/home/home/raid/zhenhua2023/NeuRIS/Data/dataset'
+        elif self.server=='server8':
+            self.conf['general']['server']=self.server
+            self.conf['general']['exp_dir']='/raid/duzhenhua/NeuRIS/exps'
+            self.conf['general']['data_dir']='/raid/duzhenhua/NeuRIS/Data/dataset'    
+        elif self.server=='yatai':
+            self.conf['general']['server']=self.server
+            self.conf['general']['exp_dir']='../exps'
+            self.conf['general']['data_dir']='../Data/dataset'  
+        else:
+            self.server='local'
+            self.conf['general']['server']=self.server
+        logging.info(f'Run on {self.server}')
+
         self.base_exp_dir = os.path.join(self.conf['general.exp_dir'], self.dataset_type, self.model_type, self.scan_name, str(self.exp_name))
         os.makedirs(self.base_exp_dir, exist_ok=True)
         logging.info(f'Exp dir: {self.base_exp_dir}')
@@ -152,7 +173,7 @@ class Runner:
             else:
                 self.semantic_class=self.conf['dataset']['semantic_class']
             
-            #stop semantic gradients
+            # stop semantic gradients
             if self.stop_semantic_grad:
                 self.conf['train']['stop_semantic_grad']=self.stop_semantic_grad
             else:
@@ -165,8 +186,13 @@ class Runner:
             joint_loss_weight=self.conf['model.loss.joint_weight']
             self.conf['dataset']['use_joint'] = True if joint_loss_weight > 0 else False
             self.use_joint=self.conf['dataset']['use_joint']
-
             logging.info(f'use joint optimization: {self.use_joint}, begin: {self.joint_iter}, joint loss weight: {joint_loss_weight}')
+
+            # semantic model
+            if self.semantic_class:
+                self.conf['model']['semantic_network']['d_out']=self.semantic_class
+            if self.semantic_mode:
+                self.conf['model']['semantic_network']['semantic_mode']=self.semantic_mode
 
             self.use_indoor_data = True
             logging.info(f"Ray sample range: {self.sample_range_indoor}")
@@ -202,8 +228,8 @@ class Runner:
             self.semantic_network_fine=None
             
             if self.use_semantic:
-                self.semantic_network_fine = SemanticNetwork(d_out=self.semantic_class,**self.conf['model.semantic_network']).to(self.device)
-
+                self.semantic_network_fine = SemanticNetwork(**self.conf['model.semantic_network']).to(self.device)
+                                                        
             params_to_train += list(self.nerf_outside.parameters())
             params_to_train += list(self.sdf_network_fine.parameters())
             params_to_train += list(self.variance_network_fine.parameters())
@@ -392,7 +418,8 @@ class Runner:
         logging.info(f'Begin: validate image')
         for idx in tqdm(range(0,self.dataset.n_images,1)):
             t_validate = datetime.now()
-            self.validate_image(idx, resolution_level=self.conf['dataset.init_accum_reso_level'], semantic_class=self.semantic_class, expdir=f'image_train/{int(self.end_iter)}',
+            self.validate_image(idx, 
+                                semantic_class=self.semantic_class, expdir=f'image_train/{int(self.end_iter)}',
                                 save_peak_value=False, save_image_render = False, save_normal_render = False, 
                                 save_depth_render = False, save_semantic_render = True, save_lis_images=True)
             logging.info(f"validating image time is : {(datetime.now()-t_validate).total_seconds()}")
@@ -943,7 +970,7 @@ class Runner:
         if save_semantic_render and self.use_semantic:
             semantic_fine=(imgs_render['semantic_fine'].argmax(axis=2))
             if semantic_class!=3:
-                semantic_fine=semantic_fine+1 # todo
+                semantic_fine=semantic_fine+1
 
             os.makedirs(os.path.join(self.base_exp_dir, 'semantic_npz'), exist_ok=True)
             np.savez(os.path.join(self.base_exp_dir, 'semantic_npz', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
@@ -1026,7 +1053,7 @@ class Runner:
                 elif key=='semantic_fine' and self.use_semantic:
                     img_temp = (img_temp.argmax(axis=2))
                     if semantic_class!=3:
-                        img_temp = img_temp+1 # todo
+                        img_temp = img_temp+1
 
                     semantic_input = ImageUtils.resize_image(self.dataset.semantics[idx].cpu().numpy(), 
                         (img_temp.shape[1], img_temp.shape[0]))
@@ -1398,19 +1425,34 @@ class Runner:
         else:
             logging.info('Initialize all accum data to ones.')
 
-            
+def setup_seed(seed):
+    logging.info(f'random seed :{seed}')
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    
+    np.random.seed(seed)
+    random.seed(seed)
+
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    os.environ['CUBLAS_WORKSPACE_CONFIG']=':4096:8'
+    torch.use_deterministic_algorithms(True)
+         
 if __name__ == '__main__':
-    torch.cuda.empty_cache()
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--conf', type=str, default='./confs/neuris.conf')
+    parser.add_argument('--seed', type=int, default=42, help='random seed')
+    parser.add_argument('--server', type=str, default='local',help='random seed')
     parser.add_argument('--mode', type=str, default='train') #changed
     parser.add_argument('--model_type', type=str, default='neus')
     parser.add_argument('--threshold', type=float, default=0.0)
-    parser.add_argument('--is_continue', default=False, action="store_true") #加载预训练权重 changed # todo
     parser.add_argument('--gpu', type=int, default=0)
     parser.add_argument('--checkpoint_id', type=int, default=-1)
     parser.add_argument('--mc_reso', type=int, default=512, help='Marching cube resolution')
@@ -1421,13 +1463,16 @@ if __name__ == '__main__':
     parser.add_argument('--scene_name', type=str, default='', help='Scene or scan name')
     parser.add_argument('--semantic_class', type=int, help='number of semantic class')
     parser.add_argument('--stop_semantic_grad', action='store_true', default=False, help='stop semantic gradients')
+    parser.add_argument('--semantic_mode', type=str)
+    parser.add_argument('--is_continue', default=False, action="store_true") #加载预训练权重 changed
     args = parser.parse_args()
 
     torch.cuda.set_device(args.gpu)
+    setup_seed(args.seed)
+
     runner = Runner(args.conf, args.scene_name, args.mode, 
                     args.model_type, args.is_continue, args.checkpoint_id, 
-                    stop_semantic_grad=args.stop_semantic_grad,
-                    semantic_class=args.semantic_class)
+                    args=args)
     
     if args.mode == 'train':
         runner.train()
@@ -1454,8 +1499,8 @@ if __name__ == '__main__':
                                             save_normal_render=False,
                                             save_depth_render=False,
                                             save_semantic_render = True,
-                                            save_lis_images=False,
-                                            expdir='image_validate')
+                                            save_lis_images=True,
+                                            expdir='image_valiate')
                 logging.info(f"validating image time is : {(datetime.now()-t1).total_seconds()}")
         
         elif runner.model_type == 'nerf':
