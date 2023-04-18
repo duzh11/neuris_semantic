@@ -66,7 +66,9 @@ python ./exp_evaluation.py --mode eval_3D_mesh_metrics --is_continue
 ```
 ### Git
 ```
-
+git fetch
+git merge test
+git 
 ```
 ## Citation
 Cite as below if you find this repository is helpful to your project:
