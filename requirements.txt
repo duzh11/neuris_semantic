@@ -1,0 +1,17 @@
+trimesh
+numpy
+pyhocon==0.3.57
+icecream==2.1.0
+opencv_python==4.5.2.52
+tqdm==4.50.2
+scipy==1.7.0
+PyMCubes==0.1.2
+open3d
+tensorboard
+scikit-image
+setuptools
+lpips
+numba
+pyrender
+pycuda
+pyembree==0.2.4
