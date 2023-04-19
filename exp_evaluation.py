@@ -30,11 +30,11 @@ if __name__ == '__main__':
     #eval_3D_mesh_metrics
     #eval_semantic_2D_metrices
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', type=str, default='eval_semantic_2D_metrices')
+    parser.add_argument('--mode', type=str, default='3D_error_mesh')
     parser.add_argument('--semantic_class', type=int, default=3,help='number of semantic class')
     args = parser.parse_args()
 
-    lis_name_scenes=['scene0050_00']
+    lis_name_scenes=['scene0084_00','scene0616_00']
 
     if args.mode == 'eval_3D_mesh_metrics':
         dir_dataset = '../Data/dataset/indoor'
@@ -183,7 +183,7 @@ if __name__ == '__main__':
     if args.mode == 'eval_mesh_2D_metrices':
         dir_dataset = '../Data/dataset/indoor'
         
-        exp_name='neuris'
+        exp_name='semantic_3_test3'
         name_baseline = f'{exp_name}_refuse'
         eval_type_baseline = 'mesh'
         scale_depth = False
@@ -236,7 +236,7 @@ if __name__ == '__main__':
         logging.info('output 3D error mesh.')
         dir_dataset = '../Data/dataset/indoor'
         dir_results_baseline = f'../exps/evaluation/'
-        exp_name='semantic_3_test17'
+        exp_name='semantic_3_test4'
         name_baseline = f'{exp_name}_refuse'
         
         def nn_correspondance(verts1, verts2):

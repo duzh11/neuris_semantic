@@ -168,7 +168,7 @@ def main(exp_name,lis_name_scenes):
 if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)
-    exp_name = 'neuris_test4'
+    exp_name = 'semantic_3_test4'
     lis_name_scenes=['scene0084_00','scene0616_00']
     # lis_name_scenes=['scene0009_01','scene0050_00','scene0084_00','scene0616_00']
     main(exp_name,lis_name_scenes)
