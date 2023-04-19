@@ -362,13 +362,13 @@ class SemanticNetwork(nn.Module):
             else:
                 if semantic_mode=='sigmoid':
                     layer = DenseLayer(in_dim, out_dim, activation=nn.Sigmoid())
-                    logging.info(f'Semantic_mode: {semantic_mode}')
+                    logging.info(f'Semantic_mode: sigmoid')
                 elif semantic_mode=='softmax':
                     layer = DenseLayer(in_dim, out_dim, activation=nn.Softmax(dim=-1))
-                    logging.info(f'Semantic_mode: {semantic_mode}')
+                    logging.info(f'Semantic_mode: softmax')
                 else:
                     layer = nn.Linear(in_dim, out_dim)
-                    logging.info(f'Semantic_mode: {semantic_mode}')
+                    logging.info(f'Semantic_mode: None')
             
             if weight_norm:
                 layer = nn.utils.weight_norm(layer)
