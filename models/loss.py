@@ -173,8 +173,8 @@ class NeuSLoss(nn.Module):
                 'Loss/loss_color':  color_fine_loss.detach().cpu(),
                 'Loss/loss_bg':     background_loss
             })
-        #semantic loss
-              
+        
+        #semantic loss     
         if self.semantic_class==3:
             CrossEntropyLoss = nn.CrossEntropyLoss()
             crossentropy_loss = lambda logit, label: CrossEntropyLoss(logit, label)
@@ -219,7 +219,7 @@ class NeuSLoss(nn.Module):
                 wall_mask=(wall_mask.unsqueeze(0)).squeeze(-1)#changed
                 wall_normals = surface_normals_normalized[wall_mask]
                 wall_loss_vertical = wall_normals[..., 2].abs() #设置了一个vertical的wall
-                cos = wall_normals[..., 0] * torch.cos(theta) + wall_normals[..., 1] * torch.sin(theta)
+                cos = wall_normals[..., 0] * torch.cos(theta) - wall_normals[..., 1] * torch.sin(theta)
                 wall_loss_horizontal = torch.min(cos.abs(), torch.min((1 - cos).abs(), (1 + cos).abs())) # Eq.9
                 wall_loss = wall_loss_vertical + wall_loss_horizontal
                 wall_mask=wall_mask.squeeze()#changed

@@ -139,7 +139,7 @@ class Dataset:
         if self.use_semantic:
             semantic_lis = None
             for ext in ['.png', '.JPG']:
-                semantic_lis = glob(os.path.join(self.data_dir, f'semantic_{self.semantic_class}/*{ext}')) # TODO
+                semantic_lis = glob(os.path.join(self.data_dir, f'semantic_{self.semantic_class}/*{ext}'))
                 semantic_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
                 if len(semantic_lis) > 0:
                     break
@@ -161,35 +161,35 @@ class Dataset:
             
             self.semantics = torch.from_numpy(self.semantic_np.astype(np.float32)).cpu()
 
-        if self.use_normal:
-            logging.info(f'[Use normal] Loading estimated normals...')
-            normals_np = []
-            normals_npz, stems_normal = read_images(f'{self.data_dir}/pred_normal', target_img_size=(w_img, h_img), img_ext='.npz')
-            assert len(normals_npz) == self.n_images
-            for i in tqdm(range(self.n_images)):
-                normal_img_curr = normals_npz[i]
-        
-                # transform to world coordinates
-                ex_i = torch.linalg.inv(self.pose_all[i])
-                img_normal_w = get_world_normal(normal_img_curr.reshape(-1, 3), ex_i).reshape(h_img, w_img,3)
+        # loading normals
+        logging.info(f'Use normal:{self.use_normal}, Loading estimated normals...')
+        normals_np = []
+        normals_npz, stems_normal = read_images(f'{self.data_dir}/pred_normal', target_img_size=(w_img, h_img), img_ext='.npz')
+        assert len(normals_npz) == self.n_images
+        for i in tqdm(range(self.n_images)):
+            normal_img_curr = normals_npz[i]
+    
+            # transform to world coordinates
+            ex_i = torch.linalg.inv(self.pose_all[i])
+            img_normal_w = get_world_normal(normal_img_curr.reshape(-1, 3), ex_i).reshape(h_img, w_img,3)
 
-                normals_np.append(img_normal_w)
-                
-            self.normals_np = -np.stack(normals_np)   # reverse normal
-            self.normals = torch.from_numpy(self.normals_np.astype(np.float32)).cpu()
+            normals_np.append(img_normal_w)
+            
+        self.normals_np = -np.stack(normals_np)   # reverse normal
+        self.normals = torch.from_numpy(self.normals_np.astype(np.float32)).cpu()
 
-            debug_ = False
-            if debug_ and IOUtils.checkExistence(f'{self.data_dir}/depth'):
-                self.depths_np, stems_depth = read_images(f'{self.data_dir}/depth', target_img_size=(w_img, h_img), img_ext='.png')
-                dir_depths_cloud = f'{self.data_dir}/depth_cloud'
-                ensure_dir_existence(dir_depths_cloud)
+            # debug_ = False
+            # if debug_ and IOUtils.checkExistence(f'{self.data_dir}/depth'):
+            #     self.depths_np, stems_depth = read_images(f'{self.data_dir}/depth', target_img_size=(w_img, h_img), img_ext='.png')
+            #     dir_depths_cloud = f'{self.data_dir}/depth_cloud'
+            #     ensure_dir_existence(dir_depths_cloud)
                 
-                for i in range(5):
-                    ext_curr = get_pose_inv(self.pose_all[i].detach().cpu().numpy())
-                    pts = GeoUtils.get_world_points( self.depths_np[i], self.intrinsics_all[i], ext_curr)
-                    normals_curr = self.normals_np[i].reshape(-1,3)
-                    colors = self.images_np[i].reshape(-1,3)
-                    save_points(f'{dir_depths_cloud}/{stems_depth[i]}.ply', pts, colors, normals_curr)
+            #     for i in range(5):
+            #         ext_curr = get_pose_inv(self.pose_all[i].detach().cpu().numpy())
+            #         pts = GeoUtils.get_world_points( self.depths_np[i], self.intrinsics_all[i], ext_curr)
+            #         normals_curr = self.normals_np[i].reshape(-1,3)
+            #         colors = self.images_np[i].reshape(-1,3)
+            #         save_points(f'{dir_depths_cloud}/{stems_depth[i]}.ply', pts, colors, normals_curr)
 
         if self.use_planes:
             logging.info(f'Use planes: Loading planes...')  

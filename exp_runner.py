@@ -163,7 +163,7 @@ class Runner:
             self.sample_range_indoor =  self.conf['dataset']['sample_range_indoor']
             self.conf['dataset']['use_normal'] = True if self.conf['model.loss.normal_weight'] > 0 else False
             
-            # semantic
+            ### semantic
             semantic_loss_weight=self.conf['model.loss.semantic_weight']
             self.conf['dataset']['use_semantic'] = True if semantic_loss_weight> 0 else False
             self.use_semantic=self.conf['dataset']['use_semantic']
@@ -172,6 +172,11 @@ class Runner:
                 self.conf['dataset']['semantic_class']=self.semantic_class
             else:
                 self.semantic_class=self.conf['dataset']['semantic_class']
+            # semantic model
+            if self.semantic_class:
+                self.conf['model']['semantic_network']['d_out']=self.semantic_class
+            if self.semantic_mode:
+                self.conf['model']['semantic_network']['semantic_mode']=self.semantic_mode
             
             # stop semantic gradients
             if self.stop_semantic_grad:
@@ -181,18 +186,22 @@ class Runner:
             logging.info(f'use_semantic: {self.use_semantic}, semantic_class: {self.semantic_class}')
             logging.info(f'semantic_loss_weight: {semantic_loss_weight}, stop_semantic_grad: {self.stop_semantic_grad}')
 
-            # joint optimization parameters
+            ### joint optimization parameters
             self.joint_iter=self.conf['train.joint_iter'] 
             joint_loss_weight=self.conf['model.loss.joint_weight']
             self.conf['dataset']['use_joint'] = True if joint_loss_weight > 0 else False
             self.use_joint=self.conf['dataset']['use_joint']
             logging.info(f'use joint optimization: {self.use_joint}, begin: {self.joint_iter}, joint loss weight: {joint_loss_weight}')
-
-            # semantic model
-            if self.semantic_class:
-                self.conf['model']['semantic_network']['d_out']=self.semantic_class
-            if self.semantic_mode:
-                self.conf['model']['semantic_network']['semantic_mode']=self.semantic_mode
+            
+            ### normal parameters
+            normal_weight=self.conf['model.loss.normal_weight']
+            self.conf['dataset']['use_normal'] = True if normal_weight > 0 else False
+            self.use_normal=self.conf['dataset']['use_normal']
+            
+            use_geocheck=(self.patchmatch_mode == 'use_geocheck') and self.use_normal
+            self.conf['dataset']['use_geocheck']=use_geocheck
+            self.use_geocheck=use_geocheck
+            logging.info(f'use normal: {self.use_normal}, normal_weight: {normal_weight}, use geocheck: {self.use_geocheck}')
 
             self.use_indoor_data = True
             logging.info(f"Ray sample range: {self.sample_range_indoor}")
@@ -371,8 +380,10 @@ class Runner:
                                             stop_semantic_grad=self.stop_semantic_grad)
             logs_summary.update(logs_render)
 
-            patchmatch_out, logs_patchmatch = self.patch_match(input_model, render_out)
-            logs_summary.update(logs_patchmatch)
+            patchmatch_out=None
+            if self.use_geocheck:
+                patchmatch_out, logs_patchmatch = self.patch_match(input_model, render_out)
+                logs_summary.update(logs_patchmatch)
 
             self.joint_start=self.iter_step>self.joint_iter-1
             loss, logs_loss, mask_keep_gt_normal = self.loss_neus(input_model, render_out, 
@@ -420,8 +431,13 @@ class Runner:
             t_validate = datetime.now()
             self.validate_image(idx, 
                                 semantic_class=self.semantic_class, expdir=f'image_train/{int(self.end_iter)}',
-                                save_peak_value=False, save_image_render = False, save_normal_render = False, 
-                                save_depth_render = False, save_semantic_render = True, save_lis_images=True)
+                                save_peak_value=False, 
+                                validate_confidence=self.use_geocheck,
+                                save_image_render = False, 
+                                save_normal_render = False, 
+                                save_depth_render = False, 
+                                save_semantic_render = True, 
+                                save_lis_images=True)
             logging.info(f"validating image time is : {(datetime.now()-t_validate).total_seconds()}")
         logging.info(f"Done: validating image")
 
@@ -770,8 +786,13 @@ class Runner:
             self.validate_mesh()
         
         if self.iter_step % self.val_image_freq == 0:
-            self.validate_image(semantic_class=self.semantic_class,save_normamap_npz=self.save_normamap_npz,
-                    save_image_render=True,save_normal_render=True,save_depth_render=True,save_semantic_render=True)
+            self.validate_image(semantic_class=self.semantic_class,
+                                save_normamap_npz=self.save_normamap_npz,
+                                validate_confidence=self.use_geocheck,
+                                save_image_render=True,
+                                save_normal_render=True,
+                                save_depth_render=True,
+                                save_semantic_render=True)
 
         if self.iter_step % self.val_fields_freq == 0:
             self.validate_fields()
@@ -1006,6 +1027,7 @@ class Runner:
             lis_imgs = []
             img_sample = np.zeros_like(imgs_render['color_fine'])
             img_sample[:,:,1] = 255
+            img_temp3_mask_use_prior=None
             for key in imgs_render:
                 logging.info(f'pic_label: {key}')
                 if len(imgs_render[key]) == 0:
@@ -1015,7 +1037,6 @@ class Runner:
                 if key == 'normal':
                     normal_input = ImageUtils.resize_image(self.dataset.normals[idx].cpu().numpy(), 
                         (img_temp.shape[1], img_temp.shape[0]))
-                    normal_unput=normal_input.squeeze()
                     normal_input=(((normal_input + 1) * 0.5).clip(0,1) * 255).astype(np.uint8)
                     lis_imgs.append(normal_input[...,::-1])
                     
@@ -1032,7 +1053,7 @@ class Runner:
                     continue
                 # if key in ['depth', 'depth_peak', 'variance']:
                 #     img_temp = img_temp / (np.max(img_temp)+1e-6) * 255
-                elif key == 'confidence':
+                elif key == 'confidence' and validate_confidence:
                 #     img_temp2 = ImageUtils.convert_gray_to_cmap(img_temp)
                 #     img_temp2 = img_temp2 * imgs_render['confidence_mask'][:,:,None]
                 #     lis_imgs.append(img_temp2)
@@ -1082,9 +1103,11 @@ class Runner:
             img_gt = ImageUtils.resize_image(self.dataset.images[idx].cpu().numpy(), 
                                                 (lis_imgs[0].shape[1], lis_imgs[0].shape[0]))            
             
-            img_sample[img_temp3_mask_use_prior] = img_gt[img_temp3_mask_use_prior]*255
-
-            lis_imgs=[img_gt, img_sample] + lis_imgs
+            if validate_confidence:
+                img_sample[img_temp3_mask_use_prior] = img_gt[img_temp3_mask_use_prior]*255
+                lis_imgs=[img_gt, img_sample] + lis_imgs
+            else:
+                lis_imgs=[img_gt] + lis_imgs
                 
             #color_fine, confidence, img_temp3_mask_use_prior, confidence
             ImageUtils.write_image_lis(f'{dir_images}/{self.iter_step:08d}_reso{resolution_level}_{idx:08d}.png',
@@ -1402,7 +1425,7 @@ class Runner:
                 
                 b_accum_all_data = False
                 if b_accum_all_data:
-                    self.dataset.colors_accum[idx]     = torch.from_numpy(resize_arr(color_peak)).cuda()
+                    self.dataset.colors_accum[idx]= torch.from_numpy(resize_arr(color_peak)).cuda()
             logging.info(f'Consumed time: {IOUtils.get_consumed_time(t1)/60:.02f} min.') 
             
             dir_accum_npz = f'{self.base_exp_dir}/checkpoints/npz'
@@ -1496,6 +1519,7 @@ if __name__ == '__main__':
                                             save_normamap_npz=args.save_normamap_npz, 
                                             save_peak_value=args.save_peak_value,
                                             save_image_render=args.nvs,
+                                            validate_confidence=runner.use_geocheck,
                                             save_normal_render=False,
                                             save_depth_render=False,
                                             save_semantic_render = True,

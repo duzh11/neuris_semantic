@@ -8,7 +8,7 @@ import utils.utils_colour as utils_colour
 FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=FORMAT)
 
-semantic_class=13
+semantic_class=40
 manhattan=True #Manhattan将door、white board归为wall类，将floor mat归为floor类
 scene_list=['scene0009_01','scene0050_00','scene0084_00','scene0085_00','scene0114_02','scene0580_00','scene0603_00','scene0616_00','scene0617_00','scene0625_00']
 

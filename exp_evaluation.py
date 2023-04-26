@@ -236,7 +236,7 @@ if __name__ == '__main__':
         logging.info('output 3D error mesh.')
         dir_dataset = '../Data/dataset/indoor'
         dir_results_baseline = f'../exps/evaluation/'
-        exp_name='semantic_3_test4'
+        exp_name='semantic_3_test11'
         name_baseline = f'{exp_name}_refuse'
         
         def nn_correspondance(verts1, verts2):

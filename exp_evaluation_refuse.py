@@ -155,8 +155,8 @@ def main(exp_name,lis_name_scenes):
     path_log = f'{dir_results_baseline}/{name_baseline}/eval_{name_baseline}_3Dmesh_thres{eval_threshold}_{str_date}_markdown.txt'
     
     latex_header=f'{exp_name}\n  scene_name         Accu.      Comp.      Prec.     Recall     F-score \n'
-    markdown_header=f'\n| scene_name   |    Method|    Accu.|    Comp.|    Prec.|   Recall|  F-score| \n'
-    markdown_header=markdown_header+'| -------------| ---------| ------- | ------- | ------- | ------- | ------- |\n'
+    markdown_header=f'\n| scene_name   |    Method|    Accu.|    Comp.|    Prec.|   Recall|  F-score| Chamfer|\n'
+    markdown_header=markdown_header+'| -------------| ---------| ------- | ------- | ------- | ------- | ------- |------- |\n'
     EvalScanNet.save_evaluation_results_to_markdown(path_log, 
                                                     header = markdown_header, 
                                                     exp_name=exp_name,
@@ -168,7 +168,7 @@ def main(exp_name,lis_name_scenes):
 if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)
-    exp_name = 'semantic_3_test4'
+    exp_name = 'semantic_3_test11'
     lis_name_scenes=['scene0084_00','scene0616_00']
     # lis_name_scenes=['scene0009_01','scene0050_00','scene0084_00','scene0616_00']
     main(exp_name,lis_name_scenes)

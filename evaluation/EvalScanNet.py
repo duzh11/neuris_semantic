@@ -198,17 +198,19 @@ def evaluate_geometry_neucon(file_pred, file_trgt, threshold=.05, down_sample=.0
     precision = np.mean((dist2 < threshold).astype('float'))
     recal = np.mean((dist1 < threshold).astype('float'))
     fscore = 2 * precision * recal / (precision + recal)
+    chamfer=np.mean(dist1**2)+np.mean(dist2**2)
     metrics = {'dist1': np.mean(dist2),  # pred->gt
                'dist2': np.mean(dist1),  # gt -> pred
                'prec': precision,
                'recal': recal,
                'fscore': fscore,
+               'chamfer': chamfer,
                }
     # plot graph
     # if path_fscore_curve:
     #     EvalUtils.draw_figure_fscore(path_fscore_curve, threshold, dist2, dist1, plot_stretch=5)
 
-    metrics = np.array([np.mean(dist2), np.mean(dist1), precision, recal, fscore])
+    metrics = np.array([np.mean(dist2), np.mean(dist1), precision, recal, fscore, chamfer])
     logging.info(f'{file_pred.split("/")[-1]}: {metrics}')
     return metrics
 
