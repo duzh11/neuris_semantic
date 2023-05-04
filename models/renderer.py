@@ -265,15 +265,20 @@ class NeuSRenderer:
         weights_sum = weights.sum(dim=-1, keepdim=True)
 
         color = (sampled_color * weights[:, :, None]).sum(dim=1)
+        if background_rgb is not None:
+            color = color + background_rgb * (1.0 - weights_sum)
+        
         # stop semantic grad
         if stop_semantic_grad:
             weights_new=weights.detach()
             semantic = (sampled_semantic * weights_new[:, :, None]).sum(dim=1)
         else:
             semantic = (sampled_semantic * weights[:, :, None]).sum(dim=1)
-
-        if background_rgb is not None:
-            color = color + background_rgb * (1.0 - weights_sum)
+        
+        if semantic_network.semantic_mode=='softmax':
+            semantic = semantic / (semantic.sum(-1).unsqueeze(-1) + 1e-8)
+            semantic = torch.log(semantic + 1e-8)            
+        
 
         gradient_error = (torch.linalg.norm(gradients.reshape(batch_size, n_samples, 3), ord=2,
                                             dim=-1) - 1.0) ** 2

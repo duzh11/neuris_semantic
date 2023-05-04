@@ -99,12 +99,13 @@ def evaluate_3D_mesh_byRefuse(scene_name,scene_dir,output_dir,path_mesh_pred,pat
                                             threshold=eval_threshold, down_sample=.02) 
         return metrices_eval
 
-
+    # semantic_dir=os.path.join(scene_dir,'semantic_40')
     for imgname in tqdm(image_list, desc='Loading data'):
         c2w = np.loadtxt(f'{scene_dir}/pose/{imgname[:-4]}.txt')
         c2w_all.append(c2w)
 
         rgb = cv2.imread(f'{image_dir}/{imgname[:-4]}.png')
+        # rgb = cv2.imread(f'{semantic_dir}/{str(int(imgname[:-4]))}.png')
         rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)
         rgb = (rgb.astype(np.float32) / 255)
 
@@ -131,12 +132,10 @@ def evaluate_3D_mesh_byRefuse(scene_name,scene_dir,output_dir,path_mesh_pred,pat
                                             threshold=eval_threshold, down_sample=.02) 
     return metrices_eval
 
-def main(exp_name,lis_name_scenes):
-    dir_dataset = '../Data/dataset/indoor'
-    name_baseline=f'{exp_name}_refuse'
-    dir_results_baseline='../exps/evaluation/'
-    
-    eval_threshold = 0.05
+def evalute_mesh(exp_name, lis_name_scenes, 
+                 dir_dataset, name_baseline, dir_results_baseline,
+                 eval_threshold=0.05):
+
     metrics_eval_all = []
     for scene_name in lis_name_scenes:
         logging.info(f'\n\nProcess: {scene_name}')
@@ -168,9 +167,15 @@ def main(exp_name,lis_name_scenes):
 if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)
-    exp_name = 'semantic_3_test11'
-    lis_name_scenes=['scene0084_00','scene0616_00']
-    # lis_name_scenes=['scene0009_01','scene0050_00','scene0084_00','scene0616_00']
-    main(exp_name,lis_name_scenes)
-
+    lis_exp_name=['semantic_3_test13']
+    lis_name_scenes=['scene0084_00']
+    
+    dir_dataset = '../Data/dataset/indoor'
+    dir_results_baseline='../exps/evaluation/'
+    for exp_name in lis_exp_name:
+        logging.info(f'evaluate mesh of method: {exp_name}')
+        name_baseline=f'{exp_name}_refuse'
+        evalute_mesh(exp_name, lis_name_scenes,
+                     dir_dataset, name_baseline, 
+                     dir_results_baseline)
     

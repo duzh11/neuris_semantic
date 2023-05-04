@@ -1,1 +1,3 @@
 __pycache__/
+confs/neuris.conf
+confs/neuris_server.conf

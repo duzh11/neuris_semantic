@@ -336,6 +336,7 @@ class SemanticNetwork(nn.Module):
         self.multires = multires
         embed_fn, input_ch = get_embedder(multires, input_dims=3, normalize=False)
         self.embed_fn = embed_fn
+        self.semantic_mode=semantic_mode
         d_in = d_in-3+input_ch
         logging.info(f'Semantic input dimension: {d_in}') 
         logging.info(f'Semantic output dimension: {d_out}') 
@@ -360,12 +361,15 @@ class SemanticNetwork(nn.Module):
             if l != self.n_layers:
                 layer = DenseLayer(in_dim, out_dim, activation=nn.ReLU(inplace=True))
             else:
-                if semantic_mode=='sigmoid':
+                if self.semantic_mode=='sigmoid':
                     layer = DenseLayer(in_dim, out_dim, activation=nn.Sigmoid())
-                    logging.info(f'Semantic_mode: sigmoid')
-                elif semantic_mode=='softmax':
+                    logging.info(f'Semantic_mode: Sigmoid')
+                elif self.semantic_mode=='softmax':
                     layer = DenseLayer(in_dim, out_dim, activation=nn.Softmax(dim=-1))
-                    logging.info(f'Semantic_mode: softmax')
+                    logging.info(f'Semantic_mode: Softmax')
+                elif self.semantic_mode=='BN':
+                    layer = DenseLayer(in_dim, out_dim, activation=nn.BatchNorm1d(out_dim))
+                    logging.info(f'Semantic_mode: BatchNorm')
                 else:
                     layer = nn.Linear(in_dim, out_dim)
                     logging.info(f'Semantic_mode: None')

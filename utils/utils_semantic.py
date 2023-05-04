@@ -67,18 +67,21 @@ def calculate_segmentation_metrics(true_labels, predicted_labels, number_classes
     missing_class_mask = np.isnan(norm_conf_mat.sum(1)) # missing class will have NaN at corresponding class
     exsiting_class_mask = ~ missing_class_mask
 
-    class_average_accuracy = nanmean(np.diagonal(norm_conf_mat))
-    total_accuracy = (np.sum(np.diagonal(conf_mat)) / np.sum(conf_mat))
-    class_accuray=np.diagonal(norm_conf_mat).copy()
+    class_average_accuracy = nanmean(np.diagonal(norm_conf_mat)) #平均类别精度
+    total_accuracy = (np.sum(np.diagonal(conf_mat)) / np.sum(conf_mat)) #平均精度
+    class_accuray=np.diagonal(norm_conf_mat).copy() #类别精度
     # class_accuray[missing_class_mask]=-1
     
-    ious = np.zeros(number_classes)
+    class_iou = np.zeros(number_classes)
 
     for class_id in range(number_classes):
-        ious[class_id] = (conf_mat[class_id, class_id] / (
+        class_iou[class_id] = (conf_mat[class_id, class_id] / (
                 np.sum(conf_mat[class_id, :]) + np.sum(conf_mat[:, class_id]) -
-                conf_mat[class_id, class_id]))
-    miou = nanmean(ious)
-    miou_valid_class = np.mean(ious[exsiting_class_mask])
+                conf_mat[class_id, class_id])) 
+    miou_valid_class = np.mean(class_iou[exsiting_class_mask]) #平均IoU
+    
+    #iou
+    freq = conf_mat.sum(axis=1) / conf_mat.sum()
+    FW_iou = (freq[freq > 0] * class_iou[freq > 0]).sum()
 
-    return total_accuracy, class_accuray, class_average_accuracy, ious, miou_valid_class
+    return total_accuracy, class_average_accuracy, class_accuray, miou_valid_class,FW_iou, class_iou 
