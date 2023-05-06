@@ -1,14 +1,10 @@
-import torch
 import numpy as np
 import open3d as o3d
 import os as os
-from datetime import datetime
 import logging
 
 import utils.utils_geometry as GeoUtils
-import utils.utils_io as IOUtils
 import utils.utils_colour as utils_colour
-import evaluation.EvalScanNet as EvalScanNet
 
 def nn_correspondance(verts1, verts2):
     """ for each vertex in verts2 find the nearest vertex in verts1
@@ -84,7 +80,10 @@ def compute_chamfer(pcd_pred, pcd_gt, colour_map_np, draw_label=False, Manhattan
     chamfel_other+=np.mean(dist_p[indices_pred_other])
     return np.array([chamfer,chamfel_wall,chamfel_floor,chamfel_other])
 
-def evaluate_chamfer(exp_name,lis_name_scenes, name_baseline, dir_results_baseline, down_sample=0.02):
+def evaluate_chamfer(lis_name_scenes, 
+                     name_baseline, 
+                     dir_results_baseline='../exps/evaluation', 
+                     down_sample=0.02):
     metrics_eval_all=[]
     colour_map_np = utils_colour.nyu40_colour_code    
     
@@ -101,19 +100,9 @@ def evaluate_chamfer(exp_name,lis_name_scenes, name_baseline, dir_results_baseli
             pcd_gt = pcd_gt.voxel_down_sample(down_sample)
 
         metrics_eval=compute_chamfer(pcd_pred, pcd_gt, colour_map_np)
-        logging.info(f'{metrics_eval}')
+        logging.info(f'{metrics_eval*100}')
         metrics_eval_all.append(metrics_eval*100)
-    
-    path_log = f'{dir_results_baseline}/{name_baseline}/eval_{name_baseline}_Chamfer_markdown.txt'
-    markdown_header=f'| scene_name   |    Method|    All|    Wall|  Floor|  Other|\n'
-    markdown_header=markdown_header+'| -------------| ---------| ------- | ------- | ------- | ------- |\n'
-    EvalScanNet.save_evaluation_results_to_markdown(path_log, 
-                                                    header = markdown_header, 
-                                                    exp_name=exp_name,
-                                                    results = metrics_eval_all, 
-                                                    names_item = lis_name_scenes, 
-                                                    save_mean = True, 
-                                                    mode = 'w')
+    return metrics_eval_all
 
 if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
@@ -123,7 +112,6 @@ if __name__=='__main__':
     for exp_name in lis_exp_name:
         logging.info(f'compute chamfer of method: {exp_name}')
         name_baseline=f'{exp_name}_refuse'
-        dir_results_baseline='../exps/evaluation'
-        evaluate_chamfer(exp_name,lis_name_scenes,
-                         name_baseline,
-                         dir_results_baseline)
+        evaluate_chamfer(exp_name,
+                         lis_name_scenes,
+                         name_baseline)

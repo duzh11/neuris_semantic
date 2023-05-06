@@ -338,7 +338,7 @@ def save_evaluation_results_to_markdown(path_log,
             for idx in range(num_lines):
                 f_log.writelines((f'|{names_item[idx]}  | {exp_name}|' + ("{: 8.3f}|" * num_metrices).format(*results[idx, :].tolist())) + " \n")
         if save_mean:
-            mean_results = np.nanmax(results,axis=0)     # 4*7
+            mean_results = np.nanmean(results,axis=0)     # 4*7
             mean_results = np.round(mean_results, decimals=precision)
             f_log.writelines(( f'|       Mean  | {exp_name}|' + "{: 8.3f}|" * num_metrices).format(*mean_results[:].tolist()) + " \n")
 

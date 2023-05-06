@@ -1,46 +1,7 @@
 import numpy as np
+import logging,os
+import cv2
 from sklearn.metrics import confusion_matrix
-
-#得到混淆矩阵
-def ConfusionMatrix(label_true, label_pred, n_class):
-    mask = (label_true >= 0) & (label_true < n_class)
-    hist = np.bincount(
-        n_class * label_true[mask].astype(int) +
-        label_pred[mask].astype(int), minlength=n_class ** 2).reshape(n_class, n_class)
-    return hist
-
-#计算图像分割衡量系数
-def eval_semantic(label_trues, label_preds, n_class):
-    """
-     :param label_preds: numpy data, shape:[batch,h,w]
-     :param label_trues:同上
-     :param n_class:类别数
-
-     Returns accuracy score evaluation result.
-      - overall accuracy
-      - mean accuracy
-      - mean IU
-      - fwavacc
-    """
-    label_trues=np.array(label_trues)
-    label_preds=np.array(label_preds)
-    hist = np.zeros((n_class, n_class))
-    for lt, lp in zip(label_trues,label_preds):
-        hist += ConfusionMatrix(lt.flatten(), lp.flatten(), n_class)
-    #平均精度
-    acc_mean = np.diag(hist).sum() / hist.sum()
-    #类别精度
-    acc_cls = np.diag(hist) / hist.sum(axis=1)
-    #平均类别精度
-    acc_cls_mean = np.nanmean(acc_cls)
-    #iou
-    iou = np.diag(hist) / ( hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist) )
-    #平均iou
-    iou_mean = np.nanmean(iou)
-    #频权交并比iou
-    freq = hist.sum(axis=1) / hist.sum()
-    iou_freq_mean = (freq[freq > 0] * iou[freq > 0]).sum()
-    return acc_mean,acc_cls,acc_cls_mean, iou,iou_mean,iou_freq_mean
 
 def nanmean(data, **args):
     # This makes it ignore the first 'background' class
@@ -67,8 +28,8 @@ def calculate_segmentation_metrics(true_labels, predicted_labels, number_classes
     missing_class_mask = np.isnan(norm_conf_mat.sum(1)) # missing class will have NaN at corresponding class
     exsiting_class_mask = ~ missing_class_mask
 
-    class_average_accuracy = nanmean(np.diagonal(norm_conf_mat)) #平均类别精度
-    total_accuracy = (np.sum(np.diagonal(conf_mat)) / np.sum(conf_mat)) #平均精度
+    average_accuracy = nanmean(np.diagonal(norm_conf_mat)) #平均精度
+    total_accuracy = (np.sum(np.diagonal(conf_mat)) / np.sum(conf_mat)) #总精度
     class_accuray=np.diagonal(norm_conf_mat).copy() #类别精度
     # class_accuray[missing_class_mask]=-1
     
@@ -78,10 +39,82 @@ def calculate_segmentation_metrics(true_labels, predicted_labels, number_classes
         class_iou[class_id] = (conf_mat[class_id, class_id] / (
                 np.sum(conf_mat[class_id, :]) + np.sum(conf_mat[:, class_id]) -
                 conf_mat[class_id, class_id])) 
-    miou_valid_class = np.mean(class_iou[exsiting_class_mask]) #平均IoU
+    average_iou = np.mean(class_iou[exsiting_class_mask]) #平均IoU
     
     #iou
     freq = conf_mat.sum(axis=1) / conf_mat.sum()
     FW_iou = (freq[freq > 0] * class_iou[freq > 0]).sum()
 
-    return total_accuracy, class_average_accuracy, class_accuray, miou_valid_class,FW_iou, class_iou 
+    return average_accuracy, total_accuracy, class_accuray, average_iou, FW_iou, class_iou 
+
+def evaluate_semantic(exp_name, 
+                      lis_name_scenes,
+                      numclass,
+                      dir_dataset='../Data/dataset/indoor',
+                      exp_dir='../exps/indoor/neus',
+                      flag=''):    
+    
+    GT_name=f'semantic_{numclass}'
+    metrics_average = []
+    metrics_iou = []
+    metrics_acc = []
+
+    logging.info(f'Eval semantic class: {numclass}')
+    for scene_name in lis_name_scenes:
+        logging.info(f'\n\nProcess semantic: {scene_name}')
+        #dir
+        GT_dir=os.path.join(dir_dataset,scene_name,GT_name)
+
+        if flag=='old':
+            render_dir=os.path.join(exp_dir,scene_name,exp_name,'semantic_render')
+        else:
+            render_dir=os.path.join(exp_dir,scene_name,exp_name,'semantic_npz')
+
+        # render_dir=os.path.join(dir_dataset,scene_name,'semantic_deeplab')
+        GT_list=os.listdir(GT_dir)
+        id_list=[int(os.path.splitext(frame)[0]) for frame in GT_list]
+        id_list=sorted(id_list)
+        semantic_GT_list=[]
+        semantic_render_list=[]
+        
+        for idx in id_list:
+            GT_file=os.path.join(GT_dir, '%d.png'%idx)
+            
+            if flag=='old':
+                render_file=os.path.join(render_dir, '00160000_'+'0'*(4-len(str(idx)))+str(idx)+'_reso2.png')
+                # render_file=os.path.join(render_dir, str(idx)+'.png')#deeplab
+            else:
+                render_file=os.path.join(render_dir, '00160000_'+'0'*(4-len(str(idx)))+str(idx)+'_reso2.npz')
+
+            semantic_GT=cv2.imread(GT_file)[:,:,0]
+            
+            if flag=='old':
+                semantic_render=cv2.imread(render_file)[:,:,0]/80
+            else:
+                semantic_render=(np.load(render_file)['arr_0'])
+
+            reso=semantic_GT.shape[0]/semantic_render.shape[0]
+            if reso>1:
+                semantic_GT=cv2.resize(semantic_GT, (semantic_render.shape[1],semantic_render.shape[0]), interpolation=cv2.INTER_NEAREST)
+            semantic_GT_list.append(semantic_GT)
+            semantic_render_list.append(semantic_render)
+
+        if numclass>3:
+            true_labels=np.array(semantic_GT_list)-1
+            predicted_labels=np.array(semantic_render_list)-1
+        else:
+            true_labels=np.array(semantic_GT_list)
+            predicted_labels=np.array(semantic_render_list)  
+
+        average_accuracy, total_accuracy, class_accuray, average_iou, FW_iou, class_iou=calculate_segmentation_metrics(
+                                                                                true_labels=true_labels, 
+                                                                                predicted_labels=predicted_labels, 
+                                                                                number_classes=numclass, 
+                                                                                ignore_label=255)
+        
+        metrics_average.append([average_accuracy, total_accuracy, average_iou, FW_iou])
+        metrics_acc.append(class_accuray)
+        metrics_iou.append(class_iou)
+        # logging.info(f'{scene_name}: {[average_accuracy, total_accuracy, average_iou, FW_iou]}')
+
+    return metrics_average, metrics_acc, metrics_iou
