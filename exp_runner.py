@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
-
+ 
 from models.dataset import Dataset
 from models.fields import SDFNetwork, RenderingNetwork, SingleVarianceNetwork, NeRF, SemanticNetwork
 from models.renderer import NeuSRenderer, extract_fields
@@ -49,6 +49,7 @@ class Runner:
         self.semantic_class=args.semantic_class
         self.server=args.server
         self.semantic_mode=args.semantic_mode
+        self.semantic_type=args.semantic_type
         # parse cmd args
         self.is_continue = is_continue
         self.checkpoint_id = checkpoint_id
@@ -164,14 +165,20 @@ class Runner:
             self.conf['dataset']['use_normal'] = True if self.conf['model.loss.normal_weight'] > 0 else False
             
             ### semantic
+            # use semantic
             semantic_loss_weight=self.conf['model.loss.semantic_weight']
             self.conf['dataset']['use_semantic'] = True if semantic_loss_weight> 0 else False
             self.use_semantic=self.conf['dataset']['use_semantic']
-            
+            # semantic class
             if self.semantic_class:
                 self.conf['dataset']['semantic_class']=self.semantic_class
             else:
                 self.semantic_class=self.conf['dataset']['semantic_class']
+            # use deeplab semantic/GT
+            if self.semantic_type:
+                self.conf['dataset']['semantic_type']=self.semantic_type
+            else:
+                self.semantic_type=self.conf['dataset']['semantic_type']
             # semantic model
             if self.semantic_class:
                 self.conf['model']['semantic_network']['d_out']=self.semantic_class
@@ -789,10 +796,10 @@ class Runner:
             self.validate_image(semantic_class=self.semantic_class,
                                 save_normamap_npz=self.save_normamap_npz,
                                 validate_confidence=self.use_geocheck,
-                                save_image_render=True,
-                                save_normal_render=True,
-                                save_depth_render=True,
-                                save_semantic_render=True)
+                                save_image_render=False,
+                                save_normal_render=False,
+                                save_depth_render=False,
+                                save_semantic_render=False)
 
         if self.iter_step % self.val_fields_freq == 0:
             self.validate_fields()
@@ -1484,6 +1491,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_normamap_npz', action= 'store_true', default=False, help='save color&normal&depth ply' )
     parser.add_argument('--save_peak_value', action= 'store_true', default=False, help='save peak value')
     parser.add_argument('--scene_name', type=str, default='', help='Scene or scan name')
+    parser.add_argument('--semantic_type', type=str, help='use GT semantic or deeplab semantic')
     parser.add_argument('--semantic_class', type=int, help='number of semantic class')
     parser.add_argument('--stop_semantic_grad', action='store_true', default=False, help='stop semantic gradients')
     parser.add_argument('--semantic_mode', type=str)

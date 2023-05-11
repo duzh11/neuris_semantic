@@ -164,8 +164,8 @@ if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)    
     # lis_exp_name=[f'semantic_40_test{i}' for i in range(1,13)]
-    lis_exp_name=['neus_ablation_test1','neus_ablation_test1']
-    lis_name_scenes=['scene0084_00','scene0616_00']
+    lis_exp_name=['test']
+    lis_name_scenes=['scene0616_00']
     numclass=40
     eval_threshold=[0.03,0.05,0.07]
     
@@ -179,12 +179,12 @@ if __name__=='__main__':
 
     for exp_name in lis_exp_name:
         name_baseline=f'{exp_name}_refuse'
-        logging.info(f'------Evaluate semantics: {exp_name}')
-        metrics_eval_semantic, metrics_acc, metrics_iou=SemanticUtils.evaluate_semantic(exp_name, 
-                                                                  lis_name_scenes,
-                                                                  numclass)
+        # logging.info(f'------Evaluate semantics: {exp_name}')
+        # metrics_eval_semantic, metrics_acc, metrics_iou=SemanticUtils.evaluate_semantic(exp_name, 
+        #                                                           lis_name_scenes,
+        #                                                           numclass)
         
-        label_mesh(exp_name, lis_name_scenes, name_baseline)
+        # label_mesh(exp_name, lis_name_scenes, name_baseline)
     
         logging.info(f'------Evaluate mesh: {exp_name}')
         metrics_eval_mesh=evalute_mesh(exp_name, 

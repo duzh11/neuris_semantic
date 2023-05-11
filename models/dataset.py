@@ -22,9 +22,6 @@ import models.patch_match_cuda as PatchMatch
 import utils.utils_training as TrainingUtils
 import utils.utils_image as ImageUtils
 
-WALL_SEMANTIC_ID = 80
-FLOOR_SEMANTIC_ID = 160
-
 def load_K_Rt_from_P(filename, P=None):
     if P is None:
         lines = open(filename).read().splitlines()
@@ -47,7 +44,35 @@ def load_K_Rt_from_P(filename, P=None):
     pose[:3, 3] = (t[:3] / t[3])[:, 0]
 
     return intrinsics, pose
+    
+def mapping_nyu3(manhattan=False):
+    mapping = {}
+    for i in range(41):
+        if i in [0, 1, 2]:
+            mapping[i]=i
+        else:
+            mapping[i]=0
+        if manhattan:
+            if i==8: # regard door as wall
+                mapping[i]=1
+            elif i == 30: # regard white board as wall
+                mapping[i]=1
+            elif i == 20: # regard floor mat as floor
+                mapping[i]=2
+    return mapping
 
+def mapping_nyu40(manhattan=False):
+    mapping = {}
+    for i in range(41):
+        mapping[i]=i
+        if manhattan:
+            if i==8: # regard door as wall
+                mapping[i]=1
+            elif i == 30: # regard white board as wall
+                mapping[i]=1
+            elif i == 20: # regard floor mat as floor
+                mapping[i]=2
+    return mapping
 
 class Dataset:
     '''Check normal and depth in folder depth_cloud
@@ -69,7 +94,7 @@ class Dataset:
         self.resolution_level = conf['resolution_level']
         self.use_semantic = conf['use_semantic']
         self.semantic_class=conf['semantic_class']
-
+        self.semantic_type=conf['semantic_type']
         self.denoise_gray_image = self.conf['denoise_gray_image']
         self.denoise_paras = self.conf['denoise_paras']
 
@@ -139,7 +164,9 @@ class Dataset:
         if self.use_semantic:
             semantic_lis = None
             for ext in ['.png', '.JPG']:
-                semantic_lis = glob(os.path.join(self.data_dir, f'semantic_{self.semantic_class}/*{ext}'))
+                semantic_dir=f'semantic_{self.semantic_type}'
+                logging.info(f'Load semantic: {semantic_dir}')
+                semantic_lis = glob(os.path.join(self.data_dir, f'{semantic_dir}/*{ext}'))
                 semantic_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
                 if len(semantic_lis) > 0:
                     break
@@ -150,16 +177,16 @@ class Dataset:
             self.semantic_lis = semantic_lis
             self.semantic_np = np.stack([(self.read_img(im_name, self.resolution_level))[:,:,0] for im_name in semantic_lis])
 
-            # semantic_deeplab = self.semantic_np
-            # wall_mask = semantic_deeplab == WALL_SEMANTIC_ID
-            # floor_mask = semantic_deeplab == FLOOR_SEMANTIC_ID
-            # bg_mask = ~(wall_mask | floor_mask)
-            # semantic_deeplab[wall_mask] = 1
-            # semantic_deeplab[floor_mask] = 2
-            # semantic_deeplab[bg_mask] = 0
-            # self.semantic_np=semantic_deeplab
-            
-            self.semantics = torch.from_numpy(self.semantic_np.astype(np.float32)).cpu()
+            semantic_seg=self.semantic_np.copy()
+            if self.semantic_class==3:
+                label_mapping_nyu=mapping_nyu3(manhattan=True)
+            if self.semantic_class==40:
+                label_mapping_nyu=mapping_nyu40(manhattan=True)
+            for scan_id, nyu_id in label_mapping_nyu.items():
+                semantic_seg[self.semantic_np==scan_id] = nyu_id
+            semantics=np.array(semantic_seg)
+
+            self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
 
         # loading normals
         logging.info(f'Use normal:{self.use_normal}, Loading estimated normals...')
@@ -644,4 +671,4 @@ class Dataset:
         scores_all_mean[mask_valid_all==False] = 1.0 # average scores for pixels without patch.
 
         return scores_all_mean, diff_patch_all, mask_valid_all
-            
+                

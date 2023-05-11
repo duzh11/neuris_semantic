@@ -47,10 +47,10 @@ def refuse(mesh, intrinsic_depth, rgb_all, c2w_all):
     renderer = Renderer()
     mesh_opengl = renderer.mesh_opengl(mesh)
 
-    volume = o3d.integration.ScalableTSDFVolume(
+    volume = o3d.pipelines.integration.ScalableTSDFVolume(
         voxel_length=0.01,
         sdf_trunc=3 * 0.01,
-        color_type=o3d.integration.TSDFVolumeColorType.RGB8
+        color_type=o3d.pipelines.integration.TSDFVolumeColorType.RGB8
     )
 
     n_image=rgb_all.shape[0]
