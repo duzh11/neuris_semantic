@@ -173,11 +173,11 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
     '''Sample iamges (1296,968)
     '''   
     
-    H,W, _ = read_image(f'{dir_scan}/rgb/0.jpg').shape
-    path_intrin_color = f'{dir_scan}/../intrinsic_color.txt'
+    H,W, _ = read_image(f'{dir_scan}/color/0.jpg').shape
+    path_intrin_color = f'{dir_scan}/intrinsic/intrinsic_color.txt'
     
     if W == 1296: 
-        path_intrin_color_crop_resize = f'{dir_scan}/../intrinsic_color_crop1248_resize640.txt'
+        path_intrin_color_crop_resize = f'{dir_neus}/intrinsic_color_crop1248_resize640.txt'
         origin_size = (1296, 968)
         cropped_size = (1248, 936)
         reso_level = 1.95
@@ -189,7 +189,7 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
             np.savetxt(path_intrin_color_640, intrin_640, fmt='%f')
             
         path_intrin_color = path_intrin_color_640
-        path_intrin_color_crop_resize = f'{dir_scan}/../intrinsic_color_crop640_resize640.txt'
+        path_intrin_color_crop_resize = f'{dir_neus}/intrinsic_color_crop640_resize640.txt'
         origin_size = (640, 480)
         cropped_size = (624, 468)
         reso_level = 0.975   
@@ -203,14 +203,14 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
         
         intrin = np.loadtxt(path_intrin_color)
         intrin[0,2] -= crop_width_half
-        intrin[1,2] -= crop_height_half
+        intrin[1,2] -= crop_height_half                                                                                     
         intrin_resize = resize_cam_intrin(intrin, reso_level)
         np.savetxt(path_intrin_color_crop_resize, intrin_resize, fmt = '%f')
     
     if b_sample:
         start_id = 0
-        num_images = len(glob.glob(f"{dir_scan}/rgb/**.jpg"))
-        end_id = num_images*2
+        num_images = len(glob.glob(f"{dir_scan}/color/**.jpg"))
+        end_id = num_images
         ScannetData.select_data_by_range(dir_scan, dir_neus, start_id, end_id, sample_interval, 
                                             b_crop_images, cropped_size)
     # prepare neus data
@@ -218,14 +218,14 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
         dir_neus = dir_neus
         height, width =  480, 640
 
-        msg = input('Remove pose (nan)...[y/n]') # observe pose file size
-        if msg != 'y':
-            exit()
+        # msg = input('Remove pose (nan)...[y/n]') # observe pose file size
+        # if msg != 'y':
+        #     exit()
 
-        path_intrin_color = f'{dir_scan}/../../intrinsic_color.txt'
+        path_intrin_color = f'{dir_scan}/intrinsic/intrinsic_color.txt'
         if b_crop_images:
             path_intrin_color = path_intrin_color_crop_resize
-        path_intrin_depth = f'{dir_scan}/../../intrinsic_depth.txt'
+        path_intrin_depth = f'{dir_scan}/intrinsic/intrinsic_depth.txt'
         dataset = ScannetData(dir_neus, height, width, 
                                     use_normal = False,
                                     path_intrin_color = path_intrin_color,
@@ -275,7 +275,11 @@ def predict_normal(dir_neus, normal_method = 'snu'):
         # ICCV2021, https://github.com/baegwangbin/surface_normal_uncertainty
         logging.info('Predict normal')
         IOUtils.changeWorkingDir(dir_snu_code)
-        os.system(f'python test.py --pretrained scannet --path_ckpt {path_snu_pth} --architecture BN --imgs_dir {dir_neus}/image/')
+        os.system(f'python test.py \
+                  --pretrained scannet \
+                  --path_ckpt {path_snu_pth} \
+                  --architecture BN \
+                  --imgs_dir {dir_neus}/image')
 
     # Tilted-SN
     if normal_method == 'tiltedsn':

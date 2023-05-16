@@ -118,3 +118,4 @@ def evaluate_semantic(exp_name,
         # logging.info(f'{scene_name}: {[average_accuracy, total_accuracy, average_iou, FW_iou]}')
 
     return metrics_average, metrics_acc, metrics_iou
+

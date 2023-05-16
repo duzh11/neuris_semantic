@@ -55,6 +55,7 @@ class ScannetData:
             self.poses_w2c = GeometryUtils.get_poses_inverse(self.poses_c2w)  # extrinsics: world to camera
         
         self.dir_normal = os.path.join(self.dir_scan, 'normal')
+        self.dir_normal_GT = os.path.join(self.dir_scan, 'normal_GT')
         self.path_cloud_sfm = path_cloud_sfm if path_cloud_sfm is not None else None
 
     @staticmethod
@@ -71,7 +72,7 @@ class ScannetData:
         crop_height_half, crop_width_half = 0, 0
         for idx in range(start_id, end_id, interval):
             # rgb
-            path_src = f"{dir_scan}/rgb/{idx}.jpg"
+            path_src = f"{dir_scan}/color/{idx}.jpg"
             img = cv2.imread(path_src, cv2.IMREAD_UNCHANGED)
             height, width, _ = img.shape
             if b_crop_images:
@@ -202,7 +203,7 @@ class ScannetData:
     
     def calculate_normals(self):
         # visualize normal
-        IOUtils.ensure_dir_existence(self.dir_normal)
+        IOUtils.ensure_dir_existence(self.dir_normal_GT)
         for i in range(self.num_images):
             logging.info(f"Caluclate normal of image: {i}/{self.num_images}")
             pts_i, normal_map_i = GeometryUtils.calculate_normalmap_from_depthmap(self.depthmaps[i], self.intrinsics_depth, self.poses_w2c[i])
@@ -210,8 +211,8 @@ class ScannetData:
             if self.height != 480:
                 logging.info(f"{i} Upsample normal map to size: (1296, 968).")
                 normal_map_i = cv2.resize(normal_map_i, (1296, 968), interpolation=cv2.INTER_LINEAR)
-            np.savez(f"{self.dir_normal}/{i:04d}.npz", normal=normal_map_i)
-            cv2.imwrite(f"{self.dir_normal}/{i:04d}.png", normal_map_i*255)
+            np.savez(f"{self.dir_normal_GT}/{i:04d}.npz", normal=normal_map_i)
+            cv2.imwrite(f"{self.dir_normal_GT}/{i:04d}.png", normal_map_i*255)
                 
     def generate_neus_data(self, radius_normalize_sphere=1.0):
         if self.path_cloud_sfm:
@@ -223,9 +224,9 @@ class ScannetData:
             self.load_and_merge_depth_maps()
             path_point_cloud_scan = f'{self.dir_scan}/point_cloud_scan.ply'
             GeometryUtils.save_points(path_point_cloud_scan,  self.pts_sample, self.colors_sample)
-            msg = input('Check bounding box of merged point cloud (Manually remove floating outliers)...[y/n]')
-            if msg != 'y':
-                exit()
+            # msg = input('Check bounding box of merged point cloud (Manually remove floating outliers)...[y/n]')
+            # if msg != 'y':
+            #     exit()
 
             if self.use_normal:
                 t1 = datetime.now()

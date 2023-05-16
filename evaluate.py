@@ -119,6 +119,7 @@ def label_mesh(exp_name,
 def save_result(name_baseline,
                 lis_name_scenes,
                 metrics_eval_semantic=None,
+                metrics_iou=None,
                 metrics_eval_mesh=None,
                 metrics_eval_chamfer=None,
                 dir_results_baseline='../exps/evaluation'):
@@ -136,7 +137,15 @@ def save_result(name_baseline,
                                                         names_item = lis_name_scenes, 
                                                         save_mean = True, 
                                                         mode = 'w')
-    
+    if np.sum(metrics_eval_semantic)>0.01:
+        EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+                                                        header = '\nIoU\n', 
+                                                        exp_name=exp_name,
+                                                        results = metrics_iou, 
+                                                        names_item = lis_name_scenes, 
+                                                        save_mean = False, 
+                                                        mode = 'a')
+
     ### save 3D result
     if np.sum(metrics_eval_mesh)>0.01:
         markdown_header='\nEval mesh\n| scene_name   |    Method| F-score$_{0.03}$| F-score$_{0.05}$| F-score$_{0.07}$| Chamfer|\n'
@@ -164,8 +173,8 @@ if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)    
     # lis_exp_name=[f'semantic_40_test{i}' for i in range(1,13)]
-    lis_exp_name=['test']
-    lis_name_scenes=['scene0616_00']
+    lis_exp_name=['neus_ablation_test5']
+    lis_name_scenes=['scene0084_00','scene0616_00']
     numclass=40
     eval_threshold=[0.03,0.05,0.07]
     
@@ -179,12 +188,12 @@ if __name__=='__main__':
 
     for exp_name in lis_exp_name:
         name_baseline=f'{exp_name}_refuse'
-        # logging.info(f'------Evaluate semantics: {exp_name}')
-        # metrics_eval_semantic, metrics_acc, metrics_iou=SemanticUtils.evaluate_semantic(exp_name, 
-        #                                                           lis_name_scenes,
-        #                                                           numclass)
+        logging.info(f'------Evaluate semantics: {exp_name}')
+        metrics_eval_semantic, metrics_acc, metrics_iou=SemanticUtils.evaluate_semantic(exp_name, 
+                                                                  lis_name_scenes,
+                                                                  numclass)
         
-        # label_mesh(exp_name, lis_name_scenes, name_baseline)
+        label_mesh(exp_name, lis_name_scenes, name_baseline)
     
         logging.info(f'------Evaluate mesh: {exp_name}')
         metrics_eval_mesh=evalute_mesh(exp_name, 
@@ -200,6 +209,7 @@ if __name__=='__main__':
 
         save_result(name_baseline,lis_name_scenes,
                     metrics_eval_semantic=metrics_eval_semantic,
+                    metrics_iou=metrics_iou,
                     metrics_eval_mesh=metrics_eval_mesh,
                     metrics_eval_chamfer=metrics_eval_chamfer)
 

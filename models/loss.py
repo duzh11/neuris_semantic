@@ -197,15 +197,22 @@ class NeuSLoss(nn.Module):
             logs_summary.update({           
                 'Loss/loss_semantic':  semantic_fine_loss.detach().cpu(),
             })
-        
+
         joint_loss = 0.
         if joint_start and self.semantic_weight>0 and self.joint_weight>0:
+            semantic_class=semantic_fine.shape[1]
+            WALL_SEMANTIC_ID=1
+            FLOOR_SEMANTIC_ID=2
+
             semantic_score = F.softmax(semantic_fine, dim=-1)
             surface_normals_normalized = F.normalize(render_out['normal'], dim=-1).clamp(-1., 1.)
             surface_normals_normalized=surface_normals_normalized.unsqueeze(0)
-            _, wall_score, floor_score = semantic_score[...,:3].split(dim=-1, split_size=1)
-            wall_mask= true_semantic==1
-            floor_mask= true_semantic==2
+            if semantic_class==3:
+                _, wall_score, floor_score = semantic_score[...,:3].split(dim=-1, split_size=1)
+            else:
+                wall_score, floor_score = semantic_score[...,:2].split(dim=-1, split_size=1)
+            wall_mask= true_semantic==WALL_SEMANTIC_ID
+            floor_mask= true_semantic==FLOOR_SEMANTIC_ID
 
             if floor_mask.sum() > 0:
                 floor_mask=(floor_mask.unsqueeze(0)).squeeze(-1) #changed

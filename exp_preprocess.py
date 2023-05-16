@@ -11,7 +11,8 @@ import utils.utils_image  as ImageUtils
 import utils.utils_io as IOUtils
 import utils.utils_normal as NormalUtils
 
-from confs.path import lis_name_scenes
+# from confs.path import lis_name_scenes
+lis_name_scenes=['scene0009_01']
 
 if __name__ == '__main__':
     np.set_printoptions(precision=3)
@@ -21,25 +22,25 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format=FORMAT)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_type', type=str, default='data type')
+    parser.add_argument('--data_type', type=str, default='scannet')
     args = parser.parse_args()
     
 
     dataset_type = args.data_type
     
     if dataset_type == 'scannet':
-        dir_root_scannet = '/media/hp/HKUCS2/Dataset/ScanNet'
-        dir_root_neus = f'{dir_root_scannet}/sample_neus'
+        dir_root_scannet = '/home/du/Proj/data/ScanNet'
+        dir_root_neus = '/home/du/Proj/NeuRIS/Data/dataset/indoor'
 
         for scene_name in lis_name_scenes:
             dir_scan = f'{dir_root_scannet}/{scene_name}'
-            dir_neus = f'{dir_root_neus}/{scene_name}'
+            dir_neus = f'{dir_root_neus}/test'
+            os.makedirs(dir_neus,exist_ok=True)
             neuris_data.prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6, 
                                                 b_sample = True, 
                                                 b_generate_neus_data = True,
-                                                b_pred_normal = True, 
-                                                b_detect_planes = False,
-                                                b_unify_labels = False) 
+                                                b_pred_normal = False, 
+                                                b_detect_planes = False) 
     
     if dataset_type == 'private':
         # example of processing iPhone video
