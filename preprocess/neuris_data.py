@@ -181,6 +181,8 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
         origin_size = (1296, 968)
         cropped_size = (1248, 936)
         reso_level = 1.95
+        # cropped_size = (1296, 968)
+        # reso_level = 2.0
     elif W == 640:
         path_intrin_color_640 = add_file_name_suffix(path_intrin_color, '_640')
         if not checkExistence(path_intrin_color_640):
@@ -191,7 +193,7 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
         path_intrin_color = path_intrin_color_640
         path_intrin_color_crop_resize = f'{dir_neus}/intrinsic_color_crop640_resize640.txt'
         origin_size = (640, 480)
-        cropped_size = (624, 468)
+        cropped_size = (624, 468) #why?
         reso_level = 0.975   
     else:
         raise NotImplementedError

@@ -273,11 +273,12 @@ class NeuSRenderer:
             weights_new=weights.detach()
             semantic = (sampled_semantic * weights_new[:, :, None]).sum(dim=1)
         else:
-            semantic = (sampled_semantic * weights[:, :, None]).sum(dim=1)
+            semantic = (sampled_semantic * weights[:, :, None]).sum(dim=1)        
         
-        if semantic_network.semantic_mode=='softmax':
-            semantic = semantic / (semantic.sum(-1).unsqueeze(-1) + 1e-8)
-            semantic = torch.log(semantic + 1e-8)            
+        if semantic_network:
+            if semantic_network.semantic_mode=='softmax':
+                semantic = semantic / (semantic.sum(-1).unsqueeze(-1) + 1e-8)
+                semantic = torch.log(semantic + 1e-8)            
         
 
         gradient_error = (torch.linalg.norm(gradients.reshape(batch_size, n_samples, 3), ord=2,

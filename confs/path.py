@@ -5,7 +5,7 @@ DIR_MVG_BUILD = BIN_DIR + "/openMVG_Build"
 DIR_MVS_BUILD = BIN_DIR + "/openMVS_build"
 
 # normal path
-dir_snu_code = '../Data/path/snucode/surface_normal_uncertainty' # directory of code
+dir_snu_code = '/home/du/Proj/NeuRIS/Data/path/snucode/surface_normal_uncertainty' # directory of code
 path_snu_pth = '/home/du/Proj/NeuRIS/Data/path/snucode_ckpt/scannet_neuris_retrain.pt'
 #assert os.path.exists(path_snu_pth)
 
@@ -16,6 +16,7 @@ path_tiltedsn_pth_sr = f"{dir_tiltedsn_ckpt}/SR_only/model-latest.ckpt"
 #assert os.path.exists(path_tiltedsn_pth_sr)
 
 # used scenes
+# ['scene0015_00','scene0025_00','scene0169_00','scene0414_00','scene0426_00','scene0568_00']
 # ['scene0009_01','scene0050_00','scene0084_00','scene0085_00','scene0114_02',
 #                      'scene0580_00','scene0603_00','scene0616_00','scene0617_00','scene0625_00']
 names_scenes_neuris = ['scene0009_01','scene0050_00', 'scene0084_00','scene0616_00']
