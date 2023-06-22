@@ -91,7 +91,7 @@ def refuse_mesh(scene_name,
     c2w_all=[]
     rgb_all=[]
     
-    output_GT_dir=os.path.dirname(output_dir)
+    output_GT_dir=os.path.dirname(os.path.dirname(output_dir))
     output_GT_dir=os.path.join(output_GT_dir,'GT_refuse')
     os.makedirs(output_GT_dir,exist_ok=True)
     mesh_pred_dir=os.path.join(output_dir,f'{scene_name}.ply')

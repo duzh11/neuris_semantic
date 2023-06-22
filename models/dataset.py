@@ -93,6 +93,7 @@ class Dataset:
         self.use_normal = conf['use_normal']
         self.resolution_level = conf['resolution_level']
         self.use_semantic = conf['use_semantic']
+        self.use_grid = conf['use_grid']
         self.semantic_class=conf['semantic_class']
         self.semantic_type=conf['semantic_type']
         self.denoise_gray_image = self.conf['denoise_gray_image']
@@ -146,9 +147,9 @@ class Dataset:
 
         # i = 0
         for scale_mat, world_mat in zip(self.scale_mats_np, self.world_mats_np):
-            P = world_mat @ scale_mat
+            P = world_mat @ scale_mat #w2i
             P = P[:3, :4]
-            intrinsics, pose = load_K_Rt_from_P(None, P)
+            intrinsics, pose = load_K_Rt_from_P(None, P) #c2w
             if self.resolution_level > 1.0:
                 intrinsics[:2,:3] /= self.resolution_level
             self.intrinsics_all.append(torch.from_numpy(intrinsics).float())
@@ -161,6 +162,7 @@ class Dataset:
         logging.info(f"Resolution level: {self.resolution_level}. Image size: ({w_img}, {h_img})")
 
         # semantic 
+        logging.info(f'Use semantics:{self.use_semantic}, Loading semantics..')
         if self.use_semantic:
             semantic_lis = None
             for ext in ['.png', '.JPG']:
@@ -187,6 +189,28 @@ class Dataset:
             semantics=np.array(semantic_seg)
 
             self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
+        
+        # loading grids
+        logging.info(f'Use grids:{self.use_grid}, Loading grids..')
+        if self.use_grid:
+            grids_lis = None
+            for ext in ['.png', '.JPG']:
+                grids_dir='semantic_GT'
+                logging.info(f'Load grids: {grids_dir}')
+                grids_lis = glob(os.path.join(self.data_dir, f'{grids_dir}/*{ext}'))
+                grids_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
+                if len(grids_lis) > 0:
+                    break
+            assert len(grids_lis) > 0
+           
+            self.n_grids = len(grids_lis)
+            logging.info(f"Read {self.n_grids} grids.")
+            self.grids_lis = grids_lis
+            self.grids_np = np.stack([(self.read_img(im_name, self.resolution_level))[:,:,0] for im_name in grids_lis])
+
+            grids=np.array(self.grids_np)
+
+            self.grids = torch.from_numpy(grids.astype(np.float32)).cpu()            
 
         # loading normals
         logging.info(f'Use normal:{self.use_normal}, Loading estimated normals...')
@@ -197,7 +221,7 @@ class Dataset:
             normal_img_curr = normals_npz[i]
     
             # transform to world coordinates
-            ex_i = torch.linalg.inv(self.pose_all[i])
+            ex_i = torch.linalg.inv(self.pose_all[i]) #w2c
             img_normal_w = get_world_normal(normal_img_curr.reshape(-1, 3), ex_i).reshape(h_img, w_img,3)
 
             normals_np.append(img_normal_w)
@@ -525,6 +549,10 @@ class Dataset:
         semantic=torch.zeros_like(mask)
         if self.use_semantic:
             semantic = self.semantics[img_idx][(pixels_y, pixels_x)][:,None]
+        
+        grid=torch.zeros_like(mask)
+        if self.use_grid:
+            grid = self.grids[img_idx][(pixels_y, pixels_x)][:,None]
 
         p = torch.stack([pixels_x, pixels_y, torch.ones_like(pixels_y)], dim=-1).float()  # (pixels_x, pixels_y, 1)
         # matul: tensor的乘法. 相机内参
@@ -546,7 +574,7 @@ class Dataset:
         if self.use_plane_offset_loss:
             subplanes_sample = self.subplanes[img_idx][(pixels_y, pixels_x)].unsqueeze(-1).cuda()
 
-        return torch.cat([rays_o.cpu(), rays_v.cpu(), color, mask, semantic], dim=-1).cuda(), pixels_x, pixels_y, normal_sample, planes_sample, subplanes_sample    # batch_size, 10
+        return torch.cat([rays_o.cpu(), rays_v.cpu(), color, mask, semantic, grid], dim=-1).cuda(), pixels_x, pixels_y, normal_sample, planes_sample, subplanes_sample    # batch_size, 10
 
     def near_far_from_sphere(self, rays_o, rays_d):
         # torch

@@ -42,7 +42,7 @@ def evalute_mesh(exp_name,
         logging.info(f'output_dir:{output_dir}')
         
         path_mesh_pred = f'{dir_results_baseline}/{exp_name}/{scene_name}.ply'
-        path_mesh_GT=os.path.join(scene_dir,f'{scene_name}_vh_clean_2_clean.ply')
+        path_mesh_GT=os.path.join(scene_dir,f'{scene_name}_vh_clean_2.ply')
         mesh_pred_dir, mesh_GT_dir= MeshUtils.refuse_mesh(scene_name=scene_name,
                                                               scene_dir=scene_dir,
                                                               output_dir=output_dir,
@@ -66,11 +66,12 @@ def Error_mesh(lis_name_scenes,
 
     color_map = cm.get_cmap('Reds')
     error_bound = 0.01
+    gt_dir=os.path.dirname(dir_results_baseline)
 
     for scene_name in lis_name_scenes:
         logging.info(f'\n\nProcess: {scene_name}')
         path_mesh_pred = f'{dir_results_baseline}/{name_baseline}/{scene_name}.ply'
-        path_mesh_GT = f'{dir_results_baseline}/GT_refuse/{scene_name}_GT.ply'
+        path_mesh_GT = f'{gt_dir}/GT_refuse/{scene_name}_GT.ply'
         # path_mesh_pred = f'{dir_results_baseline}/{name_baseline}/{scene_name}_clean_bbox_faces_mask.ply'#ply
         # path_mesh_GT = f'{dir_dataset}/{scene_name}/{scene_name}_vh_clean_2.ply'
         
@@ -173,45 +174,52 @@ if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)    
     # lis_exp_name=[f'semantic_40_test{i}' for i in range(1,13)]
-    lis_exp_name=['neus_ablation_test5']
-    lis_name_scenes=['scene0084_00','scene0616_00']
+    method='neus'
+    lis_exp_name=['neus_ablation_test8']
+    # lis_name_scenes=['scene0015_00','scene0025_00','scene0169_00','scene0414_00','scene0426_00','scene0568_00']
+    lis_name_scenes=['scene0616_00']
     numclass=40
     eval_threshold=[0.03,0.05,0.07]
     
     dir_dataset='../Data/dataset/indoor'
     exp_dir='../exps/indoor/neus'
-    dir_results_baseline = '../exps/evaluation'
+    dir_results_baseline = f'../exps/evaluation/{method}'
 
     metrics_eval_semantic=[]
     metrics_eval_mesh=[]
     metrics_eval_chamfer=[]
+    metrics_iou=[]
 
     for exp_name in lis_exp_name:
         name_baseline=f'{exp_name}_refuse'
-        logging.info(f'------Evaluate semantics: {exp_name}')
-        metrics_eval_semantic, metrics_acc, metrics_iou=SemanticUtils.evaluate_semantic(exp_name, 
-                                                                  lis_name_scenes,
-                                                                  numclass)
+        # logging.info(f'------Evaluate semantics: {exp_name}')
+        # metrics_eval_semantic, metrics_acc, metrics_iou=SemanticUtils.evaluate_semantic(exp_name, 
+        #                                                           lis_name_scenes,
+        #                                                           numclass)
         
-        label_mesh(exp_name, lis_name_scenes, name_baseline)
+        # label_mesh(exp_name, lis_name_scenes, name_baseline, dir_results_baseline=dir_results_baseline)
     
         logging.info(f'------Evaluate mesh: {exp_name}')
         metrics_eval_mesh=evalute_mesh(exp_name, 
                                        lis_name_scenes, 
                                        name_baseline,
-                                       eval_threshold=eval_threshold)
+                                       eval_threshold=eval_threshold,
+                                       dir_results_baseline=dir_results_baseline)
 
         logging.info(f'------Evaluate chamfer distance: {exp_name}')
-        metrics_eval_chamfer=ChamferUtils.evaluate_chamfer(lis_name_scenes, name_baseline)
+        metrics_eval_chamfer=ChamferUtils.evaluate_chamfer(lis_name_scenes, 
+                                                           name_baseline,
+                                                           dir_results_baseline=dir_results_baseline)
 
         logging.info(f'------Evaluate 3D error mesh: {exp_name}')
-        Error_mesh(lis_name_scenes, name_baseline)
+        Error_mesh(lis_name_scenes, name_baseline, dir_results_baseline=dir_results_baseline)
 
         save_result(name_baseline,lis_name_scenes,
                     metrics_eval_semantic=metrics_eval_semantic,
                     metrics_iou=metrics_iou,
                     metrics_eval_mesh=metrics_eval_mesh,
-                    metrics_eval_chamfer=metrics_eval_chamfer)
+                    metrics_eval_chamfer=metrics_eval_chamfer,
+                    dir_results_baseline=dir_results_baseline)
 
 
 

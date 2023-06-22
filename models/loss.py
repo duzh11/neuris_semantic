@@ -90,6 +90,7 @@ class NeuSLoss(nn.Module):
         self.semantic_weight = conf['semantic_weight']
         self.semantic_class=semantic_class
         self.joint_weight = conf['joint_weight']
+        self.semantic_consistency_weight = conf['semantic_consistency_weight']
 
         self.igr_weight = conf['igr_weight']
         self.smooth_weight = conf['smooth_weight']
@@ -121,6 +122,7 @@ class NeuSLoss(nn.Module):
     def forward(self, input_model, render_out, sdf_network_fine, patchmatch_out = None, joint_start=False, theta=0):
         true_rgb = input_model['true_rgb']
         true_semantic = input_model['true_semantic']
+        grid=input_model['grid']
 
         mask, rays_o, rays_d, near, far = input_model['mask'], input_model['rays_o'], input_model['rays_d'],  \
                                                     input_model['near'], input_model['far']
@@ -184,7 +186,6 @@ class NeuSLoss(nn.Module):
 
         semantic_fine_loss=0.
         if self.semantic_weight>0:
-            #没有加mask
             semantic_fine_loss = crossentropy_loss(semantic_fine.reshape(-1,self.semantic_class), true_semantic.reshape(-1).long())
         
             # semantic_score_log = F.log_softmax(semantic_fine, dim=-1)
@@ -197,8 +198,33 @@ class NeuSLoss(nn.Module):
             logs_summary.update({           
                 'Loss/loss_semantic':  semantic_fine_loss.detach().cpu(),
             })
+        
+        semantic_consistency_loss=0
+        if joint_start and self.semantic_weight>0 and self.semantic_consistency_weight>0:
+            semantic_score = F.softmax(semantic_fine, dim=-1)
+            
+            semantic = semantic_score.argmax(axis=1) #0-39
+            grid_list=torch.unique(grid) #0-41
+            
+            for i in grid_list:
+                if i==0:
+                    continue #忽略void类别的semantic consistency
+                grid_mask = (grid==i)
+                semantic_mask=semantic[grid_mask.squeeze()]
+                semantic_score_mask=semantic_score[grid_mask.squeeze()]
+
+                mode_value, mode_count = torch.mode(semantic_mask)
+                semantic_maxprob=mode_value.item()
+                
+                prob=semantic_score_mask[:,semantic_maxprob]
+                semantic_consistency_loss += 1-prob.mean()
+
+            logs_summary.update({           
+                    'Loss/loss_semantic_consistency':  semantic_consistency_loss.detach().cpu(),
+                })
 
         joint_loss = 0.
+        # if True:
         if joint_start and self.semantic_weight>0 and self.joint_weight>0:
             semantic_class=semantic_fine.shape[1]
             WALL_SEMANTIC_ID=1
@@ -211,8 +237,13 @@ class NeuSLoss(nn.Module):
                 _, wall_score, floor_score = semantic_score[...,:3].split(dim=-1, split_size=1)
             else:
                 wall_score, floor_score = semantic_score[...,:2].split(dim=-1, split_size=1)
+            # 选择输入语义
             wall_mask= true_semantic==WALL_SEMANTIC_ID
             floor_mask= true_semantic==FLOOR_SEMANTIC_ID
+            # #选择neuris render出来的语义
+            # render_semantic=semantic_fine.argmax(axis=1)
+            # wall_mask= (render_semantic==0)
+            # floor_mask= (render_semantic==1)
 
             if floor_mask.sum() > 0:
                 floor_mask=(floor_mask.unsqueeze(0)).squeeze(-1) #changed
@@ -345,6 +376,7 @@ class NeuSLoss(nn.Module):
                 surf_reg_loss * self.smooth_weight +\
                 semantic_fine_loss * self.semantic_weight +\
                 joint_loss * self.joint_weight +\
+                semantic_consistency_loss * self.semantic_consistency_weight +\
                 plane_loss_all +\
                 background_loss * self.mask_weight +\
                 normals_fine_loss * self.normal_weight * self.get_warm_up_ratio()  + \
@@ -356,7 +388,6 @@ class NeuSLoss(nn.Module):
             'Loss/loss_smooth': surf_reg_loss,
             'Loss/variance':    variance.mean().detach(),
             'Log/psnr':         psnr,
-            'Log/loss_semantic': semantic_fine_loss,
             'Log/ratio_warmup_loss':  self.get_warm_up_ratio()
         })
         

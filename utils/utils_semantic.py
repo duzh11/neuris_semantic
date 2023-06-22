@@ -3,6 +3,34 @@ import logging,os
 import cv2
 from sklearn.metrics import confusion_matrix
 
+def mapping_nyu3(manhattan=False):
+    mapping = {}
+    for i in range(41):
+        if i in [0, 1, 2]:
+            mapping[i]=i
+        else:
+            mapping[i]=0
+        if manhattan:
+            if i==8: # regard door as wall
+                mapping[i]=1
+            elif i == 30: # regard white board as wall
+                mapping[i]=1
+            elif i == 20: # regard floor mat as floor
+                mapping[i]=2
+    return mapping
+
+def mapping_nyu40(manhattan=False):
+    mapping = {}
+    for i in range(41):
+        mapping[i]=i
+        if manhattan:
+            if i==8: # regard door as wall
+                mapping[i]=1
+            elif i == 30: # regard white board as wall
+                mapping[i]=1
+            elif i == 20: # regard floor mat as floor
+                mapping[i]=2
+    return mapping
 def nanmean(data, **args):
     # This makes it ignore the first 'background' class
     return np.ma.masked_array(data, np.isnan(data)).mean(**args)
@@ -52,9 +80,10 @@ def evaluate_semantic(exp_name,
                       numclass,
                       dir_dataset='../Data/dataset/indoor',
                       exp_dir='../exps/indoor/neus',
-                      flag=''):    
+                      flag='',
+                      manhattan=True):    
     
-    GT_name=f'semantic_{numclass}'
+    GT_name=f'semantic_GT'
     metrics_average = []
     metrics_iou = []
     metrics_acc = []
@@ -96,7 +125,17 @@ def evaluate_semantic(exp_name,
             reso=semantic_GT.shape[0]/semantic_render.shape[0]
             if reso>1:
                 semantic_GT=cv2.resize(semantic_GT, (semantic_render.shape[1],semantic_render.shape[0]), interpolation=cv2.INTER_NEAREST)
-            semantic_GT_list.append(semantic_GT)
+            
+            semantic_seg=semantic_GT.copy()
+            if numclass==3:
+                label_mapping_nyu=mapping_nyu3(manhattan=manhattan)
+            if numclass==40:
+                label_mapping_nyu=mapping_nyu40(manhattan=manhattan)
+            for scan_id, nyu_id in label_mapping_nyu.items():
+                semantic_seg[semantic_GT==scan_id] = nyu_id
+            semantics=np.array(semantic_seg)
+            
+            semantic_GT_list.append(semantics)
             semantic_render_list.append(semantic_render)
 
         if numclass>3:

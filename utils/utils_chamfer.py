@@ -86,11 +86,11 @@ def evaluate_chamfer(lis_name_scenes,
                      down_sample=0.02):
     metrics_eval_all=[]
     colour_map_np = utils_colour.nyu40_colour_code    
-    
+    gt_dir=os.path.dirname(dir_results_baseline)
     for scene_name in lis_name_scenes:
         logging.info(f'begin: {scene_name}')
         file_pred = f'{dir_results_baseline}/{name_baseline}/{scene_name}.ply'
-        file_gt=f'{dir_results_baseline}/GT_colors/{scene_name}.ply'
+        file_gt=f'{gt_dir}/GT_colors/{scene_name}_vh_clean_2.labels.ply'
 
         pcd_pred = GeoUtils.read_point_cloud(file_pred)
         pcd_gt = GeoUtils.read_point_cloud(file_gt)

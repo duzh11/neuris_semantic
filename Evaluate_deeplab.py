@@ -38,19 +38,20 @@ def mapping_nyu40(manhattan=False):
 if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)    
-    lis_name_scenes=['scene0616_00']
+    lis_name_scenes=['scene0050_00','scene0084_00','scene0426_00','scene0616_00']
     lis_numclass=[3,40]
     
     dir_dataset='../Data/dataset/indoor'
 
     for scene_name in lis_name_scenes: 
         for numclass in lis_numclass:
+            method_name='deeplab'
             metrics_average=[]
             metric_iou=[]
             metirc_accuracy=[]
             logging.info(f'\n\nProcess semantic: {scene_name}, semantic_class: {numclass}')   
-            render_dir=os.path.join(dir_dataset,scene_name,'semantic_deeplab')
-            GT_name=f'semantic_{numclass}'
+            render_dir=os.path.join(dir_dataset,scene_name,'semantic_'+method_name)
+            GT_name=f'semantic_GT'
             GT_dir=os.path.join(dir_dataset,scene_name,GT_name)
             GT_list=os.listdir(GT_dir)
             id_list=[int(os.path.splitext(frame)[0]) for frame in GT_list]
@@ -95,13 +96,13 @@ if __name__=='__main__':
 
             str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
             path_log = f'{scene_name}_deeplab_{numclass}_{str_date}_markdown.txt'
-            path_log=os.path.join(dir_dataset,scene_name,'semantic_deeplab',path_log)
+            path_log=os.path.join(dir_dataset,scene_name,'semantic_'+method_name, path_log)
 
             markdown_header='Eval metrics\n| scene_ name   |   Method|  Acc.|  M_Acc|  M_IoU| FW_IoU|\n'
             markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- |\n'
             EvalScanNet.save_evaluation_results_to_markdown(path_log, 
                                                         header = markdown_header, 
-                                                        exp_name=f'deeplab_{numclass}',
+                                                        exp_name=f'{method_name}_{numclass}',
                                                         results = metrics_average, 
                                                         names_item = [scene_name], 
                                                         save_mean = False, 
@@ -109,7 +110,7 @@ if __name__=='__main__':
             
             EvalScanNet.save_evaluation_results_to_markdown(path_log, 
                                                         header = '\naccuracy\n', 
-                                                        exp_name=f'deeplab_{numclass}',
+                                                        exp_name=f'{method_name}_{numclass}',
                                                         results = metirc_accuracy, 
                                                         names_item = [scene_name], 
                                                         save_mean = False, 
@@ -117,7 +118,7 @@ if __name__=='__main__':
             
             EvalScanNet.save_evaluation_results_to_markdown(path_log, 
                                                         header = '\niou\n', 
-                                                        exp_name=f'deeplab_{numclass}',
+                                                        exp_name=f'{method_name}_{numclass}',
                                                         results = metric_iou, 
                                                         names_item = [scene_name], 
                                                         save_mean = False, 

@@ -96,7 +96,7 @@ def load_scannet_nyu40_mapping(path,manhattan):
         for i, line in enumerate(tsvreader):
             if i==0:
                 continue
-            scannet_id, nyu40id,nyu40class = int(line[0]), int(line[4]),line[7]
+            scannet_id, nyu40id, nyu40class = int(line[0]), int(line[4]),line[7]
             mapping[scannet_id] = nyu40id
             
             if manhattan:

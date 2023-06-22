@@ -70,6 +70,17 @@ class ScannetData:
         
         crop_height_half, crop_width_half = 0, 0
         for idx in range(start_id, end_id, interval):
+            # pose
+            path_src = f"{dir_scan}/pose/{idx}.txt"
+            
+            pose = np.loadtxt(path_src)
+            # skip frames with no valid pose
+            if not np.all(np.isfinite(pose)):
+                continue
+
+            path_target = f"{dir_scan_select}/pose/{idx:04d}.txt"
+            shutil.copyfile(path_src, path_target)
+
             # rgb
             path_src = f"{dir_scan}/color/{idx}.jpg"
             img = cv2.imread(path_src, cv2.IMREAD_UNCHANGED)
@@ -88,11 +99,6 @@ class ScannetData:
                 img = cv2.resize(img_crop, (640, 480), interpolation=cv2.INTER_LINEAR)
             path_target = f"{dir_scan_select}/image/{idx:04d}.png"
             cv2.imwrite(path_target, img)
-            
-            # pose
-            path_src = f"{dir_scan}/pose/{idx}.txt"
-            path_target = f"{dir_scan_select}/pose/{idx:04d}.txt"
-            shutil.copyfile(path_src, path_target)
         
             # depth map
             path_src = f"{dir_scan}/depth/{idx}.png"
@@ -189,19 +195,19 @@ class ScannetData:
             # pose_norm_i = poses[i] @ trans_n2w
 
             # Method 2
-            pose = poses[i]
+            pose = poses[i] #w2c
             rot = pose[:3,:3]
             trans = pose[:3,3]
 
-            cam_origin_world = - np.linalg.inv(rot) @ trans.reshape(3,1)
+            cam_origin_world = - np.linalg.inv(rot) @ trans.reshape(3,1) #c2w
             cam_origin_world_homo = np.concatenate([cam_origin_world,[[1]]], axis=0)
-            cam_origin_norm = np.linalg.inv(trans_n2w) @ cam_origin_world_homo
-            trans_norm = -rot @ cam_origin_norm[:3]
+            cam_origin_norm = np.linalg.inv(trans_n2w) @ cam_origin_world_homo #c2n
+            trans_norm = -rot @ cam_origin_norm[:3] #n2c
 
-            pose[:3,3] = np.squeeze(trans_norm)
+            pose[:3,3] = np.squeeze(trans_norm) #n2c
             poses_norm.append(pose)
             proj_norm = intrin @ pose
-            projs.append(proj_norm)
+            projs.append(proj_norm) #n2i
             
             np.savetxt(f'{dir_pose_norm}/{i:04d}.txt', pose, fmt='%f') # world to camera
             np.savetxt(f'{dir_pose_norm}/{i:04d}_inv.txt', GeometryUtils.get_pose_inv(pose) , fmt='%f') # inv: camera to world
@@ -260,7 +266,7 @@ class ScannetData:
         cams_neus = {}
         for i in range(num_cams):
             cams_neus[f"scale_mat_{i}"] = scale_mat
-            cams_neus[f'world_mat_{i}'] = projs[i]
+            cams_neus[f'world_mat_{i}'] = projs[i] #w2i
         
         np.savez(f'{self.dir_scan}/cameras_sphere.npz', **cams_neus)
         

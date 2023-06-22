@@ -190,8 +190,14 @@ class Runner:
                 self.conf['train']['stop_semantic_grad']=self.stop_semantic_grad
             else:
                 self.stop_semantic_grad=self.conf['train.stop_semantic_grad']
-            logging.info(f'use_semantic: {self.use_semantic}, semantic_class: {self.semantic_class}')
-            logging.info(f'semantic_loss_weight: {semantic_loss_weight}, stop_semantic_grad: {self.stop_semantic_grad}')
+            logging.info(f'use_semantic: {self.use_semantic}, semantic_class: {self.semantic_class}, semantic_loss_weight: {semantic_loss_weight}')
+            logging.info(f'stop_semantic_grad: {self.stop_semantic_grad}')
+
+            ### use grid
+            semantic_consistency_weight=self.conf['model.loss.semantic_consistency_weight']
+            self.conf['dataset']['use_grid'] = True if semantic_consistency_weight> 0 else False
+            self.use_grid=self.conf['dataset']['use_grid']
+            logging.info(f'use semantic_consistency: {self.use_grid}, consistency weight: {semantic_consistency_weight}')
 
             ### joint optimization parameters
             self.joint_iter=self.conf['train.joint_iter'] 
@@ -224,6 +230,7 @@ class Runner:
         
         logging.info(f"Use normal: {self.conf['dataset']['use_normal']}")
         logging.info(f"Use semantic: {self.conf['dataset']['use_semantic']}")
+        logging.info(f"Use semantic_consistency: {self.conf['dataset']['use_grid']}")
         logging.info(f"Use joint optimization: {self.conf['dataset']['use_joint']}")
         
         self.conf['dataset']['use_planes'] = True if self.conf['model.loss.normal_consistency_weight'] > 0 else False
@@ -317,7 +324,7 @@ class Runner:
         self.curr_img_idx = idx_img
 
         data, pixels_x, pixels_y,  normal_sample, planes_sample, subplanes_sample = self.dataset.random_get_rays_at(idx_img, self.batch_size)
-        rays_o, rays_d, true_rgb, true_mask, true_semantic = data[:, :3], data[:, 3: 6], data[:, 6: 9], data[:, 9: 10], data[:, 10: 11]
+        rays_o, rays_d, true_rgb, true_mask, true_semantic, grid = data[:, :3], data[:, 3: 6], data[:, 6: 9], data[:, 9: 10], data[:, 10: 11], data[:,11: 12]
         true_mask =  (true_mask > 0.5).float()
         mask = true_mask
 
@@ -354,6 +361,7 @@ class Runner:
             'mask_sum': mask_sum,
             'true_rgb': true_rgb,
             'true_semantic': true_semantic,
+            'grid': grid,
             'background_rgb': background_rgb,
             'pixels_x': pixels_x,  # u
             'pixels_y': pixels_y,   # v,
