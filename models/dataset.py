@@ -195,7 +195,9 @@ class Dataset:
         if self.use_grid:
             grids_lis = None
             for ext in ['.png', '.JPG']:
-                grids_dir='semantic_GT'
+                #slic: slic_40_10_0, slic_60_10_0, slic_80_10_0
+                #felzenszwalb: felzenszwalb_100_1_50, felzenszwalb_100_1_50_a
+                grids_dir='felzenszwalb_100_1_50_a'
                 logging.info(f'Load grids: {grids_dir}')
                 grids_lis = glob(os.path.join(self.data_dir, f'{grids_dir}/*{ext}'))
                 grids_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
@@ -206,7 +208,7 @@ class Dataset:
             self.n_grids = len(grids_lis)
             logging.info(f"Read {self.n_grids} grids.")
             self.grids_lis = grids_lis
-            self.grids_np = np.stack([(self.read_img(im_name, self.resolution_level))[:,:,0] for im_name in grids_lis])
+            self.grids_np = np.stack([(self.read_img(im_name, self.resolution_level, grid_flag=True)) for im_name in grids_lis])
 
             grids=np.array(self.grids_np)
 
@@ -352,7 +354,7 @@ class Dataset:
         self.check_occlusion = self.conf['check_occlusion']
         
         logging.info(f'Prepare gray images...')
-        self.extrinsics_all = torch.linalg.inv(self.pose_all)
+        self.extrinsics_all = torch.linalg.inv(self.pose_all) #w2c
         self.images_gray = []
         self.images_denoise_np = []
 
@@ -402,8 +404,11 @@ class Dataset:
         if b_accum_all_data:
             self.colors_accum = torch.zeros_like(self.images, dtype=torch.float32).cuda()
                     
-    def read_img(self, path, resolution_level):
-        img = cv.imread(path)
+    def read_img(self, path, resolution_level, grid_flag=False):
+        if grid_flag:
+            img = cv.imread(path, cv.IMREAD_ANYDEPTH)
+        else: 
+            img = cv.imread(path)
         H, W = img.shape[0], img.shape[1]
 
         if resolution_level > 1.0:
@@ -645,9 +650,9 @@ class Dataset:
         assert pixels_coords_vu.ndim == 2
         num_patches = pixels_coords_vu.shape[0]
 
-        extrin_ref = self.extrinsics_all[idx]
-        pts_ref = (extrin_ref[None,...] @ TrainingUtils.convert_to_homo(pts_world)[..., None]).squeeze()[:,:3]
-        normals_ref = (extrin_ref[:3,:3][None,...] @ normals_world[..., None]).squeeze()
+        extrin_ref = self.extrinsics_all[idx] #reference image pose(w2r)
+        pts_ref = (extrin_ref[None,...] @ TrainingUtils.convert_to_homo(pts_world)[..., None]).squeeze()[:,:3] #reference coordinate
+        normals_ref = (extrin_ref[:3,:3][None,...] @ normals_world[..., None]).squeeze() #reference coordinate
         
         patches_ref, idx_patch_pixels_ref, mask_idx_inside = PatchMatch.prepare_patches_src(img_ref, pixels_coords_vu, window_size, window_step)
         scores_all_mean, diff_patch_all, count_valid_all = torch.zeros(num_patches, dtype=torch.float32), torch.zeros(num_patches, dtype=torch.float32), torch.zeros(num_patches, dtype=torch.uint8)
@@ -657,7 +662,7 @@ class Dataset:
                 img_src = cv.resize(self.images_gray_np[idx_src], (int(W/reso_level), int(H/reso_level)), interpolation=cv.INTER_LINEAR)
                 img_src = torch.from_numpy(img_src).cuda()
 
-            extrin_src = self.extrinsics_all[idx_src]
+            extrin_src = self.extrinsics_all[idx_src] #source image pose(w2s)
 
             homography = PatchMatch.compute_homography(pts_ref, normals_ref, K, extrin_ref, extrin_src)
             idx_patch_pixels_src = PatchMatch.warp_patches(idx_patch_pixels_ref, homography)

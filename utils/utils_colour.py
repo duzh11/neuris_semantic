@@ -16,7 +16,6 @@ nyu13_colour_code = (np.array([[0, 0, 0],
                        [0.9765,0.5451,0], #WALL
                        [0.8824,0.8980,0.7608]])*255).astype(np.uint8)
 
-
 # color palette for nyu34 labels
 nyu34_colour_code = np.array([
        (0, 0, 0),
@@ -69,8 +68,6 @@ nyu34_colour_code = np.array([
        (82, 84, 163),  		# otherfurn
        (100, 85, 144)       # other prop
     ]).astype(np.uint8)
-
-
 
 # color palette for nyu40 labels
 nyu40_colour_code = np.array([

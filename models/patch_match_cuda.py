@@ -328,11 +328,11 @@ def compute_homography(pt_ref, n_ref, K, extrin_ref, extrin_src):
         denom = (n * pt).sum(axis=-1, keepdims=True)[0].reshape(1, 1,1)
         mat_homography = ( Hl[None, ...] + Hm[None, ...] @ (n.reshape(num_pts, 1,3) / denom) ) *Hr[None, ...];
 
-    ref_pose = torch.linalg.inv(extrin_ref)
-    inv_src_pose = extrin_src
-    inv_ref_pose = extrin_ref
+    ref_pose = torch.linalg.inv(extrin_ref) #r2w
+    inv_src_pose = extrin_src #w2s
+    inv_ref_pose = extrin_ref #w2r
 
-    relative_proj = inv_src_pose @ ref_pose
+    relative_proj = inv_src_pose @ ref_pose #r2s
     R_rel = relative_proj[:3, :3]
     t_rel = relative_proj[:3, 3:]
     R_ref = inv_ref_pose[:3, :3]

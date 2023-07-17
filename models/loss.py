@@ -204,7 +204,7 @@ class NeuSLoss(nn.Module):
             semantic_score = F.softmax(semantic_fine, dim=-1)
             
             semantic = semantic_score.argmax(axis=1) #0-39
-            grid_list=torch.unique(grid) #0-41
+            grid_list=torch.unique(grid)
             
             for i in grid_list:
                 if i==0:
@@ -218,7 +218,8 @@ class NeuSLoss(nn.Module):
                 
                 prob=semantic_score_mask[:,semantic_maxprob]
                 semantic_consistency_loss += 1-prob.mean()
-
+            
+            semantic_consistency_loss=semantic_consistency_loss/len(grid_list)
             logs_summary.update({           
                     'Loss/loss_semantic_consistency':  semantic_consistency_loss.detach().cpu(),
                 })
@@ -238,12 +239,18 @@ class NeuSLoss(nn.Module):
             else:
                 wall_score, floor_score = semantic_score[...,:2].split(dim=-1, split_size=1)
             # 选择输入语义
-            wall_mask= true_semantic==WALL_SEMANTIC_ID
-            floor_mask= true_semantic==FLOOR_SEMANTIC_ID
+            wall_mask1= true_semantic==WALL_SEMANTIC_ID
+            floor_mask1= true_semantic==FLOOR_SEMANTIC_ID
             # #选择neuris render出来的语义
             # render_semantic=semantic_fine.argmax(axis=1)
-            # wall_mask= (render_semantic==0)
-            # floor_mask= (render_semantic==1)
+            # wall_mask2= (render_semantic==0)
+            # floor_mask2= (render_semantic==1)
+            
+            # #考虑多个mask叠加
+            # wall_mask = wall_mask1.squeeze() | wall_mask2
+            # floor_mask = floor_mask1.squeeze() | floor_mask2
+            wall_mask = wall_mask1
+            floor_mask = floor_mask1
 
             if floor_mask.sum() > 0:
                 floor_mask=(floor_mask.unsqueeze(0)).squeeze(-1) #changed
