@@ -50,7 +50,7 @@ pip install -r requirements.txt
 ```
 python ./exp_runner.py --mode train --conf ./confs/neuris.conf --gpu 0 --scene_name scene0050_00 --semantic_class 3 --stop_semantic_grad --semantic_mode sigmoid
 python ./exp_runner.py --mode train --conf ./confs/neuris_server.conf --server server4 --gpu 0 --scene_name scene0050_00 --semantic_class 3 --stop_semantic_grad --semantic_mode sigmoid --is_continue
-python ./exp_runner.py --mode train --conf ./confs/neuris_server.conf --server yatai --scene_name scene0009_01 --semantic_class 40 --semantic_mode softmax
+python ./exp_runner.py --mode train --conf ./confs/neuris_server.conf --server yatai --scene_name scene0616_00 --semantic_class 40
 ```
 
 ### Mesh extraction

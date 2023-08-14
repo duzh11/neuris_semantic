@@ -12,7 +12,7 @@ import utils.utils_io as IOUtils
 import utils.utils_normal as NormalUtils
 
 # from confs.path import lis_name_scenes
-lis_name_scenes=['scene0414_00','scene0426_00','scene0568_00']
+lis_name_scenes=['scene0146_00','scene0086_00','scene0686_00']
 
 if __name__ == '__main__':
     np.set_printoptions(precision=3)
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     dataset_type = args.data_type
     
     if dataset_type == 'scannet':
-        dir_root_scannet = '/home/du/Proj/data/ScanNet'
+        dir_root_scannet = '/home/du/Proj/Dataset/ScanNet'
         dir_root_neus = '/home/du/Proj/NeuRIS/Data/dataset/indoor'
 
         for scene_name in lis_name_scenes:
