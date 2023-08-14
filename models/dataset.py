@@ -166,7 +166,7 @@ class Dataset:
         if self.use_semantic:
             semantic_lis = None
             for ext in ['.png', '.JPG']:
-                semantic_dir=f'semantic_{self.semantic_type}'
+                semantic_dir=f'{self.semantic_type}'
                 logging.info(f'Load semantic: {semantic_dir}')
                 semantic_lis = glob(os.path.join(self.data_dir, f'{semantic_dir}/*{ext}'))
                 semantic_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
@@ -197,7 +197,7 @@ class Dataset:
             for ext in ['.png', '.JPG']:
                 #slic: slic_40_10_0, slic_60_10_0, slic_80_10_0
                 #felzenszwalb: felzenszwalb_100_1_50, felzenszwalb_100_1_50_a
-                grids_dir='felzenszwalb_100_1_50_a'
+                grids_dir='instance'
                 logging.info(f'Load grids: {grids_dir}')
                 grids_lis = glob(os.path.join(self.data_dir, f'{grids_dir}/*{ext}'))
                 grids_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))

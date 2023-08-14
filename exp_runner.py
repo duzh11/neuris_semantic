@@ -112,12 +112,12 @@ class Runner:
         # base_exp_dir='../exps/indoor/neus/scene0625_00/exp_scene0625_00
         if self.server=='server4':
             self.conf['general']['server']=self.server
-            self.conf['general']['exp_dir']='/home/home/raid/zhenhua2023/NeuRIS/exps'
-            self.conf['general']['data_dir']='/home/home/raid/zhenhua2023/NeuRIS/Data/dataset'
+            self.conf['general']['exp_dir']='/home/home/raid/zhenhua2023/3Dv_Reconstruction/NeuRIS/exps'
+            self.conf['general']['data_dir']='/home/home/raid/zhenhua2023/3Dv_Reconstruction/NeuRIS/Data/dataset'
         elif self.server=='server8':
             self.conf['general']['server']=self.server
-            self.conf['general']['exp_dir']='/raid/duzhenhua/NeuRIS/exps'
-            self.conf['general']['data_dir']='/raid/duzhenhua/NeuRIS/Data/dataset'    
+            self.conf['general']['exp_dir']='/raid/duzhenhua/3Dv_Reconstruction/NeuRIS/exps'
+            self.conf['general']['data_dir']='/raid/duzhenhua/3Dv_Reconstruction/NeuRIS/Data/dataset'    
         elif self.server=='yatai':
             self.conf['general']['server']=self.server
             self.conf['general']['exp_dir']='../exps'
@@ -831,7 +831,7 @@ class Runner:
                                 save_semantic_render = False,
                                 save_lis_images=True,
                                 expdir='image_train'):
-        # validate image
+        # validate imagegmea
         ic(self.iter_step, idx)
         logging.info(f'Validate begin: idx {idx}...')
         if idx < 0:
