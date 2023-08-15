@@ -276,7 +276,7 @@ class NeuSRenderer:
             semantic = (sampled_semantic * weights[:, :, None]).sum(dim=1)        
         
         if semantic_network:
-            if semantic_network.semantic_mode=='softmax':
+            if semantic_network.semantic_mode=='softmax' or semantic_network.semantic_mode=='sigmoid':
                 semantic = semantic / (semantic.sum(-1).unsqueeze(-1) + 1e-8)
                 semantic = torch.log(semantic + 1e-8)            
         
