@@ -166,7 +166,7 @@ class Dataset:
         if self.use_semantic:
             semantic_lis = None
             for ext in ['.png', '.JPG']:
-                semantic_dir=f'semantic_{self.semantic_type}'
+                semantic_dir=f'{self.semantic_type}'
                 logging.info(f'Load semantic: {semantic_dir}')
                 semantic_lis = glob(os.path.join(self.data_dir, f'{semantic_dir}/*{ext}'))
                 semantic_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
