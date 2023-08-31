@@ -207,7 +207,7 @@ class ScannetData:
             pose[:3,3] = np.squeeze(trans_norm) #n2c
             poses_norm.append(pose)
             proj_norm = intrin @ pose
-            projs.append(proj_norm) #n2i
+            projs.append(proj_norm) #w2i
             
             np.savetxt(f'{dir_pose_norm}/{i:04d}.txt', pose, fmt='%f') # world to camera
             np.savetxt(f'{dir_pose_norm}/{i:04d}_inv.txt', GeometryUtils.get_pose_inv(pose) , fmt='%f') # inv: camera to world
@@ -248,6 +248,7 @@ class ScannetData:
             cloud_clean = GeometryUtils.read_point_cloud(path_point_cloud_scan)
             
         trans_n2w = GeometryUtils.get_norm_matrix_from_point_cloud(cloud_clean, radius_normalize_sphere=radius_normalize_sphere)
+        # n2i
         projs, poses_norm = self.get_projection_matrix(self.intrinsics, self.poses_w2c, trans_n2w)
         path_trans_n2w = f'{self.dir_scan}/trans_n2w.txt'
         np.savetxt(path_trans_n2w, trans_n2w, fmt = '%.04f')
@@ -266,7 +267,7 @@ class ScannetData:
         cams_neus = {}
         for i in range(num_cams):
             cams_neus[f"scale_mat_{i}"] = scale_mat
-            cams_neus[f'world_mat_{i}'] = projs[i] #w2i
+            cams_neus[f'world_mat_{i}'] = projs[i] #n2i
         
         np.savez(f'{self.dir_scan}/cameras_sphere.npz', **cams_neus)
         

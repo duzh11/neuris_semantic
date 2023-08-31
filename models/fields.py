@@ -121,6 +121,9 @@ class SDFNetwork(nn.Module):
     def sdf_hidden_appearance(self, x):
         return self.forward(x)
 
+    def geometry_feature(self, x):
+        return self.forward(x)[:, 1:]
+    
     def gradient(self, x):
         x.requires_grad_(True)
         y = self.sdf(x)
@@ -394,4 +397,7 @@ class SemanticNetwork(nn.Module):
                 h = torch.cat([h, semantic_input], dim=-1)
             h = self.layers[i](h)
         return h
+
+    def semantic(self, x, geometry_feature):
+        return self.forward(x, geometry_feature)
 

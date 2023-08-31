@@ -17,12 +17,12 @@ def random_rgb():
     rgb[2] = random.randint(1, 255)
     return rgb
 
-scene_list=['scene0050_00', 'scene0426_00', 'scene0616_00']
+scene_list=['scene0025_00', 'scene0580_00', 'scene0169_00']
 for scene in scene_list:
-    data_dir=f'/home/du/Proj/NeuRIS/Data/dataset/indoor/{scene}'
-    img_lis = sorted(glob(os.path.join(data_dir, 'pred_normal/*.png')))
-    seg_dir=os.path.join(data_dir,'felzenszwalb_100_1_50_c')
-    vis_dir=os.path.join(data_dir,'felzenszwalb_100_1_50_c_vis')
+    data_dir=f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor/{scene}'
+    img_lis = sorted(glob(os.path.join(data_dir, 'image/*.png')))
+    seg_dir=os.path.join(data_dir,'felzenszwalb_100_1_50_a')
+    vis_dir=os.path.join(data_dir,'felzenszwalb_100_1_50_a_vis')
     os.makedirs(seg_dir,exist_ok=True)
     os.makedirs(vis_dir,exist_ok=True)
 

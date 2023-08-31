@@ -21,7 +21,6 @@ from confs.path import path_tiltedsn_pth_pfpn, path_tiltedsn_pth_sr, dir_tilteds
                             path_snu_pth, dir_snu_code, \
                             lis_name_scenes_remove
 
-
 def crop_images_neuris(dir_imgs, dir_imgs_crop, path_intrin, path_intrin_crop, crop_size):
     assert checkExistence(dir_imgs)
     crop_width_half, crop_height_half = ImageUtils.crop_images(dir_imgs, dir_imgs_crop, crop_size)
@@ -174,6 +173,7 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
     '''   
     
     H,W, _ = read_image(f'{dir_scan}/color/0.jpg').shape
+    # H,W, =968,1296
     path_intrin_color = f'{dir_scan}/intrinsic/intrinsic_color.txt'
     
     if W == 1296: 

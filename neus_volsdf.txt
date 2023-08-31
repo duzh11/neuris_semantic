@@ -24,7 +24,7 @@ numpy
 pyhocon==0.3.57
 icecream==2.1.0
 PyMCubes==0.1.2
-open3d==0.10.0.0
+open3d==0.16.0.0
 setuptools
 lpips
 numba

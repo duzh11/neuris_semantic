@@ -120,7 +120,7 @@ class Dataset:
         self.images_lis = images_lis
         self.images_np = np.stack([self.read_img(im_name, self.resolution_level) for im_name in images_lis]) / 256.0
         
-        #mask
+        # mask
         masks_lis = sorted(glob(os.path.join(self.data_dir, 'mask/*.png')))
         if len(masks_lis) ==0:
             self.masks_np = np.ones(self.images_np.shape[:-1])

@@ -9,13 +9,13 @@ FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=FORMAT)
 
 semantic_class=40
-manhattan=True #Manhattan将door、white board归为wall类，将floor mat归为floor类
+manhattan=False #Manhattan将door、white board归为wall类，将floor mat归为floor类
 # scene_list=['scene0009_01','scene0050_00','scene0084_00','scene0085_00','scene0114_02','scene0580_00','scene0603_00','scene0616_00','scene0617_00','scene0625_00']
-scene_list=['scene0050_00']
+scene_list=['scene0580_00']
 
 img_h,img_w=480,640
 data_base='/home/du/Proj/Dataset/ScanNet'
-target_base='/home/du/Proj/NeuRIS/Data/dataset/indoor'
+target_base='/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
 
 for scene_name in scene_list:
     logging.info(f'loading semantic: {scene_name} ')
@@ -63,10 +63,10 @@ for scene_name in scene_list:
     semantic_nyu=np.array(semantic_nyu_list)
 
     save_semantic=True
-    save_dir=f'semantic_{semantic_class}'
-    save_vis_dir=f"semantic_{semantic_class}_vis"
-    # save_dir=f'semantic_GT'
-    # save_vis_dir=f"semantic_GT_vis"
+    # save_dir=f'semantic_{semantic_class}'
+    # save_vis_dir=f"semantic_{semantic_class}_vis"
+    save_dir=f'semantic_GT'
+    save_vis_dir=f"semantic_GT_vis"
 
     if save_semantic:
         logging.info(f'save raw label to {os.path.join(target_dir, save_dir)}')

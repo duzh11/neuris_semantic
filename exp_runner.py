@@ -151,7 +151,7 @@ class Runner:
         self.anneal_end = self.conf.get_float('train.anneal_end', default=0.0)
 
         self.n_samples = self.conf.get_int('model.neus_renderer.n_samples')
-
+        self.n_importance = self.conf.get_int('model.neus_renderer.n_importance')
         # validate parameters
         for attr in ['save_freq','report_freq', 'val_image_freq', 'val_mesh_freq', 'val_fields_freq', 
                         'freq_valid_points', 'freq_valid_weights',
@@ -303,7 +303,7 @@ class Runner:
         else:
             NotImplementedError
 
-    def get_near_far(self, rays_o, rays_d,  image_perm = None, iter_i= None, pixels_x = None, pixels_y= None):
+    def get_near_far(self, rays_o, rays_d):
         log_vox = {}
         log_vox.clear()
         batch_size = len(rays_o)
@@ -337,7 +337,7 @@ class Runner:
         if self.conf['model.loss.plane_offset_weight'] > 0:
             input_model['subplanes_gt'] = subplanes_sample
 
-        near, far, logs_input = self.get_near_far(rays_o, rays_d,  image_perm, iter_i, pixels_x, pixels_y)
+        near, far, logs_input = self.get_near_far(rays_o, rays_d)
         
         background_rgb = None
         if self.use_white_bkgd:
@@ -821,19 +821,22 @@ class Runner:
     
         return log_val
 
-    def validate_image(self, idx=-1, resolution_level=-1, semantic_class=None,
-                                save_normamap_npz = False, 
-                                save_peak_value = False, 
-                                validate_confidence = True,
-                                save_image_render = False,
-                                save_normal_render = False,
-                                save_depth_render = False,
-                                save_semantic_render = False,
-                                save_lis_images=True,
-                                expdir='image_train'):
+    def validate_image(self, 
+                        idx=-1, 
+                        resolution_level=-1, 
+                        semantic_class=None,
+                        save_normamap_npz = False, 
+                        save_peak_value = False, 
+                        validate_confidence = True,
+                        save_image_render = False,
+                        save_normal_render = False,
+                        save_depth_render = False,
+                        save_semantic_render = False,
+                        save_lis_images=True,
+                        expdir='image_train'):
         # validate imagegmea
         ic(self.iter_step, idx)
-        logging.info(f'Validate begin: idx {idx}...')
+        logging.info(f'Validate image begin: idx {idx}...')
         if idx < 0:
             idx = np.random.randint(self.dataset.n_images)
 
@@ -874,7 +877,14 @@ class Runner:
             near, far, _ = self.get_near_far(rays_o = rays_o_batch, rays_d = rays_d_batch)
             background_rgb = torch.ones([1, 3]) if self.use_white_bkgd else None
 
-            render_out, _ = self.renderer.render(rays_o_batch, rays_d_batch, near, far, alpha_inter_ratio=self.get_alpha_inter_ratio(), background_rgb=background_rgb)
+            render_out, _ = self.renderer.render(rays_o_batch, 
+                                                 rays_d_batch, 
+                                                 near, 
+                                                 far, 
+                                                 alpha_inter_ratio=self.get_alpha_inter_ratio(), 
+                                                 background_rgb=background_rgb, 
+                                                 stop_semantic_grad=self.stop_semantic_grad, 
+                                                 validate_flag=False)
             feasible = lambda key: ((key in render_out) and (render_out[key] is not None))
 
             for key in imgs_render:
@@ -1017,11 +1027,11 @@ class Runner:
             ImageUtils.write_image(os.path.join(self.base_exp_dir, 'semantic_render_vis', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         (vis_label.astype(np.uint8))[...,::-1])
             
-            semantic_input = ImageUtils.resize_image(self.dataset.semantics[idx].cpu().numpy(), 
-                        (semantic_fine.shape[1], semantic_fine.shape[0]))
-            vis_input = colour_map_np[(semantic_input).astype(np.uint8)]
-            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'semantic_render_vis', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}_input.png'), 
-                        (vis_input.astype(np.uint8))[...,::-1])
+            # semantic_input = ImageUtils.resize_image(self.dataset.semantics[idx].cpu().numpy(), 
+            #             (semantic_fine.shape[1], semantic_fine.shape[0]))
+            # vis_input = colour_map_np[(semantic_input).astype(np.uint8)]
+            # ImageUtils.write_image(os.path.join(self.base_exp_dir, 'semantic_render_vis', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}_input.png'), 
+            #             (vis_input.astype(np.uint8))[...,::-1])
 
             if save_peak_value:
                 semantic_peak=(imgs_render['semantic_peak'].argmax(axis=2))
@@ -1134,6 +1144,63 @@ class Runner:
 
             return imgs_render['confidence'], imgs_render['color_peak'], imgs_render['normal_peak'], imgs_render['depth_peak'], pts_peak_all, imgs_render['confidence_mask']
 
+    def validate_results(self, 
+                         idx=-1, 
+                         resolution_level=-1,
+                         semantic_class=None):
+        # validate imagegmea
+        ic(self.iter_step, idx)
+        logging.info(f'Validate all results begin: idx {idx}...')
+        if idx < 0:
+            idx = np.random.randint(self.dataset.n_images)
+        
+        if resolution_level < 0:
+            resolution_level = self.validate_resolution_level
+
+        save_results = {}
+        for key in ['mid_z_vals', 'alpha','weights','sdf', 'sampled_semantic']:
+            save_results[key] = []
+        # (1) render images
+        rays_o, rays_d = self.dataset.gen_rays_at(idx, resolution_level=resolution_level)
+        
+        H, W, _ = rays_o.shape
+        sampler_num=self.conf['model.neus_renderer']
+        rays_o = rays_o.reshape(-1, 3).split(self.batch_size)
+        rays_d = rays_d.reshape(-1, 3).split(self.batch_size)
+        idx_pixels_vu = torch.tensor([[i, j] for i in range(0, H) for j in range(0, W)]).split(self.batch_size)
+        for rays_o_batch, rays_d_batch, idx_pixels_vu_batch in zip(rays_o, rays_d, idx_pixels_vu):
+            near, far, _ = self.get_near_far(rays_o = rays_o_batch, rays_d = rays_d_batch)
+            background_rgb = torch.ones([1, 3]) if self.use_white_bkgd else None
+
+            feasible = lambda key: ((key in render_out) and (render_out[key] is not None))
+
+            render_out, _ = self.renderer.render(rays_o_batch, 
+                                                rays_d_batch, 
+                                                near, 
+                                                far, 
+                                                alpha_inter_ratio=self.get_alpha_inter_ratio(), 
+                                                background_rgb=background_rgb, 
+                                                stop_semantic_grad=self.stop_semantic_grad, 
+                                                validate_flag=True)
+            for key in save_results:
+                if feasible(key):
+                    save_results[key].append(render_out[key].detach().cpu().numpy())
+            del render_out
+        
+        for key in save_results:
+            if len(save_results[key]) > 0:
+                save_results[key] = np.array(np.concatenate(save_results[key], axis=0))
+                if save_results[key].shape[-1]==semantic_class:
+                    save_results[key] = save_results[key].reshape([H, W, self.n_samples + self.n_importance, semantic_class])
+                else : 
+                    save_results[key] = save_results[key].reshape([H, W, self.n_samples + self.n_importance, 1])
+
+                if True:
+                    os.makedirs(os.path.join(self.base_exp_dir, 'results', key), exist_ok=True)
+                    np.savez(os.path.join(self.base_exp_dir, 'results', key, f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'), 
+                        save_results[key])
+
+
     def compare_ncc_confidence(self, idx=-1, resolution_level=-1):
         # validate image
         ic(self.iter_step, idx)
@@ -1183,11 +1250,29 @@ class Runner:
 
         ImageUtils.write_image_lis(f'./test/sampling/rgb_{idx:04d}.png', [self.dataset.images_np[idx]*256, mask_filter*255, img_gr, img_rgb])
 
-    def validate_mesh(self, world_space=False, resolution=128, threshold=0.0):
+    def validate_mesh(self, world_space=False, resolution=128, threshold=0.0, seg_mesh=False):
         bound_min = torch.tensor(self.dataset.bbox_min, dtype=torch.float32) #/ self.sdf_network_fine.scale
         bound_max = torch.tensor(self.dataset.bbox_max, dtype=torch.float32) # / self.sdf_network_fine.scale
-        vertices, triangles, sdf = self.renderer.extract_geometry(bound_min, bound_max, resolution=resolution, threshold=threshold)
+        vertices, faces, normals, sdf = self.renderer.extract_geometry(bound_min, bound_max, resolution=resolution, threshold=threshold)
+        logging.info('marching cube completed')
         os.makedirs(os.path.join(self.base_exp_dir, 'meshes'), exist_ok=True)
+        
+        use_vertex_normal = False
+        if seg_mesh:
+            vertices_tensor = torch.FloatTensor(vertices.copy()).reshape([-1, 3]).cuda()
+            # !!!directly extract surface semantic
+            # surface_labels= self.renderer.extract_surface_semantic(vertices_tensor, chunk = 256) 
+            # volume rendering along virtual view
+            if use_vertex_normal:
+                normals_tensor = torch.FloatTensor(normals.copy()).reshape([-1, 3]).cuda()
+            else:
+                normals_tensor = None
+            volume_labels= self.renderer.extract_volume_semantic(vertices_tensor, normals_tensor, chunk = 256) 
+            
+            colour_map_np = utils_colour.nyu40_colour_code
+            labels_vis = colour_map_np[(volume_labels)].astype(np.uint8)
+
+            path_mesh_semantic = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_semantic.ply')
 
         path_mesh = os.path.join(self.base_exp_dir, 'meshes', f'{self.iter_step:0>8d}_reso{resolution}_{self.scan_name}.ply')
         path_mesh_gt = IOUtils.find_target_file(self.dataset.data_dir, self.conf['general.scan_name']+'_vh_clean_2_trans.ply')
@@ -1199,19 +1284,20 @@ class Runner:
                 scale_mat = np.loadtxt(path_trans_n2w)
             vertices = vertices * scale_mat[0, 0] + scale_mat[:3, 3][None]
             
-            path_mesh = os.path.join(self.base_exp_dir, 'meshes', f'{self.iter_step:0>8d}_reso{resolution}_{self.scan_name}_world.ply')
-            #path_mesh_gt = IOUtils.find_target_file(self.dataset.data_dir, '_vh_clean_2.ply')
+            path_mesh = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}.ply')
             path_mesh_gt = IOUtils.find_target_file(self.dataset.data_dir, self.conf['general.scan_name']+'_vh_clean_2.ply')
         logging.info(f'[path_of_mesh]: {path_mesh_gt}')
-        mesh = trimesh.Trimesh(vertices, triangles)
+        
+        mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
         mesh.export(path_mesh)
-        path_mesh_copy=os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}.ply')
-        mesh.export(path_mesh_copy)
-
+        if seg_mesh:
+            mesh = trimesh.Trimesh(vertices=vertices, faces=faces, vertex_colors = labels_vis)
+            mesh.export(path_mesh_semantic)
+            
         if path_mesh_gt:
             GeoUtils.clean_mesh_points_outside_bbox(path_mesh, path_mesh, path_mesh_gt, scale_bbox = 1.1, check_existence=False)
-            GeoUtils.clean_mesh_points_outside_bbox(path_mesh_copy, path_mesh_copy, path_mesh_gt, scale_bbox = 1.1, check_existence=False)
-        
+            if seg_mesh:
+                GeoUtils.clean_mesh_points_outside_bbox(path_mesh_semantic, path_mesh_semantic, path_mesh_gt, scale_bbox = 1.1, check_existence=False)
         return path_mesh
 
     def validate_fields(self, iter_step=-1):
@@ -1485,7 +1571,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format=FORMAT)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--conf', type=str, default='./confs/neuris.conf')
+    parser.add_argument('--conf', type=str, default='./confs/neuris_server.conf')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--server', type=str, default='local',help='random seed')
     parser.add_argument('--mode', type=str, default='train') #changed
@@ -1515,6 +1601,7 @@ if __name__ == '__main__':
     
     if args.mode == 'train':
         runner.train()
+
     elif args.mode == 'validate_mesh':
         if runner.model_type == 'neus':
             t1= datetime.now()
@@ -1527,11 +1614,17 @@ if __name__ == '__main__':
             runner.validate_mesh_nerf(world_space=True, resolution=args.mc_reso, threshold=thres)
             logging.info(f"[Validate mesh] Consumed time (MC resolution: {args.mc_reso}； Threshold: {thres}): {IOUtils.get_consumed_time(t1):.02f}(s)")
     
-    elif args.mode.startswith('validate_image'):
+    elif args.mode == 'seg_mesh':
+        if runner.model_type == 'neus':
+            t1= datetime.now()
+            runner.validate_mesh(world_space=True, resolution=args.mc_reso, threshold=args.threshold, seg_mesh=True)
+            logging.info(f"[Validate mesh] Consumed time (Step: {runner.iter_step}; MC resolution: {args.mc_reso}): {IOUtils.get_consumed_time(t1):.02f}(s)")
+
+    elif args.mode == 'validate_image':
         if runner.model_type == 'neus':
             for i in range(0, runner.dataset.n_images, 1):
                 t1 = datetime.now()
-                runner.validate_image(i, resolution_level=2, semantic_class=runner.semantic_class,
+                runner.validate_image(13, resolution_level=2, semantic_class=runner.semantic_class,
                                             save_normamap_npz=args.save_normamap_npz, 
                                             save_peak_value=args.save_peak_value,
                                             save_image_render=args.nvs,
@@ -1551,3 +1644,7 @@ if __name__ == '__main__':
             
     elif args.mode == 'validate_fields':
         runner.validate_fields()
+    
+    elif args.mode == 'validate_results':
+        for idx in [39,40]:
+            runner.validate_results(idx=idx, resolution_level=2, semantic_class=runner.semantic_class)

@@ -1,7 +1,9 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+import skimage
 import mcubes
+from tqdm import tqdm
 
 def extract_fields(bound_min, bound_max, resolution, query_func):
     N = 64
@@ -23,12 +25,16 @@ def extract_fields(bound_min, bound_max, resolution, query_func):
 
 def extract_geometry(bound_min, bound_max, resolution, threshold, query_func):
     u = extract_fields(bound_min, bound_max, resolution, query_func)
-    vertices, triangles = mcubes.marching_cubes(u, threshold)
+    
+    # neuris use mcbues，but I need normals
+    # vertices, triangles = mcubes.marching_cubes(u, threshold)
+    vertices, faces, normals, values = skimage.measure.marching_cubes(u, level=threshold)
     b_max_np = bound_max.detach().cpu().numpy()
     b_min_np = bound_min.detach().cpu().numpy()
 
     vertices = vertices / (resolution - 1.0) * (b_max_np - b_min_np)[None, :] + b_min_np[None, :]
-    return vertices, triangles, u
+    
+    return vertices, faces, normals, u
 
 
 def sample_pdf(bins, weights, n_samples, det=False):
@@ -187,7 +193,8 @@ class NeuSRenderer:
                     background_sampled_color=None,
                     background_rgb=None,
                     alpha_inter_ratio=0.0,
-                    stop_semantic_grad=False):
+                    stop_semantic_grad=False,
+                    validate_flag=False):
         logs_summary = {}
 
         batch_size, n_samples = z_vals.shape
@@ -226,6 +233,7 @@ class NeuSRenderer:
         
         true_dot_val = (dirs * gradients).sum(-1, keepdim=True) # normal*view_dir
         # |cos(theta)|
+        # TODO alpha_inter_ratio有什么用？
         iter_cos = -(F.relu(-true_dot_val * 0.5 + 0.5) * (1.0 - alpha_inter_ratio) + F.relu(-true_dot_val) * alpha_inter_ratio) # always non-positive
         # sdf +/-|cos(theta)|*dists/2
         true_estimate_sdf_half_next = sdf + iter_cos.clip(-10.0, 10.0) * dists.reshape(-1, 1) * 0.5
@@ -274,7 +282,7 @@ class NeuSRenderer:
             semantic = (sampled_semantic * weights_new[:, :, None]).sum(dim=1)
         else:
             semantic = (sampled_semantic * weights[:, :, None]).sum(dim=1)        
-        
+        ### todo 是否应该在前面进行softmax
         if semantic_network:
             if semantic_network.semantic_mode=='softmax' or semantic_network.semantic_mode=='sigmoid':
                 semantic = semantic / (semantic.sum(-1).unsqueeze(-1) + 1e-8)
@@ -326,7 +334,7 @@ class NeuSRenderer:
                 semantic_peak = (sampled_semantic[:, :n_samples] * weights2[:, :n_samples, None]).sum(dim=1)
                 point_peak = rays_o + rays_d*depth_peak
 
-        return {
+        render_out = {
             'variance': variance,
             'variance_inv_pts': inv_variance.reshape(batch_size, n_samples),
             'depth': depth,
@@ -349,10 +357,28 @@ class NeuSRenderer:
             'color_peak': color_peak,
             'semantic_peak': semantic_peak,
             'point_peak': point_peak
-        }, logs_summary
+        }
 
-    def render(self, rays_o, rays_d, near, far, perturb_overwrite=-1, 
-               background_rgb=None, alpha_inter_ratio=0.0,stop_semantic_grad=False):
+        if validate_flag:
+            render_out.update(
+                {'mid_z_vals': mid_z_vals.detach(),
+                 'alpha': alpha.detach(),
+                 'weights': weights.detach(),
+                 'sdf': (sdf.detach()).reshape(batch_size, n_samples),
+                 'sampled_semantic': sampled_semantic.detach()}
+            )
+        return render_out, logs_summary
+
+    def render(self, 
+               rays_o, 
+               rays_d, 
+               near, 
+               far, 
+               perturb_overwrite=-1, 
+               background_rgb=None, 
+               alpha_inter_ratio=0.0, 
+               stop_semantic_grad=False, 
+               validate_flag=False):
         batch_size = len(rays_o)
         sphere_diameter = torch.abs(far-near).mean()
         sample_dist = sphere_diameter / self.n_samples
@@ -423,13 +449,56 @@ class NeuSRenderer:
                                     background_alpha=background_alpha,
                                     background_sampled_color=background_sampled_color,
                                     alpha_inter_ratio=alpha_inter_ratio,
-                                    stop_semantic_grad=stop_semantic_grad)
+                                    stop_semantic_grad=stop_semantic_grad,
+                                    validate_flag=validate_flag)
         return ret_fine, logs_summary
 
     def extract_geometry(self, bound_min, bound_max, resolution, threshold=0.0):
         ret = extract_geometry(bound_min, bound_max, resolution, threshold, lambda pts: -self.sdf_network_fine.sdf(pts))
         return ret
-        
+    
+    def extract_surface_semantic(self, vertices, chunk=256):
+        vertices_labels = []
+        B = vertices.shape[0]
+        for i in tqdm(range(0, B, chunk), desc='surface rendering'):
+            vertices_bs = vertices[i:i+chunk, :]
+            geometry_feature = self.sdf_network_fine.geometry_feature(vertices_bs)
+            semantic_bs = self.semantic_network_fine.semantic(vertices_bs, geometry_feature.detach())
+            vertices_labels.append(semantic_bs.argmax(axis=1).cpu().numpy()+1)
+        vertices_labels = np.concatenate(vertices_labels, axis=0)
+        return vertices_labels
+    
+    def extract_volume_semantic(self, vertices, normal=None, chunk=256):
+        vertices_labels = []
+        B = vertices.shape[0]
+        for i in tqdm(range(0, B, chunk), desc='volume rendering of virtual view'):
+            vertices_bs = vertices[i:i+chunk, :]
+            
+            if normal==None:
+                gradients = self.sdf_network_fine.gradient(vertices_bs)
+                normal_bs = F.normalize(gradients.detach(), dim=2).squeeze()
+            else:
+                normal_bs = normal[i:i+chunk, :]
+
+            # 考虑normal的方向问题
+            consider_normal_dir=True
+            if consider_normal_dir:
+                sign = ( torch.sign( torch.sum(normal_bs*vertices_bs, dim=1) ) ).unsqueeze(1)
+            else:
+                sign = -1
+            rays_d = normal_bs*sign
+            rays_o = vertices_bs - 0.1*rays_d
+            near, far = torch.zeros(len(rays_o), 1), 1 * torch.ones(len(rays_o), 1)
+            render_out, _ = self.render(rays_o, 
+                                        rays_d, 
+                                        near, 
+                                        far, 
+                                        alpha_inter_ratio=1.0)
+            label = render_out['semantic_fine']
+            vertices_labels.append(label.argmax(axis=1).cpu().numpy()+1)   
+        vertices_labels = np.concatenate(vertices_labels, axis=0)    
+        return vertices_labels
+    
 class NeRFRenderer:
     def __init__(self,
                  nerf_coarse,
