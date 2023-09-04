@@ -176,7 +176,7 @@ class NeuSLoss(nn.Module):
                 'Loss/loss_bg':     background_loss
             })
         
-        #semantic loss     
+        # semantic loss     
         if self.semantic_class==3:
             CrossEntropyLoss = nn.CrossEntropyLoss()
             crossentropy_loss = lambda logit, label: CrossEntropyLoss(logit, label)
@@ -187,14 +187,7 @@ class NeuSLoss(nn.Module):
         semantic_fine_loss=0.
         if self.semantic_weight>0:
             semantic_fine_loss = crossentropy_loss(semantic_fine.reshape(-1,self.semantic_class), true_semantic.reshape(-1).long())
-        
-            # semantic_score_log = F.log_softmax(semantic_fine, dim=-1)
-            # semantic_fine_loss = F.nll_loss(
-            #     semantic_score_log.reshape(-1, self.semantic_class),
-            #     true_semantic.reshape(-1).long()
-            # ) 
-
-            # semantic_fine_loss = F.cross_entropy(semantic_fine.reshape(-1,self.semantic_class),true_semantic.reshape(-1).long())
+    
             logs_summary.update({           
                 'Loss/loss_semantic':  semantic_fine_loss.detach().cpu(),
             })

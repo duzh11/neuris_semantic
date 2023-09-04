@@ -93,6 +93,7 @@ class Dataset:
         self.use_normal = conf['use_normal']
         self.resolution_level = conf['resolution_level']
         self.use_semantic = conf['use_semantic']
+        self.use_semantic_mask = True
         self.use_grid = conf['use_grid']
         self.semantic_class=conf['semantic_class']
         self.semantic_type=conf['semantic_type']
@@ -149,7 +150,7 @@ class Dataset:
         for scale_mat, world_mat in zip(self.scale_mats_np, self.world_mats_np):
             P = world_mat @ scale_mat #w2i
             P = P[:3, :4]
-            intrinsics, pose = load_K_Rt_from_P(None, P) #c2w
+            intrinsics, pose = load_K_Rt_from_P(None, P) # n2w
             if self.resolution_level > 1.0:
                 intrinsics[:2,:3] /= self.resolution_level
             self.intrinsics_all.append(torch.from_numpy(intrinsics).float())
@@ -190,6 +191,18 @@ class Dataset:
 
             self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
         
+        # loading semantic mask
+        logging.info(f'Use semantic_mask:{self.use_semantic_mask}, Loading semantic_mask..')
+        if self.use_semantic_mask:
+            semantic_mask_np = []
+            semantic_mask_dir = glob(f'{self.data_dir}/semantic_consistency/*.npz')
+            semantic_mask_dir.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
+            for idx in semantic_mask_dir:
+                semantic_mask_np.append((np.load(idx))['arr_0'])
+            semantic_mask_valid = (np.array(semantic_mask_np)>0.5)
+            semantics[~semantic_mask_valid] = 0
+            self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
+            
         # loading grids
         logging.info(f'Use grids:{self.use_grid}, Loading grids..')
         if self.use_grid:
@@ -230,19 +243,6 @@ class Dataset:
             
         self.normals_np = -np.stack(normals_np)   # reverse normal
         self.normals = torch.from_numpy(self.normals_np.astype(np.float32)).cpu()
-
-            # debug_ = False
-            # if debug_ and IOUtils.checkExistence(f'{self.data_dir}/depth'):
-            #     self.depths_np, stems_depth = read_images(f'{self.data_dir}/depth', target_img_size=(w_img, h_img), img_ext='.png')
-            #     dir_depths_cloud = f'{self.data_dir}/depth_cloud'
-            #     ensure_dir_existence(dir_depths_cloud)
-                
-            #     for i in range(5):
-            #         ext_curr = get_pose_inv(self.pose_all[i].detach().cpu().numpy())
-            #         pts = GeoUtils.get_world_points( self.depths_np[i], self.intrinsics_all[i], ext_curr)
-            #         normals_curr = self.normals_np[i].reshape(-1,3)
-            #         colors = self.images_np[i].reshape(-1,3)
-            #         save_points(f'{dir_depths_cloud}/{stems_depth[i]}.ply', pts, colors, normals_curr)
 
         if self.use_planes:
             logging.info(f'Use planes: Loading planes...')  

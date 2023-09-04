@@ -437,7 +437,10 @@ class Runner:
 
         logging.info(f'Begin: extract mesh')
         t_mesh= datetime.now()
-        self.validate_mesh(world_space=True, resolution=args.mc_reso, threshold=args.threshold)
+        self.validate_mesh(world_space=True, 
+                           resolution=args.mc_reso, 
+                           threshold=args.threshold, 
+                           seg_mesh=True)
         logging.info(f"[Validate mesh] Consumed time (Step: {runner.iter_step}; MC resolution: {args.mc_reso}): {IOUtils.get_consumed_time(t_mesh):.02f}(s)")
         logging.info(f'Done: extract image')
 
@@ -1257,7 +1260,7 @@ class Runner:
         logging.info('marching cube completed')
         os.makedirs(os.path.join(self.base_exp_dir, 'meshes'), exist_ok=True)
         
-        use_vertex_normal = False
+        use_vertex_normal = True
         if seg_mesh:
             vertices_tensor = torch.FloatTensor(vertices.copy()).reshape([-1, 3]).cuda()
             # !!!directly extract surface semantic
@@ -1267,12 +1270,12 @@ class Runner:
                 normals_tensor = torch.FloatTensor(normals.copy()).reshape([-1, 3]).cuda()
             else:
                 normals_tensor = None
-            volume_labels= self.renderer.extract_volume_semantic(vertices_tensor, normals_tensor, chunk = 256) 
+            volume_labels= self.renderer.extract_volume_semantic(vertices_tensor, normals_tensor, chunk = 128) 
             
             colour_map_np = utils_colour.nyu40_colour_code
             labels_vis = colour_map_np[(volume_labels)].astype(np.uint8)
 
-            path_mesh_semantic = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_semantic.ply')
+            path_mesh_semantic = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_surface_semantic.ply')
 
         path_mesh = os.path.join(self.base_exp_dir, 'meshes', f'{self.iter_step:0>8d}_reso{resolution}_{self.scan_name}.ply')
         path_mesh_gt = IOUtils.find_target_file(self.dataset.data_dir, self.conf['general.scan_name']+'_vh_clean_2_trans.ply')

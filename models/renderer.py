@@ -487,7 +487,7 @@ class NeuSRenderer:
             else:
                 sign = -1
             rays_d = normal_bs*sign
-            rays_o = vertices_bs - 0.1*rays_d
+            rays_o = vertices_bs - 0.05*rays_d
             near, far = torch.zeros(len(rays_o), 1), 1 * torch.ones(len(rays_o), 1)
             render_out, _ = self.render(rays_o, 
                                         rays_d, 
