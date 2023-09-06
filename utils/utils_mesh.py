@@ -2,6 +2,7 @@ import pyrender
 import numpy as np
 import open3d as o3d
 from tqdm import tqdm
+from glob import glob
 import os
 import trimesh
 import cv2
@@ -47,10 +48,10 @@ def refuse(mesh, intrinsic_depth, rgb_all, c2w_all):
     renderer = Renderer()
     mesh_opengl = renderer.mesh_opengl(mesh)
 
-    volume = o3d.integration.ScalableTSDFVolume(
+    volume = o3d.pipelines.integration.ScalableTSDFVolume(
         voxel_length=0.01,
         sdf_trunc=3 * 0.01,
-        color_type=o3d.integration.TSDFVolumeColorType.RGB8
+        color_type=o3d.pipelines.integration.TSDFVolumeColorType.RGB8
     )
 
     n_image=rgb_all.shape[0]
@@ -84,9 +85,8 @@ def refuse_mesh(scene_name,
                  path_mesh_GT,
                  check_existence=True):
     
-    image_dir=os.path.join(scene_dir,'image')
-    image_list=os.listdir(image_dir)
-    image_list.sort(key=lambda _:int(_.split('.')[0]))
+    image_dir=os.path.join(scene_dir,'image', '*.png')
+    image_list=sorted(glob(image_dir))
 
     c2w_all=[]
     rgb_all=[]
@@ -102,10 +102,10 @@ def refuse_mesh(scene_name,
         return mesh_pred_dir,mesh_GT_dir
 
     for imgname in tqdm(image_list, desc='Loading data'):
-        c2w = np.loadtxt(f'{scene_dir}/pose/{imgname[:-4]}.txt')
+        c2w = np.loadtxt(f'{scene_dir}/pose/{imgname[-8:-4]}.txt')
         c2w_all.append(c2w)
 
-        rgb = cv2.imread(f'{image_dir}/{imgname[:-4]}.png')
+        rgb = cv2.imread(imgname)
         reso=640/rgb.shape[0]
         
         if reso>2:
@@ -143,9 +143,8 @@ def label3D(exp_name,
              path_mesh_pred,
              check_existence=True):
     
-    image_dir=os.path.join(scene_dir,'image')
-    image_list=os.listdir(image_dir)
-    image_list.sort(key=lambda _:int(_.split('.')[0]))
+    image_dir=os.path.join(scene_dir,'image', '*.png')
+    image_list=sorted(glob(image_dir))
 
     c2w_all=[]
     rgb_all=[]
@@ -157,10 +156,10 @@ def label3D(exp_name,
         logging.info(f'The mesh is already labeled. [{mesh_label_ply.split("/")[-1]}]')
 
     for imgname in tqdm(image_list, desc='Loading data'):
-        c2w = np.loadtxt(f'{scene_dir}/pose/{imgname[:-4]}.txt')
+        c2w = np.loadtxt(f'{scene_dir}/pose/{imgname[-8:-4]}.txt')
         c2w_all.append(c2w)
 
-        rgb = cv2.imread(f'{semantic_dir}/'+'00160000_'+imgname[:-4]+'_reso2.png')
+        rgb = cv2.imread(f'{semantic_dir}/'+'00160000_'+imgname[-8:-4]+'_reso2.png')
         reso=640/rgb.shape[1]
         
         if reso>1:

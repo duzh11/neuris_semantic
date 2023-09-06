@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import numpy as np
 import skimage
 import mcubes
+import trimesh
 from tqdm import tqdm
 
 def extract_fields(bound_min, bound_max, resolution, query_func):
@@ -28,7 +29,7 @@ def extract_geometry(bound_min, bound_max, resolution, threshold, query_func):
     
     # neuris use mcbues，but I need normals
     # vertices, triangles = mcubes.marching_cubes(u, threshold)
-    vertices, faces, normals, values = skimage.measure.marching_cubes(u, level=threshold)
+    vertices, faces, normals, values = skimage.measure.marching_cubes(u, level=threshold, gradient_direction='ascent')
     b_max_np = bound_max.detach().cpu().numpy()
     b_min_np = bound_min.detach().cpu().numpy()
 
@@ -282,7 +283,7 @@ class NeuSRenderer:
             semantic = (sampled_semantic * weights_new[:, :, None]).sum(dim=1)
         else:
             semantic = (sampled_semantic * weights[:, :, None]).sum(dim=1)        
-        ### todo 是否应该在前面进行softmax
+        # todo 是否应该在前面进行softmax
         if semantic_network:
             if semantic_network.semantic_mode=='softmax' or semantic_network.semantic_mode=='sigmoid':
                 semantic = semantic / (semantic.sum(-1).unsqueeze(-1) + 1e-8)
@@ -292,6 +293,19 @@ class NeuSRenderer:
         gradient_error = (torch.linalg.norm(gradients.reshape(batch_size, n_samples, 3), ord=2,
                                             dim=-1) - 1.0) ** 2
         gradient_error = (relax_inside_sphere * gradient_error).sum() / (relax_inside_sphere.sum() + 1e-5)
+
+        # try to use "Towards Better Gradient Consistency for Neural Signed Distance Functions via Level Set Alignment"
+        # gradient_norm = F.normalize(gradients, dim=-1)
+        # pts_moved = pts + gradient_norm * sdf
+
+        # # sdf_moved = sdf_network(pts_moved)[:, :1] # 期望它落在零值面上
+        # gradient_moved = sdf_network.gradient(pts_moved).squeeze()
+        # gradient_moved_norm = F.normalize(gradient_moved, dim=-1)
+        # consis_constraint = 1 - F.cosine_similarity(gradient_moved_norm, gradient_norm, dim=-1)
+        # weight_moved = torch.exp(-10 * torch.abs(sdf)).reshape(-1,consis_constraint.shape[-1]) 
+        # consis_constraint = consis_constraint * weight_moved      
+        # consis_constraint = consis_constraint.reshape(batch_size, n_samples)
+        # consis_gradients = (relax_inside_sphere * consis_constraint).sum() / (relax_inside_sphere.sum() + 1e-5)
 
         variance = (1.0 /inv_variance).mean(dim=-1, keepdim=True)
         assert (torch.isinf(variance).any() == False)
@@ -358,6 +372,9 @@ class NeuSRenderer:
             'semantic_peak': semantic_peak,
             'point_peak': point_peak
         }
+
+        # try to use "Towards Better Gradient Consistency for Neural Signed Distance Functions via Level Set Alignment"
+        # render_out.update({'consis_error': consis_gradients})
 
         if validate_flag:
             render_out.update(

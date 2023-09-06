@@ -232,18 +232,18 @@ class NeuSLoss(nn.Module):
             else:
                 wall_score, floor_score = semantic_score[...,:2].split(dim=-1, split_size=1)
             # 选择输入语义
-            wall_mask1= true_semantic==WALL_SEMANTIC_ID
-            floor_mask1= true_semantic==FLOOR_SEMANTIC_ID
+            wall_mask1= (true_semantic==WALL_SEMANTIC_ID)
+            floor_mask1= (true_semantic==FLOOR_SEMANTIC_ID)
             # #选择neuris render出来的语义
-            # render_semantic=semantic_fine.argmax(axis=1)
-            # wall_mask2= (render_semantic==0)
-            # floor_mask2= (render_semantic==1)
+            render_semantic=semantic_fine.argmax(axis=1)
+            wall_mask2= (render_semantic==0)
+            floor_mask2= (render_semantic==1)
             
             # #考虑多个mask叠加
-            # wall_mask = wall_mask1.squeeze() | wall_mask2
-            # floor_mask = floor_mask1.squeeze() | floor_mask2
-            wall_mask = wall_mask1
-            floor_mask = floor_mask1
+            wall_mask = wall_mask1.squeeze() | wall_mask2
+            floor_mask = floor_mask1.squeeze() | floor_mask2
+            # wall_mask = wall_mask1
+            # floor_mask = floor_mask1
 
             if floor_mask.sum() > 0:
                 floor_mask=(floor_mask.unsqueeze(0)).squeeze(-1) #changed
@@ -275,6 +275,12 @@ class NeuSLoss(nn.Module):
                 'Loss/loss_eik':    gradient_error_loss.detach().cpu(),
             })            
         
+        # try to use "Towards Better Gradient Consistency for Neural Signed Distance Functions via Level Set Alignment"
+        # gradient_consis_loss = render_out['consis_error']
+        # logs_summary.update({           
+        #         'Loss/loss_con_gra':    gradient_consis_loss.detach().cpu(),
+        #     }) 
+
         # Smooth loss, optional
         surf_reg_loss = 0.0
         if self.smooth_weight > 0:

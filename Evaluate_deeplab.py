@@ -6,35 +6,6 @@ from datetime import datetime
 import evaluation.EvalScanNet as EvalScanNet
 import utils.utils_semantic as SemanticUtils
 
-def mapping_nyu3(manhattan=False):
-    mapping = {}
-    for i in range(41):
-        if i in [0, 1, 2]:
-            mapping[i]=i
-        else:
-            mapping[i]=0
-        if manhattan:
-            if i==8: # regard door as wall
-                mapping[i]=1
-            elif i == 30: # regard white board as wall
-                mapping[i]=1
-            elif i == 20: # regard floor mat as floor
-                mapping[i]=2
-    return mapping
-
-def mapping_nyu40(manhattan=False):
-    mapping = {}
-    for i in range(41):
-        mapping[i]=i
-        if manhattan:
-            if i==8: # regard door as wall
-                mapping[i]=1
-            elif i == 30: # regard white board as wall
-                mapping[i]=1
-            elif i == 20: # regard floor mat as floor
-                mapping[i]=2
-    return mapping
-
 if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)    
@@ -72,9 +43,9 @@ if __name__=='__main__':
                 
                 semantic_seg=semantic_render.copy()
                 if numclass==3:
-                    label_mapping_nyu=mapping_nyu3(manhattan=True)
+                    label_mapping_nyu=SemanticUtils.mapping_nyu3(manhattan=True)
                 if numclass==40:   
-                    label_mapping_nyu=mapping_nyu40(manhattan=True)
+                    label_mapping_nyu=SemanticUtils.mapping_nyu40(manhattan=True)
                 for scan_id, nyu_id in label_mapping_nyu.items():
                     semantic_seg[semantic_render==scan_id] = nyu_id
                 

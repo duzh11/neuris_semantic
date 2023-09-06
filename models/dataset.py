@@ -93,7 +93,7 @@ class Dataset:
         self.use_normal = conf['use_normal']
         self.resolution_level = conf['resolution_level']
         self.use_semantic = conf['use_semantic']
-        self.use_semantic_mask = True
+        self.use_semantic_mask = True #conf['use_mv_similarity']
         self.use_grid = conf['use_grid']
         self.semantic_class=conf['semantic_class']
         self.semantic_type=conf['semantic_type']
@@ -210,7 +210,7 @@ class Dataset:
             for ext in ['.png', '.JPG']:
                 #slic: slic_40_10_0, slic_60_10_0, slic_80_10_0
                 #felzenszwalb: felzenszwalb_100_1_50, felzenszwalb_100_1_50_a
-                grids_dir='instance'
+                grids_dir='felzenszwalb_100_1_50_a'
                 logging.info(f'Load grids: {grids_dir}')
                 grids_lis = glob(os.path.join(self.data_dir, f'{grids_dir}/*{ext}'))
                 grids_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))

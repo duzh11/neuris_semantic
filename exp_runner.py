@@ -1275,7 +1275,7 @@ class Runner:
             colour_map_np = utils_colour.nyu40_colour_code
             labels_vis = colour_map_np[(volume_labels)].astype(np.uint8)
 
-            path_mesh_semantic = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_surface_semantic.ply')
+            path_mesh_semantic = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_volume_semantic.ply')
 
         path_mesh = os.path.join(self.base_exp_dir, 'meshes', f'{self.iter_step:0>8d}_reso{resolution}_{self.scan_name}.ply')
         path_mesh_gt = IOUtils.find_target_file(self.dataset.data_dir, self.conf['general.scan_name']+'_vh_clean_2_trans.ply')

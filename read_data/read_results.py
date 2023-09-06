@@ -118,11 +118,11 @@ def main(scene_name, method_name, source_id, target_id, x, y):
         show_results(scene_name, method_name, target_id, target_x, target_y)
 
 if __name__=='__main__':
-    scene_name = 'scene0050_00'
-    method_name_lis = ['pred_40_test2_compa2', 'pred_40_test2_compa3']
-    source_id='0390'
-    target_id='0400'
-    x, y= 94, 208 # 240*320
+    scene_name = 'scene0616_00'
+    method_name_lis = ['pred_40_test2_compa2_b', 'pred_40_test2_compa3', 'pred_40_test2_compa3_b']
+    source_id='0130'
+    target_id='0140'
+    x, y= 284, 141 # 240*320
 
     for method_name in method_name_lis:
         main(scene_name, method_name, source_id, target_id, x, y)

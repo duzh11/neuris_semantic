@@ -34,7 +34,7 @@ def evalute_mesh(exp_name,
 
     metrics_eval_mesh = []
     for scene_name in lis_name_scenes:
-        
+   
         logging.info(f'\n\nProcess mesh: {scene_name}')
         scene_dir=os.path.join(dir_dataset,scene_name)
         output_dir=f'{dir_results_baseline}/{name_baseline}'
@@ -174,10 +174,10 @@ if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)    
     # lis_exp_name=[f'semantic_40_test{i}' for i in range(1,13)]
-    method='deeplab_pred'
-    lis_exp_name=['pred_40_test2_compa3', 'pred_40_test10_compa1']
+    method='neuris'
+    lis_exp_name=['neuris_test4']
     # lis_name_scenes=['scene0015_00','scene0025_00','scene0169_00','scene0414_00','scene0426_00','scene0568_00']
-    lis_name_scenes=['scene0025_00', 'scene0169_00', 'scene0580_00']
+    lis_name_scenes=['scene0084_00']
     numclass=40
     eval_threshold=[0.03,0.05,0.07]
     
@@ -197,13 +197,15 @@ if __name__=='__main__':
         for scene in lis_name_scenes:
             render_cmd = f'python ./render/render_mesh_open3d.py {scene} {exp_name}'
             vedio_cmd=f'python ./render/render_vedio.py {scene} {exp_name} {0} {-1}'
+            os.system(render_cmd)
+            os.system(vedio_cmd)
 
-        logging.info(f'------Evaluate semantics: {exp_name}')
-        metrics_eval_semantic, metrics_acc, metrics_iou=SemanticUtils.evaluate_semantic(exp_name, 
-                                                                  lis_name_scenes,
-                                                                  numclass)
+        # logging.info(f'------Evaluate semantics: {exp_name}')
+        # metrics_eval_semantic, metrics_acc, metrics_iou=SemanticUtils.evaluate_semantic(exp_name, 
+        #                                                           lis_name_scenes,
+        #                                                           numclass)
         
-        label_mesh(exp_name, lis_name_scenes, name_baseline, dir_results_baseline=dir_results_baseline)
+        # label_mesh(exp_name, lis_name_scenes, name_baseline, dir_results_baseline=dir_results_baseline)
     
         logging.info(f'------Evaluate mesh: {exp_name}')
         metrics_eval_mesh=evalute_mesh(exp_name, 
