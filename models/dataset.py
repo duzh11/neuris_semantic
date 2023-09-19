@@ -92,11 +92,17 @@ class Dataset:
         self.bbox_size_half = conf['bbox_size_half']
         self.use_normal = conf['use_normal']
         self.resolution_level = conf['resolution_level']
+        
         self.use_semantic = conf['use_semantic']
-        self.use_mv_similarity = conf['use_mv_similarity']
-        self.use_grid = conf['use_grid']
         self.semantic_class=conf['semantic_class']
         self.semantic_type=conf['semantic_type']
+        
+        self.use_mv_similarity = conf['use_mv_similarity']
+        self.mv_confidence = conf['mv_confidence']
+        
+        self.use_grid = conf['use_grid']
+        self.grids_type = conf['grids_type']
+
         self.denoise_gray_image = self.conf['denoise_gray_image']
         self.denoise_paras = self.conf['denoise_paras']
 
@@ -162,7 +168,7 @@ class Dataset:
         h_img, w_img, _ = self.images[0].shape
         logging.info(f"Resolution level: {self.resolution_level}. Image size: ({w_img}, {h_img})")
 
-        # semantic 
+        # loading semantic 
         logging.info(f'Use semantics:{self.use_semantic}, Loading semantics..')
         if self.use_semantic:
             semantic_lis = None
@@ -192,20 +198,25 @@ class Dataset:
             self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
         
         # loading multivew similarity
-        logging.info(f'Use mv_similarity:{self.use_mv_similarity}, Loading mv_similarity..')
+        logging.info(f'Use mv_similarity:{self.use_mv_similarity & self.use_semantic}, Loading mv_similarity..')
         if self.use_semantic and self.use_mv_similarity:
-            semantic_mv_similarity = []
-            semantic_similarity_dir = glob(f'{self.data_dir}/mv_similarity/{self.semantic_type}/*.npz')
-            semantic_similarity_dir.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
-            for idx in semantic_similarity_dir:
-                semantic_mv_similarity.append((np.load(idx))['arr_0'])
+            mv_similarity_dir = f'mv_similarity/{self.semantic_type}'
+            logging.info(f'Load mv_similarity: {mv_similarity_dir}')
+
+            mv_similarity_lis = glob(os.path.join(f'{self.data_dir}', mv_similarity_dir, '*.npz'))
+            mv_similarity_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
+
+            mv_similarity = np.stack([ np.load(idx)['arr_0'] for idx in mv_similarity_lis ])
+            n_similarity = len(mv_similarity)
+            logging.info(f"Read {n_similarity} mv_similarity.")
             
             # loading mv_similarity
-            mv_similarity = np.array(semantic_mv_similarity)
+            mv_similarity = np.array(mv_similarity)
             self.mv_similarity = torch.from_numpy(mv_similarity).cpu()
 
             # semantic_mask
-            semantic_mask_valid = (mv_similarity>0.5)
+            logging.info('!!!filtering noisy semantics')
+            semantic_mask_valid = ( mv_similarity>self.mv_confidence )
             semantics[~semantic_mask_valid] = 0
             self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
             
@@ -214,9 +225,8 @@ class Dataset:
         if self.use_grid:
             grids_lis = None
             for ext in ['.png', '.JPG']:
-                #slic: slic_40_10_0, slic_60_10_0, slic_80_10_0
-                #felzenszwalb: felzenszwalb_100_1_50, felzenszwalb_100_1_50_a
-                grids_dir='felzenszwalb_100_1_50_a'
+
+                grids_dir=self.grids_type
                 logging.info(f'Load grids: {grids_dir}')
                 grids_lis = glob(os.path.join(self.data_dir, f'{grids_dir}/*{ext}'))
                 grids_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))

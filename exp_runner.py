@@ -1,6 +1,7 @@
 import cv2 as cv
 import numpy as np
 import random
+import matplotlib
 import os, logging, argparse, trimesh, copy
 
 import torch
@@ -195,16 +196,19 @@ class Runner:
 
             ### use grid
             semantic_consistency_weight=self.conf['model.loss.semantic_consistency_weight']
-            self.conf['dataset']['use_grid'] = True if semantic_consistency_weight> 0 else False
+            self.conf['dataset']['use_grid'] = True if ((semantic_consistency_weight>0) & (semantic_loss_weight>0)) else False
             self.use_grid=self.conf['dataset']['use_grid']
             logging.info(f'use semantic_consistency: {self.use_grid}, consistency weight: {semantic_consistency_weight}')
 
             ### joint optimization parameters
             self.joint_iter=self.conf['train.joint_iter'] 
             joint_loss_weight=self.conf['model.loss.joint_weight']
-            self.conf['dataset']['use_joint'] = True if joint_loss_weight > 0 else False
+            self.conf['dataset']['use_joint'] = True if ((joint_loss_weight > 0) & (semantic_loss_weight>0))else False
             self.use_joint=self.conf['dataset']['use_joint']
-            logging.info(f'use joint optimization: {self.use_joint}, begin: {self.joint_iter}, joint loss weight: {joint_loss_weight}')
+            if self.use_joint:
+                logging.info(f'use joint optimization: {self.use_joint}, begin: {self.joint_iter}, joint loss weight: {joint_loss_weight}')
+            else: 
+                logging.info(f'use joint optimization: {self.use_joint}')
             
             ### normal parameters
             normal_weight=self.conf['model.loss.normal_weight']
@@ -232,6 +236,7 @@ class Runner:
         logging.info(f"Use semantic: {self.conf['dataset']['use_semantic']}")
         logging.info(f"Use semantic_consistency: {self.conf['dataset']['use_grid']}")
         logging.info(f"Use joint optimization: {self.conf['dataset']['use_joint']}")
+        logging.info(f"Use mv_similarity: {self.conf['dataset']['use_mv_similarity']}")
         
         self.conf['dataset']['use_planes'] = True if self.conf['model.loss.normal_consistency_weight'] > 0 else False
         self.conf['dataset']['use_plane_offset_loss'] = True if self.conf['model.loss.plane_offset_weight'] > 0 else False
@@ -263,8 +268,8 @@ class Runner:
             
             self.theta = torch.Tensor([0.])
             if self.use_joint:
-                self.theta=self.theta.to(self.device)
-                self.theta.requires_grad = True
+                self.theta=(self.theta).to(self.device)
+                (self.theta).requires_grad = True
                 params_to_train += [self.theta]
             
             self.renderer = NeuSRenderer(self.nerf_outside,
@@ -322,9 +327,8 @@ class Runner:
         
         idx_img = image_perm[self.iter_step % self.dataset.n_images]
         self.curr_img_idx = idx_img
-
         data, pixels_x, pixels_y,  normal_sample, planes_sample, subplanes_sample = self.dataset.random_get_rays_at(idx_img, self.batch_size)
-        rays_o, rays_d, true_rgb, true_mask, true_semantic, grid = data[:, :3], data[:, 3: 6], data[:, 6: 9], data[:, 9: 10], data[:, 10: 11], data[:,11: 12]
+        rays_o, rays_d, true_rgb, true_mask, true_semantic, grid, mv_similarity = data[:, :3], data[:, 3: 6], data[:, 6: 9], data[:, 9: 10], data[:, 10: 11], data[:,11: 12], data[:,12: 13]
         true_mask =  (true_mask > 0.5).float()
         mask = true_mask
 
@@ -362,6 +366,7 @@ class Runner:
             'true_rgb': true_rgb,
             'true_semantic': true_semantic,
             'grid': grid,
+            'mv_similarity': mv_similarity,
             'background_rgb': background_rgb,
             'pixels_x': pixels_x,  # u
             'pixels_y': pixels_y,   # v,
@@ -858,7 +863,7 @@ class Runner:
             colour_map_np = utils_colour.nyu13_colour_code
 
         imgs_render = {}
-        for key in ['color_fine', 'confidence','confidence_mask','variance_surface', 'normal', 'depth','semantic_fine']:
+        for key in ['color_fine', 'confidence','confidence_mask', 'normal', 'depth', 'depth_variance', 'semantic_fine', 'sem_uncertainty_fine']:
             imgs_render[key] = []
         if save_peak_value:
             imgs_render.update({
@@ -1015,7 +1020,7 @@ class Runner:
                 # psnr_peak = 20.0 * torch.log10(1.0 / (((self.dataset.images[idx] - torch.from_numpy(imgs_render['color_peak']))**2).sum() / (imgs_render['color_peak'].size * 3.0)).sqrt())
                 print(f'PSNR (rener, peak): {psnr_render}  {psnr_peak}')
     
-
+        colormap_func = matplotlib.cm.get_cmap("jet")
         if save_semantic_render and self.use_semantic:
             semantic_fine=(imgs_render['semantic_fine'].argmax(axis=2))
             if semantic_class!=3:
@@ -1029,12 +1034,19 @@ class Runner:
             vis_label = colour_map_np[(semantic_fine).astype(np.uint8)]
             ImageUtils.write_image(os.path.join(self.base_exp_dir, 'semantic_render_vis', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         (vis_label.astype(np.uint8))[...,::-1])
-            
-            # semantic_input = ImageUtils.resize_image(self.dataset.semantics[idx].cpu().numpy(), 
-            #             (semantic_fine.shape[1], semantic_fine.shape[0]))
-            # vis_input = colour_map_np[(semantic_input).astype(np.uint8)]
-            # ImageUtils.write_image(os.path.join(self.base_exp_dir, 'semantic_render_vis', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}_input.png'), 
-            #             (vis_input.astype(np.uint8))[...,::-1])
+
+            # sem_uncertainty
+            sem_uncertainty=imgs_render['sem_uncertainty_fine']
+            uncertain_min = sem_uncertainty.min()
+            uncertain_max = sem_uncertainty.max()
+            sem_uncertainty_norm = (sem_uncertainty - uncertain_min) / (uncertain_max - uncertain_min)
+
+            sem_uncertainty_vis = colormap_func(sem_uncertainty_norm)[:, :, :3]
+            sem_uncertainty_vis = (sem_uncertainty_vis*255)
+
+            os.makedirs(os.path.join(self.base_exp_dir, 'sem_uncertainty_vis'), exist_ok=True)
+            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'sem_uncertainty_vis', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+                        (sem_uncertainty_vis[..., ::-1].astype(np.uint8)))
 
             if save_peak_value:
                 semantic_peak=(imgs_render['semantic_peak'].argmax(axis=2))
@@ -1052,6 +1064,7 @@ class Runner:
         
         # (3) save images
         if save_lis_images:
+            lis_semantics = []
             lis_imgs = []
             img_sample = np.zeros_like(imgs_render['color_fine'])
             img_sample[:,:,1] = 255
@@ -1079,57 +1092,58 @@ class Runner:
                     render_depth_map_jet = cv.applyColorMap(render_depth_map, cv.COLORMAP_JET)
                     lis_imgs.append(render_depth_map_jet)
                     continue
-                # if key in ['depth', 'depth_peak', 'variance']:
-                #     img_temp = img_temp / (np.max(img_temp)+1e-6) * 255
+
+                if key =='depth_variance':
+                    img_temp = img_temp / (np.max(img_temp)+1e-6) * 255
+
                 elif key == 'confidence' and validate_confidence:
-                #     img_temp2 = ImageUtils.convert_gray_to_cmap(img_temp)
-                #     img_temp2 = img_temp2 * imgs_render['confidence_mask'][:,:,None]
-                #     lis_imgs.append(img_temp2)
                     img_temp3_mask_use_prior = (img_temp<self.thres_robust_ncc)
                     lis_imgs.append(img_temp3_mask_use_prior*255)
                     img_sample[img_temp==1.0] = (255,0,0)
                     logging.info(f'Pixels: {img_temp3_mask_use_prior.size}; Use prior: {img_temp3_mask_use_prior.sum()}; Invalid patchmatch: {(img_temp==1.0).sum()}')
                     logging.info(f'Ratio: Use prior: {img_temp3_mask_use_prior.sum()/img_temp3_mask_use_prior.size}; Invalid patchmatch: {(img_temp==1.0).sum()/img_temp3_mask_use_prior.size}')
-                #     img_temp = img_temp.clip(0,1) * 255
                     continue
-                #imgs_render['confidence_mask'] bool
+
                 elif key == 'color_fine':
                     img_temp *= 255
-                elif key=='confidence_mask':
-                #     img_temp =img_temp*255
-                #     lis_imgs.append(img_temp)
-                    continue
+
                 elif key=='semantic_fine' and self.use_semantic:
                     img_temp = (img_temp.argmax(axis=2))
                     if semantic_class!=3:
                         img_temp = img_temp+1
-
+                    # semantic input
                     semantic_input = ImageUtils.resize_image(self.dataset.semantics[idx].cpu().numpy(), 
                         (img_temp.shape[1], img_temp.shape[0]))
                     vis_input = colour_map_np[(semantic_input).astype(np.uint8)]
                     vis_input=(vis_input.astype(np.uint8))[...,::-1]
-                    lis_imgs.append(vis_input)
-
+                    lis_semantics.append(vis_input)
+                    # semantic render
                     vis_label = colour_map_np[(img_temp).astype(np.uint8)]
                     vis_label=(vis_label.astype(np.uint8))[...,::-1]
-                    lis_imgs.append(vis_label)
-                    
+                    lis_semantics.append(vis_label)
+
                     continue
+                elif key=='sem_uncertainty_fine' and self.use_semantic:
+                    sem_uncertainty = img_temp
+                    uncertain_min = sem_uncertainty.min()
+                    uncertain_max = sem_uncertainty.max()
+                    sem_uncertainty_norm = (sem_uncertainty - uncertain_min) / (uncertain_max - uncertain_min)
+
+                    sem_uncertainty_vis = colormap_func(sem_uncertainty_norm)[:, :, :3]
+                    sem_uncertainty_vis = (sem_uncertainty_vis*255)
+                    lis_semantics.append(sem_uncertainty_vis[...,::-1])
+                    continue
+
                 else:
                     continue
-                
-                # cv.putText(img_temp, key,  (int(img_temp.shape[1]-360/resolution_level), int(img_temp.shape[0]-40/resolution_level)), 
-                #     fontFace= cv.FONT_HERSHEY_SIMPLEX, 
-                #     fontScale = int(2/resolution_level), 
-                #     color = (0, 255, 0), 
-                #     thickness = int(2/resolution_level))
 
                 lis_imgs.append(img_temp)
-            
-            dir_images = os.path.join(self.base_exp_dir, expdir)
-            os.makedirs(dir_images, exist_ok=True)
+
             img_gt = ImageUtils.resize_image(self.dataset.images[idx].cpu().numpy(), 
-                                                (lis_imgs[0].shape[1], lis_imgs[0].shape[0]))            
+                                                (lis_imgs[0].shape[1], lis_imgs[0].shape[0]))             
+            # write lis_imgs
+            dir_images = os.path.join(self.base_exp_dir, expdir)
+            os.makedirs(dir_images, exist_ok=True)         
             
             if validate_confidence:
                 img_sample[img_temp3_mask_use_prior] = img_gt[img_temp3_mask_use_prior]*255
@@ -1137,9 +1151,23 @@ class Runner:
             else:
                 lis_imgs=[img_gt] + lis_imgs
                 
-            #color_fine, confidence, img_temp3_mask_use_prior, confidence
             ImageUtils.write_image_lis(f'{dir_images}/{self.iter_step:08d}_reso{resolution_level}_{idx:08d}.png',
                                             lis_imgs)
+            
+            # write lis_semantics
+            if self.use_semantic:
+                dir_semantics = os.path.join(self.base_exp_dir, expdir+'_semantics')
+                os.makedirs(dir_semantics, exist_ok=True)
+                if self.conf['dataset']['use_mv_similarity']:
+                    mv_similarity = ImageUtils.resize_image(self.dataset.mv_similarity[idx].cpu().numpy(), 
+                                                        (lis_imgs[0].shape[1], lis_imgs[0].shape[0])) 
+                    mv_similarity_vis = colormap_func(mv_similarity)[:, :, :3]
+                    lis_semantics=[img_gt, mv_similarity_vis] + lis_semantics
+                else:
+                    lis_semantics=[img_gt] + lis_semantics
+                
+                ImageUtils.write_image_lis(f'{dir_semantics}/{self.iter_step:08d}_reso{resolution_level}_{idx:08d}.png',
+                                            lis_semantics)
 
         if save_peak_value:
             pts_peak_all = np.concatenate(pts_peak_all, axis=0)
@@ -1577,7 +1605,7 @@ if __name__ == '__main__':
     parser.add_argument('--conf', type=str, default='./confs/neuris_server.conf')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--server', type=str, default='local',help='random seed')
-    parser.add_argument('--mode', type=str, default='train') #changed
+    parser.add_argument('--mode', type=str, default='validate_image') #changed
     parser.add_argument('--model_type', type=str, default='neus')
     parser.add_argument('--threshold', type=float, default=0.0)
     parser.add_argument('--gpu', type=int, default=0)
@@ -1592,7 +1620,7 @@ if __name__ == '__main__':
     parser.add_argument('--semantic_class', type=int, help='number of semantic class')
     parser.add_argument('--stop_semantic_grad', action='store_true', default=False, help='stop semantic gradients')
     parser.add_argument('--semantic_mode', type=str)
-    parser.add_argument('--is_continue', default=False, action="store_true") #加载预训练权重 changed
+    parser.add_argument('--is_continue', default=True, action="store_true") #加载预训练权重 changed
     args = parser.parse_args()
 
     torch.cuda.set_device(args.gpu)
@@ -1627,7 +1655,7 @@ if __name__ == '__main__':
         if runner.model_type == 'neus':
             for i in range(0, runner.dataset.n_images, 1):
                 t1 = datetime.now()
-                runner.validate_image(13, resolution_level=2, semantic_class=runner.semantic_class,
+                runner.validate_image(i, resolution_level=2, semantic_class=runner.semantic_class,
                                             save_normamap_npz=args.save_normamap_npz, 
                                             save_peak_value=args.save_peak_value,
                                             save_image_render=args.nvs,
