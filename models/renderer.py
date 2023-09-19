@@ -287,9 +287,11 @@ class NeuSRenderer:
         if semantic_network:
             if semantic_network.semantic_mode=='softmax' or semantic_network.semantic_mode=='sigmoid':
                 semantic = semantic / (semantic.sum(-1).unsqueeze(-1) + 1e-8)
-                semantic = torch.log(semantic + 1e-8)            
-        
+                semantic = torch.log(semantic + 1e-8)    
 
+        logits_2_uncertainty = lambda x: torch.sum(-F.log_softmax(x, dim=-1)*F.softmax(x, dim=-1), dim=-1, keepdim=True)
+        sem_uncertainty = logits_2_uncertainty(semantic)
+        
         gradient_error = (torch.linalg.norm(gradients.reshape(batch_size, n_samples, 3), ord=2,
                                             dim=-1) - 1.0) ** 2
         gradient_error = (relax_inside_sphere * gradient_error).sum() / (relax_inside_sphere.sum() + 1e-5)
@@ -329,6 +331,7 @@ class NeuSRenderer:
                 normal_peak = normal.clone()
                 color_peak = color.clone()
                 semantic_peak = semantic.clone()
+                sem_uncertainty_peak = logits_2_uncertainty(semantic_peak)
                 point_peak = rays_o + rays_d*depth
             else:
                 # Reset a large inv-variance to get better peak value
@@ -346,6 +349,7 @@ class NeuSRenderer:
                 normal_peak = (gradients.reshape(batch_size, n_samples, 3) * weights2[:, :n_samples].reshape(batch_size, n_samples, 1)).sum(dim=1)
                 color_peak = (sampled_color[:, :n_samples] * weights2[:, :n_samples, None]).sum(dim=1)
                 semantic_peak = (sampled_semantic[:, :n_samples] * weights2[:, :n_samples, None]).sum(dim=1)
+                sem_uncertainty_peak = logits_2_uncertainty(semantic_peak)
                 point_peak = rays_o + rays_d*depth_peak
 
         render_out = {
@@ -356,6 +360,7 @@ class NeuSRenderer:
             'normal': normal,
             'color_fine': color,
             'semantic_fine': semantic,
+            'sem_uncertainty_fine': sem_uncertainty,
             'cdf_fine': c.reshape(batch_size, n_samples),
             'sdf': sdf,
             'dists': dists,
@@ -370,6 +375,7 @@ class NeuSRenderer:
             'normal_peak': normal_peak,
             'color_peak': color_peak,
             'semantic_peak': semantic_peak,
+            'sem_uncertainty_peak': sem_uncertainty_peak,
             'point_peak': point_peak
         }
 

@@ -93,7 +93,7 @@ class Dataset:
         self.use_normal = conf['use_normal']
         self.resolution_level = conf['resolution_level']
         self.use_semantic = conf['use_semantic']
-        self.use_semantic_mask = True #conf['use_mv_similarity']
+        self.use_mv_similarity = conf['use_mv_similarity']
         self.use_grid = conf['use_grid']
         self.semantic_class=conf['semantic_class']
         self.semantic_type=conf['semantic_type']
@@ -191,15 +191,21 @@ class Dataset:
 
             self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
         
-        # loading semantic mask
-        logging.info(f'Use semantic_mask:{self.use_semantic_mask}, Loading semantic_mask..')
-        if self.use_semantic_mask:
-            semantic_mask_np = []
-            semantic_mask_dir = glob(f'{self.data_dir}/semantic_consistency/*.npz')
-            semantic_mask_dir.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
-            for idx in semantic_mask_dir:
-                semantic_mask_np.append((np.load(idx))['arr_0'])
-            semantic_mask_valid = (np.array(semantic_mask_np)>0.5)
+        # loading multivew similarity
+        logging.info(f'Use mv_similarity:{self.use_mv_similarity}, Loading mv_similarity..')
+        if self.use_semantic and self.use_mv_similarity:
+            semantic_mv_similarity = []
+            semantic_similarity_dir = glob(f'{self.data_dir}/mv_similarity/{self.semantic_type}/*.npz')
+            semantic_similarity_dir.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
+            for idx in semantic_similarity_dir:
+                semantic_mv_similarity.append((np.load(idx))['arr_0'])
+            
+            # loading mv_similarity
+            mv_similarity = np.array(semantic_mv_similarity)
+            self.mv_similarity = torch.from_numpy(mv_similarity).cpu()
+
+            # semantic_mask
+            semantic_mask_valid = (mv_similarity>0.5)
             semantics[~semantic_mask_valid] = 0
             self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
             
@@ -558,6 +564,10 @@ class Dataset:
         grid=torch.zeros_like(mask)
         if self.use_grid:
             grid = self.grids[img_idx][(pixels_y, pixels_x)][:,None]
+        
+        mv_similarity=torch.zeros_like(mask)
+        if self.use_mv_similarity:
+            mv_similarity = self.mv_similarity[img_idx][(pixels_y, pixels_x)][:,None]
 
         p = torch.stack([pixels_x, pixels_y, torch.ones_like(pixels_y)], dim=-1).float()  # (pixels_x, pixels_y, 1)
         # matul: tensor的乘法. 相机内参
@@ -579,7 +589,7 @@ class Dataset:
         if self.use_plane_offset_loss:
             subplanes_sample = self.subplanes[img_idx][(pixels_y, pixels_x)].unsqueeze(-1).cuda()
 
-        return torch.cat([rays_o.cpu(), rays_v.cpu(), color, mask, semantic, grid], dim=-1).cuda(), pixels_x, pixels_y, normal_sample, planes_sample, subplanes_sample    # batch_size, 10
+        return torch.cat([rays_o.cpu(), rays_v.cpu(), color, mask, semantic, grid, mv_similarity], dim=-1).cuda(), pixels_x, pixels_y, normal_sample, planes_sample, subplanes_sample   # batch_size, 10
 
     def near_far_from_sphere(self, rays_o, rays_d):
         # torch

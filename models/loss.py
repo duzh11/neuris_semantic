@@ -121,8 +121,6 @@ class NeuSLoss(nn.Module):
 
     def forward(self, input_model, render_out, sdf_network_fine, patchmatch_out = None, joint_start=False, theta=0):
         true_rgb = input_model['true_rgb']
-        true_semantic = input_model['true_semantic']
-        grid=input_model['grid']
 
         mask, rays_o, rays_d, near, far = input_model['mask'], input_model['rays_o'], input_model['rays_d'],  \
                                                     input_model['near'], input_model['far']
@@ -186,6 +184,7 @@ class NeuSLoss(nn.Module):
 
         semantic_fine_loss=0.
         if self.semantic_weight>0:
+            true_semantic = input_model['true_semantic']
             semantic_fine_loss = crossentropy_loss(semantic_fine.reshape(-1,self.semantic_class), true_semantic.reshape(-1).long())
     
             logs_summary.update({           
@@ -194,21 +193,35 @@ class NeuSLoss(nn.Module):
         
         semantic_consistency_loss=0
         if joint_start and self.semantic_weight>0 and self.semantic_consistency_weight>0:
+            grid=input_model['grid']
+            mv_similarity = input_model['mv_similarity']
             semantic_score = F.softmax(semantic_fine, dim=-1)
             
+            # todo 选择render_semantic还是true_semantic
             semantic = semantic_score.argmax(axis=1) #0-39
+            # semantic = (true_semantic-1).long()
             grid_list=torch.unique(grid)
             
             for i in grid_list:
                 if i==0:
                     continue #忽略void类别的semantic consistency
                 grid_mask = (grid==i)
-                semantic_mask=semantic[grid_mask.squeeze()]
+                semantic_mask = semantic[grid_mask.squeeze()]
                 semantic_score_mask=semantic_score[grid_mask.squeeze()]
-
+                mv_similarity_mask=mv_similarity[grid_mask.squeeze()]
+                #通过数量来投票
                 mode_value, mode_count = torch.mode(semantic_mask)
                 semantic_maxprob=mode_value.item()
-                
+                #通过算相似度来投票
+                # semantic_list = torch.unique(semantic_mask)
+                # maxscore = -0.1
+                # for j in semantic_list:
+                #     semantic_j = semantic_mask==j
+                #     j_score=mv_similarity_mask[semantic_j].sum()
+                #     if j_score>maxscore:
+                #         semantic_maxprob = j
+                #         maxscore = j_score
+
                 prob=semantic_score_mask[:,semantic_maxprob]
                 semantic_consistency_loss += 1-prob.mean()
             
