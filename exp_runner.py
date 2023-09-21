@@ -457,14 +457,16 @@ class Runner:
         for idx in tqdm(range(0,self.dataset.n_images,1)):
             t_validate = datetime.now()
             self.validate_image(idx, 
-                                semantic_class=self.semantic_class, expdir=f'image_train/{int(self.end_iter)}',
+                                semantic_class=self.semantic_class, 
                                 save_peak_value=False, 
                                 validate_confidence=self.use_geocheck,
                                 save_image_render = False, 
                                 save_normal_render = False, 
                                 save_depth_render = False, 
                                 save_semantic_render = True, 
-                                save_lis_images=True)
+                                save_lis_images=True,
+                                lis_expdir=f'image_train/{int(self.end_iter)}',
+                                semantics_expdir=f'image_train_semantics/{int(self.end_iter)}')
             logging.info(f"validating image time is : {(datetime.now()-t_validate).total_seconds()}")
         logging.info(f"Done: validating image")
 
@@ -845,7 +847,8 @@ class Runner:
                         save_depth_render = False,
                         save_semantic_render = False,
                         save_lis_images=True,
-                        expdir='image_train'):
+                        lis_expdir='image_train',
+                        semantics_expdir='image_train_semantics'):
         # validate imagegmea
         ic(self.iter_step, idx)
         logging.info(f'Validate image begin: idx {idx}...')
@@ -1146,7 +1149,7 @@ class Runner:
             img_gt = ImageUtils.resize_image(self.dataset.images[idx].cpu().numpy(), 
                                                 (lis_imgs[0].shape[1], lis_imgs[0].shape[0]))             
             # write lis_imgs
-            dir_images = os.path.join(self.base_exp_dir, expdir)
+            dir_images = os.path.join(self.base_exp_dir, lis_expdir)
             os.makedirs(dir_images, exist_ok=True)         
             
             if validate_confidence:
@@ -1160,7 +1163,7 @@ class Runner:
             
             # write lis_semantics
             if self.use_semantic:
-                dir_semantics = os.path.join(self.base_exp_dir, expdir+'_semantics')
+                dir_semantics = os.path.join(self.base_exp_dir, semantics_expdir)
                 os.makedirs(dir_semantics, exist_ok=True)
                 if self.conf['dataset']['use_mv_similarity']:
                     mv_similarity = ImageUtils.resize_image(self.dataset.mv_similarity[idx].cpu().numpy(), 
@@ -1554,7 +1557,8 @@ class Runner:
                                                                                                       semantic_class=self.semantic_class,
                                                                                                       save_peak_value = True, 
                                                                                                       save_lis_images= False, 
-                                                                                                      expdir=f'image_train/{int(iter_step_npz)}')
+                                                                                                      lis_expdir=f'image_train/{int(iter_step_npz)}',
+                                                                                                      semantcis_expdir=f'image_train_semantics/{int(iter_step_npz)}')
                 H, W = confidence.shape
                 resize_arr = lambda in_arr : cv.resize(in_arr, (W*resolution_level, H*resolution_level), interpolation=cv.INTER_NEAREST) if resolution_level > 1 else in_arr
                 self.dataset.confidence_accum[idx] = resize_arr(confidence)
@@ -1668,7 +1672,8 @@ if __name__ == '__main__':
                                             save_depth_render=False,
                                             save_semantic_render = True,
                                             save_lis_images=True,
-                                            expdir='image_valiate')
+                                            lis_expdir='image_valiate',
+                                            semantics_expdir='image_valiate_semantics')
                 logging.info(f"validating image time is : {(datetime.now()-t1).total_seconds()}")
         
         elif runner.model_type == 'nerf':
