@@ -20,12 +20,15 @@ def random_rgb():
     rgb[2] = random.randint(1, 255)
     return rgb
 
-scene_list=['scene0616_00']
+scene_list=['scene0050_00', 'scene0616_00']
 semantic_type_list = ['semantic_pred_repair_0.3', 'semantic_pred_repair_0.5', 'mask2former_repair_0.3', 'mask2former_repair_0.5']
 mask_name = ['instance', 'SAM', 'felzenszwalb']
 flag_list = ['num', 'mv_similarity']
 
 def fuse_semantic(mask, semantic, mv_similarity,flag='num'):
+    '''
+    这个函数用于将semantic和mask进行投票，并返回投票结果
+    '''
     semantic_fuse = semantic.copy()
     mask_list = np.unique(mask)
     for i in mask_list:

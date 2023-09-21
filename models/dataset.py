@@ -215,10 +215,10 @@ class Dataset:
             self.mv_similarity = torch.from_numpy(mv_similarity).cpu()
 
             # semantic_mask
-            logging.info('!!!filtering noisy semantics')
-            semantic_mask_valid = ( mv_similarity>self.mv_confidence )
-            semantics[~semantic_mask_valid] = 0
-            self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
+            # logging.info('!!!filtering noisy semantics')
+            # semantic_mask_valid = ( mv_similarity>self.mv_confidence )
+            # semantics[~semantic_mask_valid] = 0
+            # self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
             
         # loading grids
         logging.info(f'Use grids:{self.use_grid}, Loading grids..')

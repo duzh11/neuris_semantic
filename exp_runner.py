@@ -119,10 +119,14 @@ class Runner:
             self.conf['general']['server']=self.server
             self.conf['general']['exp_dir']='/raid/duzhenhua/3Dv_Reconstruction/NeuRIS/exps'
             self.conf['general']['data_dir']='/raid/duzhenhua/3Dv_Reconstruction/NeuRIS/Data/dataset'    
+        elif self.server=='autodl':
+            self.conf['general']['server']=self.server
+            self.conf['general']['exp_dir']='/root/autodl-tmp/3Dv_Reconstruction/NeuRIS/exps'
+            self.conf['general']['data_dir']='/root/autodl-fs/3Dv_Reconstruction/NeuRIS/Data/dataset'   
         elif self.server=='yatai':
             self.conf['general']['server']=self.server
             self.conf['general']['exp_dir']='../exps'
-            self.conf['general']['data_dir']='../Data/dataset'  
+            self.conf['general']['data_dir']='../Data/dataset'   
         else:
             self.server='local'
             self.conf['general']['server']=self.server
@@ -1605,7 +1609,7 @@ if __name__ == '__main__':
     parser.add_argument('--conf', type=str, default='./confs/neuris_server.conf')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--server', type=str, default='local',help='random seed')
-    parser.add_argument('--mode', type=str, default='validate_image') #changed
+    parser.add_argument('--mode', type=str, default='train') #changed
     parser.add_argument('--model_type', type=str, default='neus')
     parser.add_argument('--threshold', type=float, default=0.0)
     parser.add_argument('--gpu', type=int, default=0)
@@ -1620,7 +1624,7 @@ if __name__ == '__main__':
     parser.add_argument('--semantic_class', type=int, help='number of semantic class')
     parser.add_argument('--stop_semantic_grad', action='store_true', default=False, help='stop semantic gradients')
     parser.add_argument('--semantic_mode', type=str)
-    parser.add_argument('--is_continue', default=True, action="store_true") #加载预训练权重 changed
+    parser.add_argument('--is_continue', default=False, action="store_true") #加载预训练权重 changed
     args = parser.parse_args()
 
     torch.cuda.set_device(args.gpu)
