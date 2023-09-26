@@ -19,20 +19,20 @@ def random_rgb():
     rgb[2] = random.randint(1, 255)
     return rgb
 
-scene_list=['scene0050_00', 'scene0426_00', 'scene0616_00']
+scene_list=['scene0378_00', 'scene0435_02', 'scene0648_00', 'scene0474_01', 'scene0030_00']
 
 img_h,img_w=480,640
-data_base='/home/du/Proj/Dataset/ScanNet'
-target_base='/home/du/Proj/NeuRIS/Data/dataset/indoor'
+data_base='/home/du/Proj/Dataset/ScanNet/scans'
+target_base='../Data/dataset/indoor'
 vis_flag=True
 for scene_name in scene_list:
     logging.info(f'loading instance: {scene_name} ')
-    scene_dir=os.path.join(data_base,scene_name)
-    target_dir=os.path.join(target_base,scene_name)
+    scene_dir=os.path.join(data_base, scene_name)
+    target_dir=os.path.join(target_base, scene_name)
 
-    instance_filt_dir =  os.path.join(scene_dir, scene_name+'_2d-instance-filt')
-    target_instance_dir = os.path.join(target_dir, 'instance')
-    target_vis_dir = os.path.join(target_dir, 'instance_vis')
+    instance_filt_dir =  os.path.join(scene_dir, 'instance-filt')
+    target_instance_dir = os.path.join(target_dir, 'grids', 'instance')
+    target_vis_dir = os.path.join(target_dir, 'grids', 'instance_vis')
     os.makedirs(target_instance_dir, exist_ok=True)
     os.makedirs(target_vis_dir, exist_ok=True)
 
@@ -44,7 +44,7 @@ for scene_name in scene_list:
     # ----load instance---
     instance_list=[]
     for idx in frame_ids:
-        file_instance=os.path.join(instance_filt_dir, 'instance-filt', '%d.png'%idx)
+        file_instance=os.path.join(instance_filt_dir, '%d.png'%idx)
         instance = cv2.imread(file_instance, cv2.IMREAD_UNCHANGED)
         # instance = cv2.copyMakeBorder(src=instance, top=2, bottom=2, left=0, right=0, borderType=cv2.BORDER_CONSTANT, value=0)
 

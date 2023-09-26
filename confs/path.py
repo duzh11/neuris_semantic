@@ -5,8 +5,8 @@ DIR_MVG_BUILD = BIN_DIR + "/openMVG_Build"
 DIR_MVS_BUILD = BIN_DIR + "/openMVS_build"
 
 # normal path
-dir_snu_code = '/home/du/Proj/NeuRIS/Data/path/snucode/surface_normal_uncertainty' # directory of code
-path_snu_pth = '/home/du/Proj/NeuRIS/Data/path/snucode_ckpt/scannet_neuris_retrain.pt'
+dir_snu_code = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/path/snucode/surface_normal_uncertainty' # directory of code
+path_snu_pth = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/path/snucode_ckpt/scannet_neuris_retrain.pt'
 #assert os.path.exists(path_snu_pth)
 
 dir_tiltedsn_code = '../Data/path/tiltedsn_code'

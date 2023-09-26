@@ -92,12 +92,12 @@ def evaluate_semantic(exp_name,
     for scene_name in lis_name_scenes:
         logging.info(f'\n\nProcess semantic: {scene_name}')
         #dir
-        GT_dir=os.path.join(dir_dataset,scene_name,GT_name)
+        GT_dir=os.path.join(dir_dataset, scene_name, 'semantic', GT_name)
 
         if flag=='old':
-            render_dir=os.path.join(exp_dir,scene_name,exp_name,'semantic_render')
+            render_dir=os.path.join(exp_dir, scene_name, exp_name,'semantic_render')
         else:
-            render_dir=os.path.join(exp_dir,scene_name,exp_name,'semantic_npz')
+            render_dir=os.path.join(exp_dir, scene_name, exp_name,'semantic_npz')
 
         # render_dir=os.path.join(dir_dataset,scene_name,'semantic_deeplab')
         GT_list=os.listdir(GT_dir)

@@ -287,7 +287,8 @@ class NeuSRenderer:
         if semantic_network:
             if semantic_network.semantic_mode=='softmax' or semantic_network.semantic_mode=='sigmoid':
                 semantic = semantic / (semantic.sum(-1).unsqueeze(-1) + 1e-8)
-                semantic = torch.log(semantic + 1e-8)    
+                semantic = torch.log(semantic + 1e-8)
+                # semantic_0 = torch.log(semantic + 1e-8) # 考虑直接进行nll_loss
 
         logits_2_uncertainty = lambda x: torch.sum(-F.log_softmax(x, dim=-1)*F.softmax(x, dim=-1), dim=-1, keepdim=True)
         sem_uncertainty = logits_2_uncertainty(semantic)

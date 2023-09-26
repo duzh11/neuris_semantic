@@ -173,9 +173,9 @@ class Dataset:
         if self.use_semantic:
             semantic_lis = None
             for ext in ['.png', '.JPG']:
-                semantic_dir=f'{self.semantic_type}'
+                semantic_dir=self.semantic_type
                 logging.info(f'Load semantic: {semantic_dir}')
-                semantic_lis = glob(os.path.join(self.data_dir, f'{semantic_dir}/*{ext}'))
+                semantic_lis = glob(os.path.join(self.data_dir, f'semantic/{semantic_dir}/*{ext}'))
                 semantic_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
                 if len(semantic_lis) > 0:
                     break
@@ -200,10 +200,10 @@ class Dataset:
         # loading multivew similarity
         logging.info(f'Use mv_similarity:{self.use_mv_similarity & self.use_semantic}, Loading mv_similarity..')
         if self.use_semantic and self.use_mv_similarity:
-            mv_similarity_dir = f'mv_similarity/{self.semantic_type}'
+            mv_similarity_dir = f'{self.semantic_type}'
             logging.info(f'Load mv_similarity: {mv_similarity_dir}')
 
-            mv_similarity_lis = glob(os.path.join(f'{self.data_dir}', mv_similarity_dir, '*.npz'))
+            mv_similarity_lis = glob(os.path.join(f'{self.data_dir}', 'mv_similarity', mv_similarity_dir, '*.npz'))
             mv_similarity_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
 
             mv_similarity = np.stack([ np.load(idx)['arr_0'] for idx in mv_similarity_lis ])
@@ -228,7 +228,7 @@ class Dataset:
 
                 grids_dir=self.grids_type
                 logging.info(f'Load grids: {grids_dir}')
-                grids_lis = glob(os.path.join(self.data_dir, f'{grids_dir}/*{ext}'))
+                grids_lis = glob(os.path.join(self.data_dir, f'grids/{grids_dir}/*{ext}'))
                 grids_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
                 if len(grids_lis) > 0:
                     break

@@ -12,7 +12,7 @@ import utils.utils_io as IOUtils
 import utils.utils_normal as NormalUtils
 
 # from confs.path import lis_name_scenes
-lis_name_scenes=['scene0580_00']
+lis_name_scenes=['scene0378_00', 'scene0435_02', 'scene0648_00', 'scene0474_01', 'scene0030_00']
 
 if __name__ == '__main__':
     np.set_printoptions(precision=3)
@@ -29,18 +29,19 @@ if __name__ == '__main__':
     dataset_type = args.data_type
     
     if dataset_type == 'scannet':
-        dir_root_scannet = '/home/du/Proj/Dataset/ScanNet'
+        dir_root_scannet = '/home/du/Proj/Dataset/ScanNet/scans'
         dir_root_neus = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
 
         for scene_name in lis_name_scenes:
+            logging.info(f'--process scene: {scene_name}--')
             dir_scan = f'{dir_root_scannet}/{scene_name}'
             dir_neus = f'{dir_root_neus}/{scene_name}'
             os.makedirs(dir_neus,exist_ok=True)
             neuris_data.prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=10, 
-                                                b_sample = False, 
-                                                b_generate_neus_data = False,
-                                                b_pred_normal = False, 
-                                                b_detect_planes = True) 
+                                                b_sample = True, 
+                                                b_generate_neus_data = True,
+                                                b_pred_normal = True, 
+                                                b_detect_planes = False) 
     
     if dataset_type == 'private':
         # example of processing iPhone video

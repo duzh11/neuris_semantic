@@ -90,7 +90,7 @@ def evaluate_chamfer(lis_name_scenes,
     for scene_name in lis_name_scenes:
         logging.info(f'begin: {scene_name}')
         file_pred = f'{dir_results_baseline}/{name_baseline}/{scene_name}.ply'
-        file_gt=f'{gt_dir}/GT_colors/{scene_name}_vh_clean_2.labels.ply'
+        file_gt=f'../Data/dataset/indoor/{scene_name}/{scene_name}_vh_clean_2.labels.ply'
 
         pcd_pred = GeoUtils.read_point_cloud(file_pred)
         pcd_gt = GeoUtils.read_point_cloud(file_gt)

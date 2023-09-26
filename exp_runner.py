@@ -1558,7 +1558,7 @@ class Runner:
                                                                                                       save_peak_value = True, 
                                                                                                       save_lis_images= False, 
                                                                                                       lis_expdir=f'image_train/{int(iter_step_npz)}',
-                                                                                                      semantcis_expdir=f'image_train_semantics/{int(iter_step_npz)}')
+                                                                                                      semantics_expdir=f'image_train_semantics/{int(iter_step_npz)}')
                 H, W = confidence.shape
                 resize_arr = lambda in_arr : cv.resize(in_arr, (W*resolution_level, H*resolution_level), interpolation=cv.INTER_NEAREST) if resolution_level > 1 else in_arr
                 self.dataset.confidence_accum[idx] = resize_arr(confidence)
@@ -1610,7 +1610,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format=FORMAT)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--conf', type=str, default='./confs/neuris_server.conf')
+    parser.add_argument('--conf', type=str, default='./confs/neuris.conf')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--server', type=str, default='local',help='random seed')
     parser.add_argument('--mode', type=str, default='train') #changed

@@ -9,7 +9,7 @@ import utils.utils_semantic as SemanticUtils
 if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)    
-    lis_name_scenes=['scene0025_00', 'scene0426_00']
+    lis_name_scenes=['scene0050_00']
     lis_numclass=[40]
     
     dir_dataset='../Data/dataset/indoor'
@@ -17,16 +17,16 @@ if __name__=='__main__':
     for scene_name in lis_name_scenes: 
         print(f'evaluate semantics: {scene_name}')
         for numclass in lis_numclass:
-            method_name_list=['mask2former_repair_0.3', 'mask2former_repair_0.5', 'semantic_pred_repair_0.3', 'semantic_pred_repair_0.5']
+            method_name_list=['deeplab']
             for method_name in method_name_list:
                 metrics_average=[]
                 metric_iou=[]
                 metirc_accuracy=[]
                 logging.info(f'\n\nProcess semantic: {scene_name}, semantic_class: {numclass}')   
-                render_dir=os.path.join(dir_dataset, scene_name, method_name)
+                render_dir=os.path.join(dir_dataset, scene_name, 'semantic', method_name)
                 # render_dir='/home/du/Proj/Geometry_3Dv/Manhattan_sdf/exp/result/manhattan_sdf/test9_0616_a/semantic'
                 GT_name=f'semantic_GT'
-                GT_dir=os.path.join(dir_dataset,scene_name,GT_name)
+                GT_dir=os.path.join(dir_dataset,scene_name, 'semantic',GT_name)
                 GT_list=os.listdir(GT_dir)
                 id_list=[int(os.path.splitext(frame)[0]) for frame in GT_list]
                 id_list=sorted(id_list)
@@ -37,8 +37,8 @@ if __name__=='__main__':
                 for idx in id_list:
                     i+=1
                     GT_file=os.path.join(GT_dir, '%d.png'%idx)
-                    render_file=os.path.join(render_dir, f'{int(i)}.png')
-                    # render_file=os.path.join(render_dir, f'{i}.png')
+                    render_file=os.path.join(render_dir, '%d.png'%idx)
+                    # render_file=os.path.join(render_dir, f'{int(i)}.png')
 
                     semantic_GT=cv2.imread(GT_file)[:,:,0]
                     semantic_render=cv2.imread(render_file)[:,:,0]
@@ -73,13 +73,12 @@ if __name__=='__main__':
 
                 str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
                 path_log = f'{scene_name}_{method_name}_{numclass}_{str_date}_markdown.txt'
-                # path_log=os.path.join(dir_dataset,scene_name, method_name, path_log)
                 path_log=os.path.join(render_dir, path_log)
                 markdown_header='Eval metrics\n| scene_ name   |   Method|  Acc.|  M_Acc|  M_IoU| FW_IoU|\n'
                 markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- |\n'
                 EvalScanNet.save_evaluation_results_to_markdown(path_log, 
                                                             header = markdown_header, 
-                                                            exp_name=f'{method_name}_{numclass}',
+                                                            exp_name=f'{method_name}',
                                                             results = metrics_average, 
                                                             names_item = [scene_name], 
                                                             save_mean = False, 
@@ -87,7 +86,7 @@ if __name__=='__main__':
                 
                 EvalScanNet.save_evaluation_results_to_markdown(path_log, 
                                                             header = '\naccuracy\n', 
-                                                            exp_name=f'{method_name}_{numclass}',
+                                                            exp_name=f'{method_name}',
                                                             results = metirc_accuracy, 
                                                             names_item = [scene_name], 
                                                             save_mean = False, 
@@ -95,7 +94,7 @@ if __name__=='__main__':
                 
                 EvalScanNet.save_evaluation_results_to_markdown(path_log, 
                                                             header = '\niou\n', 
-                                                            exp_name=f'{method_name}_{numclass}',
+                                                            exp_name=f'{method_name}',
                                                             results = metric_iou, 
                                                             names_item = [scene_name], 
                                                             save_mean = False, 

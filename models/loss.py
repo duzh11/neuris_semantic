@@ -188,16 +188,16 @@ class NeuSLoss(nn.Module):
             semantic_fine_0 = semantic_fine.reshape(-1,self.semantic_class)
             true_semantic_0 = true_semantic.reshape(-1).long()
             # no weights
-            semantic_fine_loss = crossentropy_loss(semantic_fine_0, true_semantic_0)
+            # semantic_fine_loss = crossentropy_loss(semantic_fine_0, true_semantic_0)
             # use mv_similarity as the wieghts
-            # semantic_fine_loss_0 = 0
-            # N_rays = semantic_fine_0.shape[0]
-            # mv_similarity = input_model['mv_similarity']
-            # for i_ray in range(N_rays):
-            #     semantic_fine_loss_0 += crossentropy_loss(semantic_fine_0[i_ray].unsqueeze(0), true_semantic_0[i_ray].unsqueeze(0))
-            #     semantic_fine_loss_0 = semantic_fine_loss_0 * mv_similarity[i_ray][0]
-            # semantic_fine_loss_0 = semantic_fine_loss_0/(mv_similarity.sum() + 1e-6)
-            # semantic_fine_loss = semantic_fine_loss_0
+            semantic_fine_loss_0 = 0
+            N_rays = semantic_fine_0.shape[0]
+            mv_similarity = input_model['mv_similarity']
+            for i_ray in range(N_rays):
+                semantic_fine_loss_0 += crossentropy_loss(semantic_fine_0[i_ray].unsqueeze(0), true_semantic_0[i_ray].unsqueeze(0))
+                semantic_fine_loss_0 = semantic_fine_loss_0 * mv_similarity[i_ray][0]
+            semantic_fine_loss_0 = semantic_fine_loss_0/(mv_similarity.sum() + 1e-6)
+            semantic_fine_loss = semantic_fine_loss_0
 
             logs_summary.update({           
                 'Loss/loss_semantic':  semantic_fine_loss.detach().cpu(),

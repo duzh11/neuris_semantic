@@ -36,12 +36,12 @@ def evalute_mesh(exp_name,
     for scene_name in lis_name_scenes:
    
         logging.info(f'\n\nProcess mesh: {scene_name}')
-        scene_dir=os.path.join(dir_dataset,scene_name)
+        scene_dir=os.path.join(dir_dataset, scene_name)
         output_dir=f'{dir_results_baseline}/{name_baseline}'
         os.makedirs(output_dir,exist_ok=True)
         logging.info(f'output_dir:{output_dir}')
         
-        path_mesh_pred = f'{dir_results_baseline}/{exp_name}/{scene_name}.ply'
+        path_mesh_pred = f'../exps/indoor/neus/{scene_name}/{exp_name}/meshes/{scene_name}.ply'
         path_mesh_GT=os.path.join(scene_dir,f'{scene_name}_vh_clean_2.ply')
         mesh_pred_dir, mesh_GT_dir= MeshUtils.refuse_mesh(scene_name=scene_name,
                                                               scene_dir=scene_dir,
@@ -49,9 +49,9 @@ def evalute_mesh(exp_name,
                                                               path_mesh_pred=path_mesh_pred,
                                                               path_mesh_GT=path_mesh_GT)
         metrices_eval=[]
-        for ii in eval_threshold:
+        for thredhold_i in eval_threshold:
             metrices = EvalScanNet.evaluate_geometry_neucon(mesh_pred_dir, mesh_GT_dir, 
-                                                threshold=ii, down_sample=.02)
+                                                threshold=thredhold_i, down_sample=.02)
             metrices_eval.append(metrices[-2])
 
         metrices_eval.append(metrices[-1])
@@ -60,7 +60,8 @@ def evalute_mesh(exp_name,
     
     return metrics_eval_mesh    
 
-def Error_mesh(lis_name_scenes,
+def Error_mesh(exp_name,
+               lis_name_scenes,
                 name_baseline,  
                 dir_results_baseline='../exps/evaluation'):
 
@@ -70,10 +71,8 @@ def Error_mesh(lis_name_scenes,
 
     for scene_name in lis_name_scenes:
         logging.info(f'\n\nProcess: {scene_name}')
-        path_mesh_pred = f'{dir_results_baseline}/{name_baseline}/{scene_name}.ply'
+        path_mesh_pred = f'../exps/indoor/neus/{scene_name}/{exp_name}/meshes/{scene_name}.ply'
         path_mesh_GT = f'{gt_dir}/GT_refuse/{scene_name}_GT.ply'
-        # path_mesh_pred = f'{dir_results_baseline}/{name_baseline}/{scene_name}_clean_bbox_faces_mask.ply'#ply
-        # path_mesh_GT = f'{dir_dataset}/{scene_name}/{scene_name}_vh_clean_2.ply'
         
         error_mesh=f'{dir_results_baseline}/{name_baseline}/{scene_name}_error_{error_bound}.ply'
 
@@ -126,7 +125,7 @@ def save_result(name_baseline,
                 dir_results_baseline='../exps/evaluation'):
     ### save semantic result
     str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    path_log = f'{dir_results_baseline}/{exp_name}_refuse/eval_{exp_name}_{str_date}_markdown.txt'
+    path_log = f'{dir_results_baseline}/{name_baseline}/eval_{exp_name}_{str_date}_markdown.txt'
 
     if np.sum(metrics_eval_semantic)>0.01:
         markdown_header='Eval metrics\n| scene_ name   |   Method|  Acc.|  M_Acc|  M_IoU| FW_IoU|\n'
@@ -174,9 +173,9 @@ if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)    
     # lis_exp_name=[f'semantic_40_test{i}' for i in range(1,13)]
-    method='mask2former'
-    lis_exp_name=['mask2former_test1', 'mask2former_test2', 'mask2former_test3', 'mask2former_test4']
-    lis_name_scenes=['scene0025_00', 'scene0050_00', 'scene0169_00','scene0426_00','scene0580_00' , 'scene0616_00']
+    method='con_semantic'
+    lis_exp_name=['con_test10_compa1']
+    lis_name_scenes=['scene0050_00']
     numclass=40
     eval_threshold=[0.03,0.05,0.07]
     
@@ -219,7 +218,10 @@ if __name__=='__main__':
                                                            dir_results_baseline=dir_results_baseline)
 
         logging.info(f'------Evaluate 3D error mesh: {exp_name}')
-        Error_mesh(lis_name_scenes, name_baseline, dir_results_baseline=dir_results_baseline)
+        Error_mesh(exp_name, 
+                   lis_name_scenes, 
+                   name_baseline, 
+                   dir_results_baseline=dir_results_baseline)
 
         save_result(name_baseline,lis_name_scenes,
                     metrics_eval_semantic=metrics_eval_semantic,

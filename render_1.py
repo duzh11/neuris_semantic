@@ -16,7 +16,7 @@ Path(out_path).mkdir(exist_ok=True, parents=True)
 
 # sdf，semantic
 img_path = os.path.join(Data_dir, 'image')
-pred_path = os.path.join(Data_dir, 'semantic_pred_vis')
+pred_path = os.path.join(Data_dir, 'semantic', 'deeplab_vis')
 mask_path = os.path.join(Data_dir, 'semantic_consistency_0.3_vis')
 
 img_lis= glob(f'{img_path}/*.png')

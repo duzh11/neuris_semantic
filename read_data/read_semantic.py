@@ -10,11 +10,11 @@ logging.basicConfig(level=logging.INFO, format=FORMAT)
 
 semantic_class=40
 manhattan=False #Manhattan将door、white board归为wall类，将floor mat归为floor类
-# scene_list=['scene0009_01','scene0050_00','scene0084_00','scene0085_00','scene0114_02','scene0580_00','scene0603_00','scene0616_00','scene0617_00','scene0625_00']
-scene_list=['scene0580_00']
+
+scene_list=['scene0378_00', 'scene0435_02', 'scene0648_00', 'scene0474_01', 'scene0030_00']
 
 img_h,img_w=480,640
-data_base='/home/du/Proj/Dataset/ScanNet'
+data_base='/home/du/Proj/Dataset/ScanNet/scans'
 target_base='/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
 
 for scene_name in scene_list:
@@ -22,7 +22,7 @@ for scene_name in scene_list:
     scene_dir=os.path.join(data_base,scene_name)
     target_dir=os.path.join(target_base,scene_name)
 
-    label_filt_dir =  os.path.join(scene_dir, scene_name+'_2d-label-filt')
+    label_filt_dir =  os.path.join(scene_dir, 'label-filt')
 
     frame_ids = os.listdir(os.path.join(target_dir,'image'))
     frame_ids = [int(os.path.splitext(frame)[0]) for frame in frame_ids]
@@ -32,7 +32,7 @@ for scene_name in scene_list:
     # ----load semantic----
     semantic_list=[]
     for idx in frame_ids:
-        file_label=os.path.join(label_filt_dir, 'label-filt', '%d.png'%idx)
+        file_label=os.path.join(label_filt_dir, '%d.png'%idx)
         semantic = cv2.imread(file_label, cv2.IMREAD_UNCHANGED)
         semantic = cv2.copyMakeBorder(src=semantic, top=2, bottom=2, left=0, right=0, borderType=cv2.BORDER_CONSTANT, value=0)
 
@@ -44,18 +44,18 @@ for scene_name in scene_list:
 
     # scannet2nyu label
     semantic_nyu_list = semantic_list.copy()
-
+    
     if semantic_class==3:    
-        label_mapping_nyu = utils_scannet.load_scannet_nyu3_mapping(data_base,manhattan=manhattan)
+        label_mapping_nyu = utils_scannet.load_scannet_nyu3_mapping(os.path.dirname(data_base),manhattan=manhattan)
         colour_map_np = utils_colour.nyu3_colour_code
     elif semantic_class==40:
-        label_mapping_nyu = utils_scannet.load_scannet_nyu40_mapping(data_base,manhattan=manhattan)
+        label_mapping_nyu = utils_scannet.load_scannet_nyu40_mapping(os.path.dirname(data_base),manhattan=manhattan)
         colour_map_np = utils_colour.nyu40_colour_code
     elif semantic_class==13:
-        label_mapping_nyu = utils_scannet.load_scannet_nyu13_mapping(data_base,manhattan=manhattan)
+        label_mapping_nyu = utils_scannet.load_scannet_nyu13_mapping(os.path.dirname(data_base),manhattan=manhattan)
         colour_map_np = utils_colour.nyu13_colour_code
     else:
-        label_mapping_nyu = utils_scannet.load_scannet_nyu3_mapping(data_base,manhattan=manhattan)
+        label_mapping_nyu = utils_scannet.load_scannet_nyu3_mapping(os.path.dirname(data_base),manhattan=manhattan)
         colour_map_np = utils_colour.nyu3_colour_code
 
     for scan_id, nyu_id in label_mapping_nyu.items():
@@ -65,8 +65,8 @@ for scene_name in scene_list:
     save_semantic=True
     # save_dir=f'semantic_{semantic_class}'
     # save_vis_dir=f"semantic_{semantic_class}_vis"
-    save_dir=f'semantic_GT'
-    save_vis_dir=f"semantic_GT_vis"
+    save_dir=f'semantic/semantic_GT'
+    save_vis_dir=f"semantic/semantic_GT_vis"
 
     if save_semantic:
         logging.info(f'save raw label to {os.path.join(target_dir, save_dir)}')
