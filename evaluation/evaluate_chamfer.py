@@ -7,7 +7,7 @@ import logging
 
 import utils.utils_geometry as GeoUtils
 import utils.utils_io as IOUtils
-import utils.utils_colour as utils_colour
+import utils.utils_nyu as utils_nyu
 import evaluation.EvalScanNet as EvalScanNet
 
 def nn_correspondance(verts1, verts2):
@@ -86,7 +86,7 @@ def compute_chamfer(pcd_pred, pcd_gt, colour_map_np, draw_label=True, Manhattan=
 
 def evaluate_chamfer(exp_name,lis_name_scenes, name_baseline, dir_results_baseline, down_sample=0.02):
     metrics_eval_all=[]
-    colour_map_np = utils_colour.nyu40_colour_code    
+    colour_map_np = utils_nyu.nyu40_colour_code    
     
     for scene_name in lis_name_scenes:
         logging.info(f'begin: {scene_name}')

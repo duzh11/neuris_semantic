@@ -1,15 +1,7 @@
-# NeuRIS
-We propose a new method, dubbed NeuRIS, for high quality reconstruction of indoor scenes. 
+# NeuRIS_Semantic
 
-![](./doc/teaser.png)
-
-## [Project page](https://jiepengwang.github.io/NeuRIS/) |  [Paper](https://arxiv.org/abs/2206.13597) | [Data](https://connecthkuhk-my.sharepoint.com/:f:/g/personal/jiepeng_connect_hku_hk/Er7bpbBAxMBBnZfDvdvrO1kBu2tkTpnMw9XXfeuQzkwOlA?e=Yf0Bbj)
-
-
-## Usage
-
-#### Data preparation
-Scene data used in NeuRIS can be downloaded from [here](https://connecthkuhk-my.sharepoint.com/:f:/g/personal/jiepeng_connect_hku_hk/ElKcK1sus9pLnARZ_e9l-IcBS6cE-6w8xt34bMsvMAiuIQ?e=0z1eka) and extract the scene data into folder `dataset/indoor`. And the scene data used in [ManhattanSDF](https://github.com/zju3dv/manhattan_sdf) are also included for convenient comparisons.
+## Data preparation
+Scene data used in NeuRIS can be downloaded from [here](https://connecthkuhk-my.sharepoint.com/:f:/g/personal/jiepeng_connect_hku_hk/ElKcK1sus9pLnARZ_e9l-IcBS6cE-6w8xt34bMsvMAiuIQ?e=0z1eka) and extract the scene data into folder `../Data/dataset/indoor`. And the scene data used in [ManhattanSDF](https://github.com/zju3dv/manhattan_sdf) are also included for convenient comparisons.
 The data is organized as follows:
 ```
 <scene_name>
@@ -30,50 +22,61 @@ The data is organized as follows:
     |-- 0000.npz        # predicted normal for each view
     |-- 0001.npz
     ...
+|-- semantic
+    |-- semantic_GT     # target GT semantic for each view
+        |-- 0000.png
+    |-- semantic_GT_vis
+        |-- 0000.png
+    |-- predicted semantic         # target predicted semantics for each view
+        |-- 0000.png
+    |-- predicted semantic_vis
+        |-- 0000.png  
+    |-- predicted semantic_logits # target predicted logits for each view
+        |-- 0000.npz   
+    ...
+|-- grids
+    |-- instance     # target instance for each view
+        |-- 0000.png
+    |-- instance_vis
+        |-- 0000.png
+    |-- spp_seg     # target superpixel segments for each view
+        |-- 0000.png
+    |-- spp_seg_vis
+        |-- 0000.png     
+    ...  
 |-- xxx.ply		# GT mesh or point cloud from MVS
+|-- xxx.labels.ply # GT semantic mesh
 |-- trans_n2w.txt       # transformation matrix from normalized coordinates to world coordinates
 ```
 
-Refer to the [file](https://github.com/jiepengwang/NeuRIS/blob/main/preprocess/README.md) for more details about data preparation of ScanNet or private data.
-
-
-### Setup
+## Setup
 ```
 conda create -n neuris python=3.8
 conda activate neuris
-conda install pytorch=1.9.0 torchvision torchaudio cudatoolkit=10.2 -c pytorch
-pip install -r requirements.txt
+conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch
+pip install -r neuris.txt
 ```
 
-### Training
+## Training
 
 ```
-python ./exp_runner.py --mode train --conf ./confs/neuris.conf --gpu 0 --scene_name scene0050_00 --semantic_class 3 --stop_semantic_grad --semantic_mode sigmoid
-python ./exp_runner.py --mode train --conf ./confs/neuris_server.conf --server server4 --gpu 0 --scene_name scene0050_00 --semantic_class 3 --stop_semantic_grad --semantic_mode sigmoid --is_continue
-python ./exp_runner.py --mode train --conf ./confs/neuris_server.conf --server yatai --scene_name scene0616_00 --semantic_class 40
+spython ./exp_runner.py --mode train --conf ./confs/neuris.conf --server server8 --gpu 0 --scene_name scene0050_00
 ```
 
-### Mesh extraction
+## Mesh extraction
 ```
-python exp_runner.py --mode validate_mesh  --is_continue
+python exp_runner.py --mode validate_mesh --conf ./confs/neuris.conf --gpu 0 --is_continue
 ```
-### validate image
+## validate image
 ```
 python exp_runner.py --mode validate_image  --conf ./confs/neuris_server.conf --server server4 --gpu 0 --scene_name scene0050_00 --semantic_class 3 --stop_semantic_grad --semantic_mode sigmoid --is_continue
 ```
-### Evaluation
+## Evaluation
 ```
 python ./exp_evaluation.py --mode eval_3D_mesh_metrics --is_continue
 ```
-### Git
-```
-git fetch
-git merge test
-git 
-test only for git
-```
+
 ## Citation
-Cite as below if you find this repository is helpful to your project:
 
 ```
 @article{wang2022neuris,

@@ -22,6 +22,8 @@ import models.patch_match_cuda as PatchMatch
 import utils.utils_training as TrainingUtils
 import utils.utils_image as ImageUtils
 
+MANHATTAN = False
+
 def load_K_Rt_from_P(filename, P=None):
     if P is None:
         lines = open(filename).read().splitlines()
@@ -79,7 +81,7 @@ class Dataset:
     '''
     def __init__(self, conf):
         super(Dataset, self).__init__()
-        # logging.info('Load data: Begin')
+        logging.info('Loading data: Begin')
         self.device = torch.device('cuda')
         self.conf = conf
 
@@ -92,16 +94,6 @@ class Dataset:
         self.bbox_size_half = conf['bbox_size_half']
         self.use_normal = conf['use_normal']
         self.resolution_level = conf['resolution_level']
-        
-        self.use_semantic = conf['use_semantic']
-        self.semantic_class=conf['semantic_class']
-        self.semantic_type=conf['semantic_type']
-        
-        self.use_mv_similarity = conf['use_mv_similarity']
-        self.mv_confidence = conf['mv_confidence']
-        
-        self.use_grid = conf['use_grid']
-        self.grids_type = conf['grids_type']
 
         self.denoise_gray_image = self.conf['denoise_gray_image']
         self.denoise_paras = self.conf['denoise_paras']
@@ -169,14 +161,17 @@ class Dataset:
         logging.info(f"Resolution level: {self.resolution_level}. Image size: ({w_img}, {h_img})")
 
         # loading semantic 
-        logging.info(f'Use semantics:{self.use_semantic}, Loading semantics..')
+        self.use_semantic = conf['use_semantic']
         if self.use_semantic:
+            logging.info(f'Use semantics: Loading semantics..')
+            self.semantic_class=conf['semantic_class']
+            self.semantic_type=conf['semantic_type']
+
             semantic_lis = None
             for ext in ['.png', '.JPG']:
                 semantic_dir=self.semantic_type
                 logging.info(f'Load semantic: {semantic_dir}')
-                semantic_lis = glob(os.path.join(self.data_dir, f'semantic/{semantic_dir}/*{ext}'))
-                semantic_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
+                semantic_lis = sorted(glob(os.path.join(self.data_dir, f'semantic/{semantic_dir}/*{ext}')))
                 if len(semantic_lis) > 0:
                     break
             assert len(semantic_lis) > 0
@@ -186,11 +181,13 @@ class Dataset:
             self.semantic_lis = semantic_lis
             self.semantic_np = np.stack([(self.read_img(im_name, self.resolution_level))[:,:,0] for im_name in semantic_lis])
 
+            # 使用masnhattan-sdf的语义类merge
+            logging.info(f'Use Manhattan-SDF semantics: {MANHATTAN}')
             semantic_seg=self.semantic_np.copy()
             if self.semantic_class==3:
-                label_mapping_nyu=mapping_nyu3(manhattan=True)
+                label_mapping_nyu=mapping_nyu3(manhattan=MANHATTAN)
             if self.semantic_class==40:
-                label_mapping_nyu=mapping_nyu40(manhattan=True)
+                label_mapping_nyu=mapping_nyu40(manhattan=MANHATTAN)
             for scan_id, nyu_id in label_mapping_nyu.items():
                 semantic_seg[self.semantic_np==scan_id] = nyu_id
             semantics=np.array(semantic_seg)
@@ -198,14 +195,13 @@ class Dataset:
             self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
         
         # loading multivew similarity
-        logging.info(f'Use mv_similarity:{self.use_mv_similarity & self.use_semantic}, Loading mv_similarity..')
+        self.use_mv_similarity = conf['use_mv_similarity']
         if self.use_semantic and self.use_mv_similarity:
+            logging.info(f'Use mv_similarity: Loading mv_similarity..')
             mv_similarity_dir = f'{self.semantic_type}'
             logging.info(f'Load mv_similarity: {mv_similarity_dir}')
 
-            mv_similarity_lis = glob(os.path.join(f'{self.data_dir}', 'mv_similarity', mv_similarity_dir, '*.npz'))
-            mv_similarity_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
-
+            mv_similarity_lis = sorted(glob(os.path.join(f'{self.data_dir}', 'mv_similarity', mv_similarity_dir, '*.npz')))
             mv_similarity = np.stack([ np.load(idx)['arr_0'] for idx in mv_similarity_lis ])
             n_similarity = len(mv_similarity)
             logging.info(f"Read {n_similarity} mv_similarity.")
@@ -215,14 +211,19 @@ class Dataset:
             self.mv_similarity = torch.from_numpy(mv_similarity).cpu()
 
             # semantic_mask
-            # logging.info('!!!filtering noisy semantics')
-            # semantic_mask_valid = ( mv_similarity>self.mv_confidence )
-            # semantics[~semantic_mask_valid] = 0
-            # self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
+            self.use_mv_filter = conf['use_mv_filter'] if 'use_mv_filter' in conf else False
+            if self.use_mv_filter:
+                self.mv_confidence = conf['mv_confidence']
+                logging.info(F'!!!filtering semantics < {self.mv_confidence}')
+                semantic_mask_valid = ( mv_similarity>self.mv_confidence )
+                semantics[~semantic_mask_valid] = 0
+                self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
             
         # loading grids
-        logging.info(f'Use grids:{self.use_grid}, Loading grids..')
+        self.use_grid = conf['use_grid']
         if self.use_grid:
+            logging.info(f'Use grids: Loading grids..')
+            self.grids_type = conf['grids_type']
             grids_lis = None
             for ext in ['.png', '.JPG']:
 

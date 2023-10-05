@@ -74,7 +74,7 @@ def load_scannet_nyu3_mapping(path,manhattan=False):
     return mapping
 
 
-def load_scannet_nyu40_mapping(path,manhattan):
+def load_scannet_nyu40_mapping(path, manhattan=False):
     """ Returns a dict mapping scannet Ids to NYU40 Ids
 
     Args:
@@ -110,7 +110,7 @@ def load_scannet_nyu40_mapping(path,manhattan):
     return mapping
 
 
-def load_scannet_nyu13_mapping(path,manhattan):
+def load_scannet_nyu13_mapping(path, manhattan=False):
     """ Returns a dict mapping scannet Ids to NYU40 Ids
 
     Args:

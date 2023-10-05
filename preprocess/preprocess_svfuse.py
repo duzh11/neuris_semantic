@@ -1,12 +1,14 @@
-# 尝试在前端语义施加单目语义一致性约束
-from tqdm import tqdm
-from glob import glob
 import os
 import logging
 import cv2
 import numpy as np
 import random
-import utils.utils_colour as utils_colour
+import sys
+sys.path.append(os.getcwd())
+
+from tqdm import tqdm
+from glob import glob
+import utils.utils_nyu as utils_nyu
 
 FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
 logging.basicConfig(level=logging.INFO, format=FORMAT)
@@ -20,10 +22,10 @@ def random_rgb():
     rgb[2] = random.randint(1, 255)
     return rgb
 
-scene_list=['scene0050_00', 'scene0616_00']
-semantic_type_list = ['semantic_pred_repair_0.3', 'semantic_pred_repair_0.5', 'mask2former_repair_0.3', 'mask2former_repair_0.5']
-mask_name = ['instance', 'SAM', 'felzenszwalb']
-flag_list = ['num', 'mv_similarity']
+scene_list=['scene0616_00']
+semantic_type_list = ['deeplab']
+mask_name = ['instance', 'SAM', 'felzenszwalb_100_1_50_a']
+flag_list = ['num']
 
 def fuse_semantic(mask, semantic, mv_similarity,flag='num'):
     '''
@@ -64,7 +66,7 @@ def fuse_semantic(mask, semantic, mv_similarity,flag='num'):
 
 img_h,img_w=480,640
 data_base='../Data/dataset/indoor'
-colour_map_np = utils_colour.nyu40_colour_code
+colour_map_np = utils_nyu.nyu40_colour_code
 for scene_name in scene_list:
     logging.info(f'scene: {scene_name}')
     for semantic_type in semantic_type_list:
@@ -73,30 +75,25 @@ for scene_name in scene_list:
         data_dir=os.path.join(data_base, scene_name)
         #1. read data
         # semantic
-        semantic_dir = os.path.join(data_dir, semantic_type, '*.png')
-        semantic_file= glob(semantic_dir)
-        semantic_file.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
+        semantic_dir = os.path.join(data_dir, 'semantic', semantic_type, '*.png')
+        semantic_file= sorted(glob(semantic_dir))
         # mv_similarity
         mv_similarity_dir = os.path.join(data_dir, 'mv_similarity', semantic_type, '*.npz')
-        mv_similarity_file = glob(mv_similarity_dir)
-        mv_similarity_file.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
+        mv_similarity_file = sorted(glob(mv_similarity_dir))
         # instance
-        instance_dir = os.path.join(data_dir, 'instance', '*.png')
-        instance_file = glob(instance_dir)
-        instance_file.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
+        instance_dir = os.path.join(data_dir, 'grids', 'instance', '*.png')
+        instance_file = sorted(glob(instance_dir))
         # SAM
-        SAM_dir = os.path.join(data_dir, 'SAM', '*.png')
-        SAM_file = glob(SAM_dir)
-        SAM_file.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
+        SAM_dir = os.path.join(data_dir, 'grids', 'SAM', '*.png')
+        SAM_file = sorted(glob(SAM_dir))
         # f
-        felzenszwalb_dir = os.path.join(data_dir, 'felzenszwalb_100_1_50_a','*.png')
+        felzenszwalb_dir = os.path.join(data_dir, 'grids', 'felzenszwalb_100_1_50_a','*.png')
         felzenszwalb_file = sorted(glob(felzenszwalb_dir))
         
         # 前端语义的单目一致性约束
         save_dir = os.path.join(data_dir, 'sv_fuse', semantic_type)
         save_vis_dir = os.path.join(data_dir, 'sv_fuse_vis',semantic_type)
         
-
         for idx in tqdm(range(0, len(semantic_file)), desc='semantic fuse'):
             semantic = cv2.imread(semantic_file[idx], cv2.IMREAD_UNCHANGED)
             similarity = np.load(mv_similarity_file[idx])['arr_0']
@@ -119,8 +116,8 @@ for scene_name in scene_list:
                     semantic_fuse = fuse_semantic(seg[i], semantic, similarity, flag=flag)
                     semantic_fuse_vis = colour_map_np[semantic_fuse]
 
-                    cv2.imwrite(os.path.join(fuse_fir, '%d.png'%idx), semantic)
-                    cv2.imwrite(os.path.join(fuse_vis_fir, '%d.png'%idx), semantic_fuse_vis[...,::-1])
+                    cv2.imwrite(os.path.join(fuse_fir, os.path.basename(semantic_file[idx])), semantic)
+                    cv2.imwrite(os.path.join(fuse_vis_fir, os.path.basename(semantic_file[idx])), semantic_fuse_vis[...,::-1])
         
         
     

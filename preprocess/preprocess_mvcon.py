@@ -1,14 +1,20 @@
 import torch
 import cv2
 import os
-import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
-import utils.utils_colour as utils_colour
+import  sys
+sys.path.append(os.getcwd())
+
 from glob import glob
 from tqdm import tqdm
 
-def compute_projection(H, W, intrinsic, pose_source, pose_target, depth_source, depth_target):
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+import utils.utils_nyu as NyuUtils
+
+colour_map_np = NyuUtils.nyu40_colour_code
+
+def compute_projection(H, W, intrinsic, pose_source, pose_target, depth_source, depth_target, confidence=0.2):
         ### 1. first project source point to world
         # acquiring camera coordinates
         x = np.linspace(0, W-1, W)
@@ -55,7 +61,7 @@ def compute_projection(H, W, intrinsic, pose_source, pose_target, depth_source, 
         backprojected_points = torch.mm(torch.from_numpy(pose_target).type(torch.cuda.FloatTensor), torch.mm(
                 torch.from_numpy(np.linalg.inv(intrinsic)).type(torch.cuda.FloatTensor), I))
         
-        valid_mask_1 = (torch.norm(world_coordinates - backprojected_points, dim=0) < 0.2)
+        valid_mask_1 = (torch.norm(world_coordinates - backprojected_points, dim=0) < confidence)
         
         valid_mask = valid_mask_0.clone()
         #Note: consider depth is zero
@@ -66,18 +72,19 @@ def compute_projection(H, W, intrinsic, pose_source, pose_target, depth_source, 
         return projected_points, valid_mask
 
 
-def compute_similarity(intrinsic_np, img_np, pose_np, depth_np, semantic_np, similarity_dir):
+def compute_similarity(name_lis, intrinsic_np, img_np, pose_np, depth_np, semantic_np, similarity_dir):
         '''
         计算mv_similarity
         '''
         N_img, H, W=semantic_np.shape
         os.makedirs(similarity_dir, exist_ok=True)
+        # compute mv-similarity
         for source_idx in tqdm(range(N_img), desc='computing mv_similarity'):
                 semantic_source = torch.from_numpy(semantic_np[source_idx, :].flatten()).cuda()
                 consistency = torch.zeros_like(semantic_source)
                 count = torch.zeros_like(semantic_source)
 
-                # 将source_img投影到target_img
+                ## 将source_img投影到target_img
                 pose_source = pose_np[source_idx]
                 depth_source = depth_np[source_idx].flatten()
                 for target_idx in range(N_img):
@@ -85,28 +92,29 @@ def compute_similarity(intrinsic_np, img_np, pose_np, depth_np, semantic_np, sim
                         depth_target = depth_np[target_idx].flatten()
                         semantic_target = torch.from_numpy(semantic_np[target_idx, :].flatten()).cuda()
                         projected_points, valid_mask= compute_projection(H, W, intrinsic_np, pose_source, pose_target, depth_source, depth_target)
+                        
                         # validating
-                        if target_idx==2000:
-                                plt.close('all')
-                                img_source, img_target = img_np[source_idx], img_np[target_idx]
-                                x_source, y_source =400, 120
-                                (x_target, y_target) = projected_points[y_source*W+x_source-1,:]
-                                print(f'correspondence: ({x_target}, {y_target})')
-                                fig, ax = plt.subplots(1, 3)
-                                ax[0].imshow(img_source[...,::-1])
-                                ax[0].plot(x_source, y_source, 'ro', markersize=5)
+                        # if target_idx==2000:
+                        #         plt.close('all')
+                        #         img_source, img_target = img_np[source_idx], img_np[target_idx]
+                        #         x_source, y_source =400, 120
+                        #         (x_target, y_target) = projected_points[y_source*W+x_source-1,:]
+                        #         print(f'correspondence: ({x_target}, {y_target})')
+                        #         fig, ax = plt.subplots(1, 3)
+                        #         ax[0].imshow(img_source[...,::-1])
+                        #         ax[0].plot(x_source, y_source, 'ro', markersize=5)
 
-                                ax[1].imshow(img_target[...,::-1])
-                                ax[1].plot(x_target.cpu().numpy(), y_target.cpu().numpy(), 'ro', markersize=5)
+                        #         ax[1].imshow(img_target[...,::-1])
+                        #         ax[1].plot(x_target.cpu().numpy(), y_target.cpu().numpy(), 'ro', markersize=5)
 
-                                mask_0 = valid_mask.cpu().numpy().reshape(H,W)
-                                img_mask0 = img_source.copy()
-                                img_mask0[~mask_0]=np.array([0,0,0])
-                                ax[2].imshow(img_mask0[...,::-1])                              
+                        #         mask_0 = valid_mask.cpu().numpy().reshape(H,W)
+                        #         img_mask0 = img_source.copy()
+                        #         img_mask0[~mask_0]=np.array([0,0,0])
+                        #         ax[2].imshow(img_mask0[...,::-1])                              
 
-                                plt.tight_layout()
-                                plt.show()
-                                print('validate')
+                        #         plt.tight_layout()
+                        #         plt.show()
+                        #         print('validate')
                         
                         # 由source投影到target中对应的点的索引
                         projected_points_flat = (projected_points[:, 1] * W + projected_points[:, 0])
@@ -127,10 +135,10 @@ def compute_similarity(intrinsic_np, img_np, pose_np, depth_np, semantic_np, sim
                 global_similarity[~count_mask]=0
                 
                 semantic_similarity = global_similarity.reshape(H,W)
-                np.savez(os.path.join(similarity_dir, f'{source_idx}.npz'), semantic_similarity.cpu().numpy())
+                np.savez(os.path.join(similarity_dir, name_lis[source_idx]+'.npz'), semantic_similarity.cpu().numpy())
 
 # 可视化
-def visualize_similarity(img_np, semantic_np, semantic_vis_np, eva, similarity_dir, similarity_vis_dir):
+def visualize_similarity(name_lis, img_np, semantic_np, eva, similarity_dir, similarity_vis_dir):
         '''
         可视化mv_similarity
         '''
@@ -141,11 +149,11 @@ def visualize_similarity(img_np, semantic_np, semantic_vis_np, eva, similarity_d
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 用于mp4格式的生成
         videowriter = cv2.VideoWriter(video_name, fourcc, 10, (W*4+30, H))
         
-        for source_idx in tqdm(range(N_img), desc='visualizing'):
+        for source_idx in tqdm(range(N_img), desc=f'vis simialrity {eva}'):
                 img = img_np[source_idx]
-                semantic_similarity = np.load(os.path.join(similarity_dir, f'{source_idx}.npz'))['arr_0']
+                semantic_similarity = np.load(os.path.join(similarity_dir, name_lis[source_idx]+'.npz'))['arr_0']
                 # semantic 原图
-                semantic_vis = semantic_vis_np[source_idx]
+                semantic_vis = colour_map_np[semantic_np[source_idx, :].astype(int)]
                 semantic_mask_vis = semantic_vis.copy()
                 # 热力图
                 colormap_func = matplotlib.cm.get_cmap("jet")
@@ -156,14 +164,14 @@ def visualize_similarity(img_np, semantic_np, semantic_vis_np, eva, similarity_d
                 semantic_mask_vis[~semantic_mask_np]=np.array([0,0,0])
                 
                 img_cat=(255 * np.ones((H, 10, 3))).astype('uint8')
-                lis=[img, img_cat, semantic_vis, img_cat, semantic_similarity_vis, img_cat, semantic_mask_vis]
+                lis=[img, img_cat, semantic_vis[...,::-1], img_cat, semantic_similarity_vis, img_cat, semantic_mask_vis[...,::-1]]
                 vis = np.concatenate(lis, axis=1)
-                cv2.imwrite(os.path.join(similarity_vis_dir, f'{source_idx}.png'), vis)
+                cv2.imwrite(os.path.join(similarity_vis_dir, name_lis[source_idx]+'.png'), vis)
                 videowriter.write(vis.astype(np.uint8))
         
         videowriter.release()
 
-def repair_semantic(intrinsic_np, img_np, pose_np, depth_np, semantic_np, confidence, 
+def repair_semantic(name_lis, intrinsic_np, img_np, pose_np, depth_np, semantic_np, confidence, 
                     similarity_dir, semantic_repair_dir, semantic_repair_vis_dir):
         '''
         修复语义
@@ -174,7 +182,7 @@ def repair_semantic(intrinsic_np, img_np, pose_np, depth_np, semantic_np, confid
         
         for source_idx in tqdm(range(N_img), desc='repairing'):
                 # 保存max_similarity以及对应的语义
-                max_similarity = torch.from_numpy((np.load(os.path.join(similarity_dir, f'{source_idx}.npz'))['arr_0'])).flatten().cuda()
+                max_similarity = torch.from_numpy((np.load(os.path.join(similarity_dir, name_lis[source_idx]+'.npz'))['arr_0'])).flatten().cuda()
                 semantic_source = torch.from_numpy(semantic_np[source_idx, :]).flatten().cuda()
                 # 将source_img投影到target_img
                 pose_source = pose_np[source_idx]
@@ -182,7 +190,7 @@ def repair_semantic(intrinsic_np, img_np, pose_np, depth_np, semantic_np, confid
 
                 for target_idx in range(0, N_img):
                         semantic_target = torch.from_numpy(semantic_np[target_idx,:]).flatten().cuda()
-                        semantic_similarity =  torch.from_numpy((np.load(os.path.join(similarity_dir, f'{target_idx}.npz'))['arr_0'])).flatten().cuda()
+                        semantic_similarity =  torch.from_numpy((np.load(os.path.join(similarity_dir, name_lis[target_idx]+'.npz'))['arr_0'])).flatten().cuda()
                         # project source to target
                         pose_target = pose_np[target_idx]
                         depth_target = depth_np[target_idx].flatten()
@@ -205,100 +213,92 @@ def repair_semantic(intrinsic_np, img_np, pose_np, depth_np, semantic_np, confid
                         semantic_source[repair_mask] = semantic_target[projected_points_repair]
                         max_similarity[repair_mask] = semantic_similarity[projected_points_repair]
 
-                        # 找到max_simi对应的语义
-                        
-                        if target_idx==2000:
-                                img_source, img_target = img_np[source_idx], img_np[target_idx]
-                                x_source, y_source = 363, 365
-                                (x_target, y_target) = projected_points[y_source*W+x_source-1,:]
-                                print(f'correspondence: ({x_target}, {y_target})')
+                        # validating
+                        # if target_idx==2000:
+                        #         img_source, img_target = img_np[source_idx], img_np[target_idx]
+                        #         x_source, y_source = 363, 365
+                        #         (x_target, y_target) = projected_points[y_source*W+x_source-1,:]
+                        #         print(f'correspondence: ({x_target}, {y_target})')
 
-                                plt.close('all')
-                                fig, ax = plt.subplots(1, 3)
-                                ax[0].imshow(img_source[...,::-1])
-                                ax[0].plot(x_source, y_source, 'ro', markersize=5)
+                        #         plt.close('all')
+                        #         fig, ax = plt.subplots(1, 3)
+                        #         ax[0].imshow(img_source[...,::-1])
+                        #         ax[0].plot(x_source, y_source, 'ro', markersize=5)
 
-                                ax[1].imshow(img_target[...,::-1])
-                                ax[1].plot(x_target.cpu().numpy(), y_target.cpu().numpy(), 'ro', markersize=5)
+                        #         ax[1].imshow(img_target[...,::-1])
+                        #         ax[1].plot(x_target.cpu().numpy(), y_target.cpu().numpy(), 'ro', markersize=5)
                                 
-                                semantic_source_vis = colour_map_np[semantic_source.cpu().numpy()].reshape(H,W,3)
-                                semantic_source_vis[~repair_mask.cpu().numpy().reshape(H,W)] = np.array([0,0,0])
-                                ax[2].imshow(semantic_source_vis)
+                        #         semantic_source_vis = colour_map_np[semantic_source.cpu().numpy()].reshape(H,W,3)
+                        #         semantic_source_vis[~repair_mask.cpu().numpy().reshape(H,W)] = np.array([0,0,0])
+                        #         ax[2].imshow(semantic_source_vis)
 
-                                plt.tight_layout()
-                                plt.show()
-                                print('validate')
+                        #         plt.tight_layout()
+                        #         plt.show()
+                        #         print('validate')
                 
-                cv2.imwrite(os.path.join(semantic_repair_dir, '%d.png'%source_idx), semantic_source.cpu().numpy().reshape(H,W))
-                semantic_vis = colour_map_np[semantic_source.cpu().numpy()]
-                cv2.imwrite(os.path.join(semantic_repair_vis_dir, '%d.png'%source_idx), semantic_vis[...,::-1].reshape(H,W,3))
+                semantic_source = semantic_source.cpu().numpy().astype(np.uint16)
+                cv2.imwrite(os.path.join(semantic_repair_dir, name_lis[source_idx]+'.png'), semantic_source.reshape(H,W))
+                semantic_vis = colour_map_np[semantic_source]
+                cv2.imwrite(os.path.join(semantic_repair_vis_dir, name_lis[source_idx]+'.png'), semantic_vis[...,::-1].reshape(H,W,3))
 
                 
 if __name__=='__main__':
         Data_dir = '../Data/dataset/indoor'
         scene_list = ['scene0616_00']
-        semantic_type_list = ['semantic_pred']
-        confidence_list = [0.3, 0.5]
+        semantic_type_list = ['deeplab']
+        confidence_list = [0.5]
         eva_list=[0.3, 0.5]
-        colour_map_np = utils_colour.nyu40_colour_code
 
         for scene_name in scene_list:
                 print(f'---scene_name :{scene_name}----')
                 for semantic_type in semantic_type_list:
                         print(f'---semantics :{semantic_type}----')
                         ### 1.read data
-                        semantic_dir = os.path.join(Data_dir, scene_name, semantic_type)
-                        semantic_vis_dir = os.path.join(Data_dir, scene_name, f'{semantic_type}_vis')
+                        intrinsic_dir = os.path.join(Data_dir, scene_name, 'intrinsic_color_crop1248_resize640.txt')
+                        pose_dir = os.path.join(Data_dir, scene_name, 'pose')
                         img_dir = os.path.join(Data_dir, scene_name, 'image')
                         depth_dir = os.path.join(Data_dir, scene_name, 'depth')
-                        pose_dir = os.path.join(Data_dir, scene_name, 'pose')
-                        intrinsic_dir = os.path.join(Data_dir, scene_name, 'intrinsic_color_crop1248_resize640.txt')
-
-                        semantic_lis = glob(f'{semantic_dir}/*.png')
-                        semantic_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
-                        semantic_vis_lis = glob(f'{semantic_vis_dir}/*.png')
-                        semantic_vis_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
+                        semantic_dir = os.path.join(Data_dir, scene_name, 'semantic', semantic_type)
+        
+                        pose_lis = sorted(glob(f'{pose_dir}/*.txt'))
                         img_lis = sorted(glob(f'{img_dir}/*.png'))
                         depth_lis = sorted(glob(f'{depth_dir}/*.png'))
-                        pose_lis = sorted(glob(f'{pose_dir}/*.txt'))
+                        semantic_lis = sorted(glob(f'{semantic_dir}/*.png'))
 
-                        semantic_np = np.stack([cv2.imread(seg_name)[:,:,0] for seg_name in semantic_lis])
-                        semantic_vis_np = np.stack([cv2.imread(seg_vis_name) for seg_vis_name in semantic_vis_lis])
+                        intrinsic_np = np.loadtxt(intrinsic_dir)
+                        name_lis = np.stack([os.path.basename(img_name).split('.')[0] for img_name in img_lis])
+                        pose_np = np.stack([np.loadtxt(pose_name) for pose_name in pose_lis])
                         img_np = np.stack([cv2.imread(img_name) for img_name in img_lis])
                         depth_np = np.stack([cv2.imread(depth_name, cv2.IMREAD_UNCHANGED)/1000 for depth_name in depth_lis])
-                        pose_np = np.stack([np.loadtxt(pose_name) for pose_name in pose_lis])
-                        intrinsic_np = np.loadtxt(intrinsic_dir)
+                        semantic_np = np.stack([cv2.imread(seg_name, cv2.IMREAD_UNCHANGED).astype(np.float32) for seg_name in semantic_lis])
 
                         ### 2.compute mv_similarity
+                        print('compute mv_similarity')
                         similarity_dir = os.path.join(Data_dir, scene_name, 'mv_similarity', semantic_type)
-                        compute_similarity(intrinsic_np, img_np, pose_np, depth_np, semantic_np, similarity_dir)
+                        # compute_similarity(name_lis, intrinsic_np, img_np, pose_np, depth_np, semantic_np, similarity_dir)
 
                         # visualize mv_similarity
+                        print('visualize mv_similarity')
                         similarity_vis_dir = os.path.join(Data_dir, scene_name, 'mv_similarity_vis', semantic_type)
                         for eva in eva_list:
-                                visualize_similarity(img_np, semantic_np, semantic_vis_np, eva, similarity_dir, similarity_vis_dir)
+                                visualize_similarity(name_lis, img_np, semantic_np, eva, similarity_dir, similarity_vis_dir)
                         
                         ### 3. repair semantic
+                        print('repair semantic')
                         for confidence in confidence_list:
                                 semantic_repair_type=semantic_type+f'_repair_{confidence}'
 
-                                semantic_repair_dir = os.path.join(Data_dir, scene_name, semantic_repair_type)
-                                semantic_repair_vis_dir = os.path.join(Data_dir, scene_name, f'{semantic_repair_type}_vis')
-                                repair_semantic(intrinsic_np, img_np, pose_np, depth_np, semantic_np, confidence, 
+                                semantic_repair_dir = os.path.join(Data_dir, scene_name, 'semantic', semantic_repair_type)
+                                semantic_repair_vis_dir = os.path.join(Data_dir, scene_name, 'semantic', f'{semantic_repair_type}_vis')
+                                repair_semantic(name_lis, intrinsic_np, img_np, pose_np, depth_np, semantic_np, confidence, 
                                                 similarity_dir, semantic_repair_dir, semantic_repair_vis_dir)
 
                                 ### 4. repeat computing and visualize mv_similarity
-                                semantic_repair_lis = glob(os.path.join(semantic_repair_dir, '*.png'))
-                                semantic_repair_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
-                                semantic_repair_np = np.stack([cv2.imread(semantic_repair)[:,:,0] for semantic_repair in semantic_repair_lis])
-                                
-                                semantic_repair_vis_lis = glob(f'{semantic_repair_vis_dir}/*.png')
-                                semantic_repair_vis_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
-                                semantic_repair_vis_np = np.stack([cv2.imread(seg_vis_name) for seg_vis_name in semantic_repair_vis_lis])
+                                semantic_repair_lis = sorted(glob(os.path.join(semantic_repair_dir, '*.png')))
+                                semantic_repair_np = np.stack([cv2.imread(semantic_repair, cv2.IMREAD_UNCHANGED).astype(np.float32) for semantic_repair in semantic_repair_lis])
 
                                 repair_similarity_dir = os.path.join(Data_dir, scene_name, 'mv_similarity', semantic_repair_type)
-                                compute_similarity(intrinsic_np, img_np, pose_np, depth_np, semantic_repair_np, repair_similarity_dir)
+                                compute_similarity(name_lis, intrinsic_np, img_np, pose_np, depth_np, semantic_repair_np, repair_similarity_dir)
                                 repair_similarity_vis_dir = os.path.join(Data_dir, scene_name, 'mv_similarity_vis', semantic_repair_type)
                                 for eva in eva_list:
-                                        visualize_similarity(img_np, semantic_repair_np, semantic_repair_vis_np, eva, 
-                                                             repair_similarity_dir, repair_similarity_vis_dir)
+                                        visualize_similarity(name_lis, img_np, semantic_repair_np, eva, repair_similarity_dir, repair_similarity_vis_dir)

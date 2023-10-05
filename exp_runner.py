@@ -26,7 +26,7 @@ import utils.utils_io as IOUtils
 import utils.utils_geometry as GeoUtils
 import utils.utils_image as ImageUtils
 import utils.utils_training as TrainingUtils
-import utils.utils_colour as utils_colour
+import utils.utils_nyu as utils_nyu
 
 class Runner:
     def __init__(self, conf_path, scene_name = '', mode='train', model_type='', 
@@ -46,11 +46,7 @@ class Runner:
             self.conf['general']['scan_name']=scene_name
         
         self.exp_name = self.conf['general.exp_name']
-        self.stop_semantic_grad=args.stop_semantic_grad
-        self.semantic_class=args.semantic_class
         self.server=args.server
-        self.semantic_mode=args.semantic_mode
-        self.semantic_type=args.semantic_type
         # parse cmd args
         self.is_continue = is_continue
         self.checkpoint_id = checkpoint_id
@@ -111,28 +107,29 @@ class Runner:
         self.save_normamap_npz = self.conf['train.save_normamap_npz']
         
         # base_exp_dir='../exps/indoor/neus/scene0625_00/exp_scene0625_00
-        if self.server=='server4':
+        if self.server=='server1':
+            self.conf['general']['server']=self.server
+            self.conf['general']['exp_dir']='/raid/duzhenhua/3Dv_Reconstruction/NeuRIS/exps'
+            self.conf['general']['data_dir']='/raid/duzhenhua/3Dv_Reconstruction/NeuRIS/Data/dataset'  
+        elif self.server=='server2':
             self.conf['general']['server']=self.server
             self.conf['general']['exp_dir']='/home/home/raid/zhenhua2023/3Dv_Reconstruction/NeuRIS/exps'
             self.conf['general']['data_dir']='/home/home/raid/zhenhua2023/3Dv_Reconstruction/NeuRIS/Data/dataset'
-        elif self.server=='server8':
-            self.conf['general']['server']=self.server
-            self.conf['general']['exp_dir']='/raid/duzhenhua/3Dv_Reconstruction/NeuRIS/exps'
-            self.conf['general']['data_dir']='/raid/duzhenhua/3Dv_Reconstruction/NeuRIS/Data/dataset'    
         elif self.server=='autodl':
             self.conf['general']['server']=self.server
             self.conf['general']['exp_dir']='/root/autodl-tmp/3Dv_Reconstruction/NeuRIS/exps'
             self.conf['general']['data_dir']='/root/autodl-fs/3Dv_Reconstruction/NeuRIS/Data/dataset'   
-        elif self.server=='yatai':
+        elif self.server=='lab':
             self.conf['general']['server']=self.server
             self.conf['general']['exp_dir']='../exps'
             self.conf['general']['data_dir']='../Data/dataset'   
         else:
-            self.server='local'
+            self.server='laptop'
             self.conf['general']['server']=self.server
         logging.info(f'Run on {self.server}')
 
-        self.base_exp_dir = os.path.join(self.conf['general.exp_dir'], self.dataset_type, self.model_type, self.scan_name, str(self.exp_name))
+        # todo exp_dir
+        self.base_exp_dir = os.path.join(self.conf['general.exp_dir'], self.dataset_type, self.model_type, str(self.exp_name), self.scan_name)
         os.makedirs(self.base_exp_dir, exist_ok=True)
         logging.info(f'Exp dir: {self.base_exp_dir}')
 
@@ -169,50 +166,38 @@ class Runner:
             self.sample_range_indoor =  self.conf['dataset']['sample_range_indoor']
             self.conf['dataset']['use_normal'] = True if self.conf['model.loss.normal_weight'] > 0 else False
             
-            ### semantic
             # use semantic
             semantic_loss_weight=self.conf['model.loss.semantic_weight']
             self.conf['dataset']['use_semantic'] = True if semantic_loss_weight> 0 else False
             self.use_semantic=self.conf['dataset']['use_semantic']
-            # semantic class
-            if self.semantic_class:
-                self.conf['dataset']['semantic_class']=self.semantic_class
-            else:
+
+            self.semantic_class=40
+            if self.use_semantic:
+                # semantic network parameters
                 self.semantic_class=self.conf['dataset']['semantic_class']
-            # use deeplab semantic/GT
-            if self.semantic_type:
-                self.conf['dataset']['semantic_type']=self.semantic_type
-            else:
-                self.semantic_type=self.conf['dataset']['semantic_type']
-            # semantic model
-            if self.semantic_class:
                 self.conf['model']['semantic_network']['d_out']=self.semantic_class
-            if self.semantic_mode:
-                self.conf['model']['semantic_network']['semantic_mode']=self.semantic_mode
-            
-            # stop semantic gradients
-            if self.stop_semantic_grad:
-                self.conf['train']['stop_semantic_grad']=self.stop_semantic_grad
-            else:
                 self.stop_semantic_grad=self.conf['train.stop_semantic_grad']
-            logging.info(f'use_semantic: {self.use_semantic}, semantic_class: {self.semantic_class}, semantic_loss_weight: {semantic_loss_weight}')
-            logging.info(f'stop_semantic_grad: {self.stop_semantic_grad}')
 
-            ### use grid
-            semantic_consistency_weight=self.conf['model.loss.semantic_consistency_weight']
-            self.conf['dataset']['use_grid'] = True if ((semantic_consistency_weight>0) & (semantic_loss_weight>0)) else False
-            self.use_grid=self.conf['dataset']['use_grid']
-            logging.info(f'use semantic_consistency: {self.use_grid}, consistency weight: {semantic_consistency_weight}')
+                logging.info(f'use semantic: class={self.semantic_class}, ce_loss={semantic_loss_weight}')
+                logging.info(f'stop semantic grad: {self.stop_semantic_grad}')
 
-            ### joint optimization parameters
-            self.joint_iter=self.conf['train.joint_iter'] 
-            joint_loss_weight=self.conf['model.loss.joint_weight']
-            self.conf['dataset']['use_joint'] = True if ((joint_loss_weight > 0) & (semantic_loss_weight>0))else False
-            self.use_joint=self.conf['dataset']['use_joint']
-            if self.use_joint:
-                logging.info(f'use joint optimization: {self.use_joint}, begin: {self.joint_iter}, joint loss weight: {joint_loss_weight}')
-            else: 
-                logging.info(f'use joint optimization: {self.use_joint}')
+                # use grid
+                semantic_consistency_weight=self.conf['model.loss.sv_con_weight']
+                if (semantic_consistency_weight>0):
+                    self.conf['dataset']['use_grid'] = True
+                    logging.info(f'use sv_con: loss weight={semantic_consistency_weight}')
+                else:
+                    self.conf['dataset']['use_grid'] = False
+
+                # joint optimization parameters 
+                joint_weight=self.conf['model.loss.joint_weight']
+                if (joint_weight > 0):
+                    self.conf['dataset']['use_joint'] = True 
+                    self.warm_iter=self.conf['train.warm_iter']
+                    logging.info(f'use joint optimization: begin at {self.warm_iter}, loss weight={joint_weight}')
+                else:
+                    self.conf['dataset']['use_joint'] = False
+                self.use_joint=self.conf['dataset']['use_joint']
             
             ### normal parameters
             normal_weight=self.conf['model.loss.normal_weight']
@@ -237,10 +222,6 @@ class Runner:
             raise NotImplementedError
         
         logging.info(f"Use normal: {self.conf['dataset']['use_normal']}")
-        logging.info(f"Use semantic: {self.conf['dataset']['use_semantic']}")
-        logging.info(f"Use semantic_consistency: {self.conf['dataset']['use_grid']}")
-        logging.info(f"Use joint optimization: {self.conf['dataset']['use_joint']}")
-        logging.info(f"Use mv_similarity: {self.conf['dataset']['use_mv_similarity']}")
         
         self.conf['dataset']['use_planes'] = True if self.conf['model.loss.normal_consistency_weight'] > 0 else False
         self.conf['dataset']['use_plane_offset_loss'] = True if self.conf['model.loss.plane_offset_weight'] > 0 else False
@@ -257,24 +238,21 @@ class Runner:
             self.sdf_network_fine = SDFNetwork(**self.conf['model.sdf_network']).to(self.device)
             self.variance_network_fine = SingleVarianceNetwork(**self.conf['model.variance_network']).to(self.device)
             self.color_network_fine = RenderingNetwork(**self.conf['model.rendering_network']).to(self.device)
-            self.semantic_network_fine=None
-            
-            if self.use_semantic:
-                self.semantic_network_fine = SemanticNetwork(**self.conf['model.semantic_network']).to(self.device)
                                                         
             params_to_train += list(self.nerf_outside.parameters())
             params_to_train += list(self.sdf_network_fine.parameters())
             params_to_train += list(self.variance_network_fine.parameters())
             params_to_train += list(self.color_network_fine.parameters())
             
+            self.semantic_network_fine=None
+            self.theta = (torch.Tensor([0.])).to(self.device)
             if self.use_semantic:
+                self.semantic_network_fine = SemanticNetwork(**self.conf['model.semantic_network']).to(self.device)
                 params_to_train += list(self.semantic_network_fine.parameters())
-            
-            self.theta = torch.Tensor([0.])
-            if self.use_joint:
-                self.theta=(self.theta).to(self.device)
-                (self.theta).requires_grad = True
-                params_to_train += [self.theta]
+                
+                if self.use_joint:
+                    (self.theta).requires_grad = True
+                    params_to_train += [self.theta]
             
             self.renderer = NeuSRenderer(self.nerf_outside,
                                 self.sdf_network_fine,
@@ -302,7 +280,7 @@ class Runner:
 
         self.optimizer = torch.optim.Adam(params_to_train, lr=self.learning_rate)
                 
-        self.loss_neus = NeuSLoss(semantic_class=self.semantic_class,conf=self.conf['model.loss'])
+        self.loss_neus = NeuSLoss(semantic_class=self.semantic_class, conf=self.conf['model.loss'])
 
     def train(self):
         if self.model_type == 'neus':
@@ -408,8 +386,8 @@ class Runner:
             if self.use_geocheck:
                 patchmatch_out, logs_patchmatch = self.patch_match(input_model, render_out)
                 logs_summary.update(logs_patchmatch)
-
-            self.joint_start=self.iter_step>self.joint_iter-1
+ 
+            self.joint_start=self.iter_step>self.warm_iter-1
             loss, logs_loss, mask_keep_gt_normal = self.loss_neus(input_model, render_out, 
                                                                   self.sdf_network_fine, patchmatch_out,
                                                                   joint_start=self.joint_start, 
@@ -792,7 +770,7 @@ class Runner:
         log_val = {}
         if self.iter_step % self.report_freq == 0:
             print('\n', self.base_exp_dir)
-            if self.use_semantic and self.use_joint:
+            if self.use_joint:
                 theta=(self.theta).detach().cpu().numpy()
                 lr=self.optimizer.param_groups[0]['lr']
                 var=render_out['variance'].mean()
@@ -863,11 +841,11 @@ class Runner:
         scale=scale_mat[0,0]
         
         if semantic_class==3:
-            colour_map_np = utils_colour.nyu3_colour_code
+            colour_map_np = utils_nyu.nyu3_colour_code
         elif semantic_class==40 or semantic_class==41:
-            colour_map_np = utils_colour.nyu40_colour_code
+            colour_map_np = utils_nyu.nyu40_colour_code
         elif semantic_class==13 or semantic_class==14:
-            colour_map_np = utils_colour.nyu13_colour_code
+            colour_map_np = utils_nyu.nyu13_colour_code
 
         imgs_render = {}
         for key in ['color_fine', 'confidence','confidence_mask', 'normal', 'depth', 'depth_variance', 'semantic_fine', 'sem_uncertainty_fine']:
@@ -1307,7 +1285,7 @@ class Runner:
                 normals_tensor = None
             volume_labels= self.renderer.extract_volume_semantic(vertices_tensor, normals_tensor, chunk = 128) 
             
-            colour_map_np = utils_colour.nyu40_colour_code
+            colour_map_np = utils_nyu.nyu40_colour_code
             labels_vis = colour_map_np[(volume_labels)].astype(np.uint8)
 
             path_mesh_semantic = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_volume_semantic.ply')
@@ -1612,7 +1590,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--conf', type=str, default='./confs/neuris.conf')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
-    parser.add_argument('--server', type=str, default='local',help='random seed')
+    parser.add_argument('--server', type=str, default='laptop')
     parser.add_argument('--mode', type=str, default='train') #changed
     parser.add_argument('--model_type', type=str, default='neus')
     parser.add_argument('--threshold', type=float, default=0.0)
@@ -1624,18 +1602,18 @@ if __name__ == '__main__':
     parser.add_argument('--save_normamap_npz', action= 'store_true', default=False, help='save color&normal&depth ply' )
     parser.add_argument('--save_peak_value', action= 'store_true', default=False, help='save peak value')
     parser.add_argument('--scene_name', type=str, default='', help='Scene or scan name')
-    parser.add_argument('--semantic_type', type=str, help='use GT semantic or deeplab semantic')
-    parser.add_argument('--semantic_class', type=int, help='number of semantic class')
-    parser.add_argument('--stop_semantic_grad', action='store_true', default=False, help='stop semantic gradients')
-    parser.add_argument('--semantic_mode', type=str)
     parser.add_argument('--is_continue', default=False, action="store_true") #加载预训练权重 changed
     args = parser.parse_args()
 
     torch.cuda.set_device(args.gpu)
     setup_seed(args.seed)
 
-    runner = Runner(args.conf, args.scene_name, args.mode, 
-                    args.model_type, args.is_continue, args.checkpoint_id, 
+    runner = Runner(args.conf, 
+                    args.scene_name, 
+                    args.mode, 
+                    args.model_type, 
+                    args.is_continue, 
+                    args.checkpoint_id, 
                     args=args)
     
     if args.mode == 'train':
