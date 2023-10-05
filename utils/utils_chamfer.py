@@ -4,7 +4,7 @@ import os as os
 import logging
 
 import utils.utils_geometry as GeoUtils
-import utils.utils_colour as utils_colour
+import utils.utils_nyu as utils_nyu
 
 def nn_correspondance(verts1, verts2):
     """ for each vertex in verts2 find the nearest vertex in verts1
@@ -85,7 +85,7 @@ def evaluate_chamfer(lis_name_scenes,
                      dir_results_baseline='../exps/evaluation', 
                      down_sample=0.02):
     metrics_eval_all=[]
-    colour_map_np = utils_colour.nyu40_colour_code    
+    colour_map_np = utils_nyu.nyu40_colour_code    
     gt_dir=os.path.dirname(dir_results_baseline)
     for scene_name in lis_name_scenes:
         logging.info(f'begin: {scene_name}')

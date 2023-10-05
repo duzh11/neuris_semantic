@@ -12,11 +12,12 @@ import utils.utils_io as IOUtils
 import utils.utils_normal as NormalUtils
 
 # from confs.path import lis_name_scenes
-lis_name_scenes=['scene0378_00', 'scene0435_02', 'scene0648_00', 'scene0474_01', 'scene0030_00']
+lis_name_scenes=['scene0616_00']
 
 if __name__ == '__main__':
     np.set_printoptions(precision=3)
     np.set_printoptions(suppress=True)
+    np.random.seed(42)
 
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)

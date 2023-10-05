@@ -2,6 +2,8 @@ import os, sys
 import utils.utils_io as IOUtils
 import utils.utils_geometry as GeometryUtils
 import utils.utils_image as Imageutils
+import utils.utils_scannet as ScannetUtils
+import utils.utils_nyu as NyuUtils
 import shutil, glob, os
 import cv2
 import numpy as np
@@ -9,6 +11,7 @@ import logging, glob
 
 import open3d as o3d
 from datetime import datetime
+from tqdm import tqdm
 
 class ScannetData:
     def __init__(self, dir_scan, height, width, use_normal = False, 
@@ -65,11 +68,11 @@ class ScannetData:
             cropped_size: (640,480)*1.95
         '''    
         IOUtils.ensure_dir_existence(dir_scan_select)
-        for i in ['image', 'depth', 'pose']:
+        for i in ['image', 'pose', 'depth', 'depth_vis', 'semantic/semantic_GT', 'semantic/semantic_GT_vis']:
             IOUtils.ensure_dir_existence(f"{dir_scan_select}/{i}/")
         
         crop_height_half, crop_width_half = 0, 0
-        for idx in range(start_id, end_id, interval):
+        for idx in tqdm(range(start_id, end_id, interval), desc = 'select data'):
             # pose
             path_src = f"{dir_scan}/pose/{idx}.txt"
             
@@ -104,7 +107,36 @@ class ScannetData:
             path_src = f"{dir_scan}/depth/{idx}.png"
             path_target = f"{dir_scan_select}/depth/{idx:04d}.png"
             shutil.copyfile(path_src, path_target)
+
+            # depth_vis map
+            depth_raw = (cv2.imread(path_src,cv2.IMREAD_UNCHANGED).astype(np.float32))
+            depth_raw = (depth_raw/1000)*50 # scale 50 to get a better vis 
+
+            depth_vis = cv2.convertScaleAbs(depth_raw)
+            depth_vis_jet = cv2.applyColorMap(depth_vis, cv2.COLORMAP_JET)
+            cv2.imwrite(f"{dir_scan_select}/depth_vis/{idx:04d}.png", depth_vis_jet)
+
+            # semantic map
+            path_src = f"{dir_scan}/label-filt/{idx}.png"
+            semantic_raw = cv2.imread(path_src, cv2.IMREAD_UNCHANGED)
+            if b_crop_images:
+                semantic_crop = semantic_raw[crop_height_half:height-crop_height_half, crop_width_half:width-crop_width_half]
+                assert semantic_crop.shape[0] == cropped_size[1]
+                semantic_raw = cv2.resize(semantic_crop, (640, 480), interpolation=cv2.INTER_NEAREST)
+            path_target = f"{dir_scan_select}/semantic/semantic_GT/{idx:04d}.png"
+            cv2.imwrite(path_target, semantic_raw)
             
+            # semantic_vis map
+            semantic_nyu = semantic_raw.copy()
+            label_mapping_nyu = ScannetUtils.load_scannet_nyu40_mapping(os.path.dirname(os.path.dirname(dir_scan)))
+            colour_map_np = NyuUtils.nyu40_colour_code
+            for scan_id, nyu_id in label_mapping_nyu.items():
+                semantic_nyu[semantic_raw==scan_id] = nyu_id
+            semantic_nyu=np.array(semantic_nyu)
+            semantic_vis = colour_map_np[semantic_nyu]
+            path_target = f"{dir_scan_select}/semantic/semantic_GT_vis/{idx:04d}.png"
+            cv2.imwrite(path_target, semantic_vis[...,::-1].astype(np.uint8))
+
         # GT mesh
         path_gt_mesh = IOUtils.find_target_file(dir_scan, '_vh_clean_2.ply')
         assert path_gt_mesh

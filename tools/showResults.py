@@ -7,7 +7,7 @@ import cv2
 import utils.utils_correspondence as correspondence
 
 def show_results(scene_name, method_name, source_id, x, y):
-    data_dir = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor/{scene_name}'
+    data_dir = f'../Data/dataset/indoor/{scene_name}'
     depth_GT= cv2.imread(os.path.join(data_dir, 'depth', f'{source_id}.png'), cv2.IMREAD_UNCHANGED)[2*y, 2*x]
     path_trans_n2w = np.loadtxt(f'{data_dir}/trans_n2w.txt')
     scale=path_trans_n2w[0, 0]
@@ -119,10 +119,10 @@ def main(scene_name, method_name, source_id, target_id, x, y):
 
 if __name__=='__main__':
     scene_name = 'scene0616_00'
-    method_name_lis = ['pred_40_test2_compa2_b', 'pred_40_test2_compa3', 'pred_40_test2_compa3_b']
+    method_name_lis = ['pred_40_test2_compa2_b']
     source_id='0130'
     target_id='0140'
-    x, y= 284, 141 # 240*320
+    x, y= 284, 141 # (240,320)
 
     for method_name in method_name_lis:
         main(scene_name, method_name, source_id, target_id, x, y)

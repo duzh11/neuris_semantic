@@ -22,6 +22,8 @@ import models.patch_match_cuda as PatchMatch
 import utils.utils_training as TrainingUtils
 import utils.utils_image as ImageUtils
 
+MANHATTAN = False
+
 def load_K_Rt_from_P(filename, P=None):
     if P is None:
         lines = open(filename).read().splitlines()
@@ -175,8 +177,7 @@ class Dataset:
             for ext in ['.png', '.JPG']:
                 semantic_dir=self.semantic_type
                 logging.info(f'Load semantic: {semantic_dir}')
-                semantic_lis = glob(os.path.join(self.data_dir, f'semantic/{semantic_dir}/*{ext}'))
-                semantic_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
+                semantic_lis = sorted(glob(os.path.join(self.data_dir, f'semantic/{semantic_dir}/*{ext}')))
                 if len(semantic_lis) > 0:
                     break
             assert len(semantic_lis) > 0
@@ -188,9 +189,9 @@ class Dataset:
 
             semantic_seg=self.semantic_np.copy()
             if self.semantic_class==3:
-                label_mapping_nyu=mapping_nyu3(manhattan=True)
+                label_mapping_nyu=mapping_nyu3(manhattan=MANHATTAN)
             if self.semantic_class==40:
-                label_mapping_nyu=mapping_nyu40(manhattan=True)
+                label_mapping_nyu=mapping_nyu40(manhattan=MANHATTAN)
             for scan_id, nyu_id in label_mapping_nyu.items():
                 semantic_seg[self.semantic_np==scan_id] = nyu_id
             semantics=np.array(semantic_seg)
@@ -203,8 +204,7 @@ class Dataset:
             mv_similarity_dir = f'{self.semantic_type}'
             logging.info(f'Load mv_similarity: {mv_similarity_dir}')
 
-            mv_similarity_lis = glob(os.path.join(f'{self.data_dir}', 'mv_similarity', mv_similarity_dir, '*.npz'))
-            mv_similarity_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
+            mv_similarity_lis = sorted(glob(os.path.join(f'{self.data_dir}', 'mv_similarity', mv_similarity_dir, '*.npz')))
 
             mv_similarity = np.stack([ np.load(idx)['arr_0'] for idx in mv_similarity_lis ])
             n_similarity = len(mv_similarity)

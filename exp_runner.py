@@ -26,7 +26,7 @@ import utils.utils_io as IOUtils
 import utils.utils_geometry as GeoUtils
 import utils.utils_image as ImageUtils
 import utils.utils_training as TrainingUtils
-import utils.utils_colour as utils_colour
+import utils.utils_nyu as utils_nyu
 
 class Runner:
     def __init__(self, conf_path, scene_name = '', mode='train', model_type='', 
@@ -863,11 +863,11 @@ class Runner:
         scale=scale_mat[0,0]
         
         if semantic_class==3:
-            colour_map_np = utils_colour.nyu3_colour_code
+            colour_map_np = utils_nyu.nyu3_colour_code
         elif semantic_class==40 or semantic_class==41:
-            colour_map_np = utils_colour.nyu40_colour_code
+            colour_map_np = utils_nyu.nyu40_colour_code
         elif semantic_class==13 or semantic_class==14:
-            colour_map_np = utils_colour.nyu13_colour_code
+            colour_map_np = utils_nyu.nyu13_colour_code
 
         imgs_render = {}
         for key in ['color_fine', 'confidence','confidence_mask', 'normal', 'depth', 'depth_variance', 'semantic_fine', 'sem_uncertainty_fine']:
@@ -1307,7 +1307,7 @@ class Runner:
                 normals_tensor = None
             volume_labels= self.renderer.extract_volume_semantic(vertices_tensor, normals_tensor, chunk = 128) 
             
-            colour_map_np = utils_colour.nyu40_colour_code
+            colour_map_np = utils_nyu.nyu40_colour_code
             labels_vis = colour_map_np[(volume_labels)].astype(np.uint8)
 
             path_mesh_semantic = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_volume_semantic.ply')

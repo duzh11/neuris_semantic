@@ -4,14 +4,14 @@ import os
 import cv2
 import matplotlib
 import matplotlib.pyplot as plt
-import utils.utils_colour as utils_colour
+import utils.utils_nyu as utils_nyu
 
 Data_dir = '../Data/dataset/indoor'
 exps_dir = '../exps/indoor/neus/'
 scene_list = ['scene0050_00']
 semantic_type_list = ['semantic_pred']
 method_name_list = ['con_test1', 'con_test2', 'con_test3','pred_40_test1', 'pred_40_test2_compa3', 'pred_40_test10_compa1', 'pred_40_test10_compa2']
-colour_map_np = utils_colour.nyu40_colour_code
+colour_map_np = utils_nyu.nyu40_colour_code
 for scene_name in scene_list:
     for semantic_type in semantic_type_list:
         # read semantic
