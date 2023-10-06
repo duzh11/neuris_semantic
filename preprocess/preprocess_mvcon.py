@@ -275,7 +275,7 @@ if __name__=='__main__':
                         ### 2.compute mv_similarity
                         print('compute mv_similarity')
                         similarity_dir = os.path.join(Data_dir, scene_name, 'mv_similarity', semantic_type)
-                        # compute_similarity(name_lis, intrinsic_np, img_np, pose_np, depth_np, semantic_np, similarity_dir)
+                        compute_similarity(name_lis, intrinsic_np, img_np, pose_np, depth_np, semantic_np, similarity_dir)
 
                         # visualize mv_similarity
                         print('visualize mv_similarity')

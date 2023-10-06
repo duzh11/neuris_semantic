@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import copy
+import logging
 from itertools import combinations
 
 import utils.utils_training as TrainingUtils
@@ -90,7 +91,7 @@ class NeuSLoss(nn.Module):
         self.semantic_weight = conf['semantic_weight']
         self.semantic_class=semantic_class
         self.joint_weight = conf['joint_weight']
-        self.semantic_consistency_weight = conf['semantic_consistency_weight']
+        self.sv_con_weight = conf['sv_con_weight']
 
         self.igr_weight = conf['igr_weight']
         self.smooth_weight = conf['smooth_weight']
@@ -98,7 +99,6 @@ class NeuSLoss(nn.Module):
 
         self.depth_weight = conf['depth_weight']
         self.normal_weight = conf['normal_weight']
-
 
         self.normal_consistency_weight = conf['normal_consistency_weight']
         self.plane_offset_weight = conf['plane_offset_weight']
@@ -110,6 +110,16 @@ class NeuSLoss(nn.Module):
         
         self.iter_step = 0
         self.iter_end = -1
+
+        self.ce_mode = conf['ce_mode'] if 'ce_mode' in conf else 'ce_loss'
+        logging.info('ce_mode: {}'.format(self.ce_mode))
+
+        # self.sv_con_mode = conf['sv_con_mode'] if 'sv_con_mode' in conf else 'num'
+        # logging.info('sv_con_mode: {}'.format(self.joint_mode))
+
+        self.joint_mode = conf['joint_mode'] if 'joint_mode' in conf else 'true_se'
+        logging.info('joint_mode: {}'.format(self.joint_mode))
+
 
     def get_warm_up_ratio(self):
         if self.warm_up_end == 0.0:
@@ -174,7 +184,7 @@ class NeuSLoss(nn.Module):
                 'Loss/loss_bg':     background_loss
             })
         
-        # semantic loss     
+        # ce loss    
         if self.semantic_class==3:
             CrossEntropyLoss = nn.CrossEntropyLoss()
             crossentropy_loss = lambda logit, label: CrossEntropyLoss(logit, label)
@@ -185,26 +195,28 @@ class NeuSLoss(nn.Module):
         semantic_fine_loss=0.
         if self.semantic_weight>0:
             true_semantic = input_model['true_semantic']
-            semantic_fine_0 = semantic_fine.reshape(-1,self.semantic_class)
+            semantic_fine_0 = semantic_fine.reshape(-1, self.semantic_class)
             true_semantic_0 = true_semantic.reshape(-1).long()
-            # no weights
-            # semantic_fine_loss = crossentropy_loss(semantic_fine_0, true_semantic_0)
-            # use mv_similarity as the wieghts
-            semantic_fine_loss_0 = 0
-            N_rays = semantic_fine_0.shape[0]
-            mv_similarity = input_model['mv_similarity']
-            for i_ray in range(N_rays):
-                semantic_fine_loss_0 += crossentropy_loss(semantic_fine_0[i_ray].unsqueeze(0), true_semantic_0[i_ray].unsqueeze(0))
-                semantic_fine_loss_0 = semantic_fine_loss_0 * mv_similarity[i_ray][0]
-            semantic_fine_loss_0 = semantic_fine_loss_0/(mv_similarity.sum() + 1e-6)
-            semantic_fine_loss = semantic_fine_loss_0
+            
+            if self.ce_mode == 'ce_loss':
+                semantic_fine_loss = crossentropy_loss(semantic_fine_0, true_semantic_0)
+            elif self.ce_mode == 'mv_con':
+                semantic_fine_loss_0 = 0
+                N_rays = semantic_fine_0.shape[0]
+                mv_similarity = input_model['mv_similarity']
+                for i_ray in range(N_rays):
+                    semantic_fine_loss_0 += crossentropy_loss(semantic_fine_0[i_ray].unsqueeze(0), true_semantic_0[i_ray].unsqueeze(0))
+                    semantic_fine_loss_0 = semantic_fine_loss_0 * mv_similarity[i_ray][0]
+                semantic_fine_loss_0 = semantic_fine_loss_0/(mv_similarity.sum() + 1e-6)
+                semantic_fine_loss = semantic_fine_loss_0
 
             logs_summary.update({           
                 'Loss/loss_semantic':  semantic_fine_loss.detach().cpu(),
             })
         
-        semantic_consistency_loss=0
-        if joint_start and self.semantic_weight>0 and self.semantic_consistency_weight>0:
+        # sv_con loss
+        sv_con_loss=0
+        if joint_start and self.semantic_weight>0 and self.sv_con_weight>0:
             grid=input_model['grid']
             mv_similarity = input_model['mv_similarity']
             semantic_score = F.softmax(semantic_fine, dim=-1)
@@ -235,15 +247,15 @@ class NeuSLoss(nn.Module):
                 #         maxscore = j_score
 
                 prob=semantic_score_mask[:,semantic_maxprob]
-                semantic_consistency_loss += 1-prob.mean()
+                sv_con_loss += 1-prob.mean()
             
-            semantic_consistency_loss=semantic_consistency_loss/len(grid_list)
+            sv_con_loss=sv_con_loss/len(grid_list)
             logs_summary.update({           
-                    'Loss/loss_semantic_consistency':  semantic_consistency_loss.detach().cpu(),
+                    'Loss/loss_semantic_consistency':  sv_con_loss.detach().cpu(),
                 })
 
+        # joint loss
         joint_loss = 0.
-        # if True:
         if joint_start and self.semantic_weight>0 and self.joint_weight>0:
             semantic_class=semantic_fine.shape[1]
             WALL_SEMANTIC_ID=1
@@ -256,6 +268,7 @@ class NeuSLoss(nn.Module):
                 _, wall_score, floor_score = semantic_score[...,:3].split(dim=-1, split_size=1)
             else:
                 wall_score, floor_score = semantic_score[...,:2].split(dim=-1, split_size=1)
+            
             # 选择输入语义
             wall_mask1= (true_semantic==WALL_SEMANTIC_ID)
             floor_mask1= (true_semantic==FLOOR_SEMANTIC_ID)
@@ -265,10 +278,15 @@ class NeuSLoss(nn.Module):
             floor_mask2= (render_semantic==1)
             
             # #考虑多个mask叠加
-            wall_mask = wall_mask1.squeeze() | wall_mask2
-            floor_mask = floor_mask1.squeeze() | floor_mask2
-            # wall_mask = wall_mask1
-            # floor_mask = floor_mask1
+            if self.joint_mode=='true_se':
+                wall_mask = wall_mask1
+                floor_mask = floor_mask1
+            elif self.joint_mode=='render_se':
+                wall_mask = wall_mask2
+                floor_mask = floor_mask2
+            elif self.joint_mode=='both_se':           
+                wall_mask = wall_mask1.squeeze() | wall_mask2
+                floor_mask = floor_mask1.squeeze() | floor_mask2
 
             if floor_mask.sum() > 0:
                 floor_mask=(floor_mask.unsqueeze(0)).squeeze(-1) #changed
@@ -407,7 +425,7 @@ class NeuSLoss(nn.Module):
                 surf_reg_loss * self.smooth_weight +\
                 semantic_fine_loss * self.semantic_weight +\
                 joint_loss * self.joint_weight +\
-                semantic_consistency_loss * self.semantic_consistency_weight +\
+                sv_con_loss * self.sv_con_weight +\
                 plane_loss_all +\
                 background_loss * self.mask_weight +\
                 normals_fine_loss * self.normal_weight * self.get_warm_up_ratio()  + \

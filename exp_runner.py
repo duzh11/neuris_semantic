@@ -119,16 +119,12 @@ class Runner:
             self.conf['general']['server']=self.server
             self.conf['general']['exp_dir']='/root/autodl-tmp/3Dv_Reconstruction/NeuRIS/exps'
             self.conf['general']['data_dir']='/root/autodl-fs/3Dv_Reconstruction/NeuRIS/Data/dataset'   
-        elif self.server=='lab':
+        else:
             self.conf['general']['server']=self.server
             self.conf['general']['exp_dir']='../exps'
             self.conf['general']['data_dir']='../Data/dataset'   
-        else:
-            self.server='laptop'
-            self.conf['general']['server']=self.server
         logging.info(f'Run on {self.server}')
 
-        # todo exp_dir
         self.base_exp_dir = os.path.join(self.conf['general.exp_dir'], self.dataset_type, self.model_type, str(self.exp_name), self.scan_name)
         os.makedirs(self.base_exp_dir, exist_ok=True)
         logging.info(f'Exp dir: {self.base_exp_dir}')
@@ -172,6 +168,8 @@ class Runner:
             self.use_semantic=self.conf['dataset']['use_semantic']
 
             self.semantic_class=40
+            self.stop_semantic_grad=False
+            self.use_joint = False
             if self.use_semantic:
                 # semantic network parameters
                 self.semantic_class=self.conf['dataset']['semantic_class']
@@ -386,8 +384,11 @@ class Runner:
             if self.use_geocheck:
                 patchmatch_out, logs_patchmatch = self.patch_match(input_model, render_out)
                 logs_summary.update(logs_patchmatch)
- 
-            self.joint_start=self.iter_step>self.warm_iter-1
+
+            if self.use_joint:
+                self.joint_start=self.iter_step>self.warm_iter-1
+            else:
+                self.joint_start=False
             loss, logs_loss, mask_keep_gt_normal = self.loss_neus(input_model, render_out, 
                                                                   self.sdf_network_fine, patchmatch_out,
                                                                   joint_start=self.joint_start, 
@@ -1590,7 +1591,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--conf', type=str, default='./confs/neuris.conf')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
-    parser.add_argument('--server', type=str, default='laptop')
+    parser.add_argument('--server', type=str, default='lab')
     parser.add_argument('--mode', type=str, default='train') #changed
     parser.add_argument('--model_type', type=str, default='neus')
     parser.add_argument('--threshold', type=float, default=0.0)

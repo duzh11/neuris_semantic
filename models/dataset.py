@@ -22,8 +22,6 @@ import models.patch_match_cuda as PatchMatch
 import utils.utils_training as TrainingUtils
 import utils.utils_image as ImageUtils
 
-MANHATTAN = False
-
 def load_K_Rt_from_P(filename, P=None):
     if P is None:
         lines = open(filename).read().splitlines()
@@ -182,21 +180,26 @@ class Dataset:
             self.semantic_np = np.stack([(self.read_img(im_name, self.resolution_level))[:,:,0] for im_name in semantic_lis])
 
             # 使用masnhattan-sdf的语义类merge
+            MANHATTAN = conf['MANHATTAN']
             logging.info(f'Use Manhattan-SDF semantics: {MANHATTAN}')
             semantic_seg=self.semantic_np.copy()
-            if self.semantic_class==3:
-                label_mapping_nyu=mapping_nyu3(manhattan=MANHATTAN)
-            if self.semantic_class==40:
-                label_mapping_nyu=mapping_nyu40(manhattan=MANHATTAN)
-            for scan_id, nyu_id in label_mapping_nyu.items():
-                semantic_seg[self.semantic_np==scan_id] = nyu_id
+            
+            if MANHATTAN:
+                if self.semantic_class==3:
+                    label_mapping_nyu=mapping_nyu3(manhattan=MANHATTAN)
+                if self.semantic_class==40:
+                    label_mapping_nyu=mapping_nyu40(manhattan=MANHATTAN)
+                for scan_id, nyu_id in label_mapping_nyu.items():
+                    semantic_seg[self.semantic_np==scan_id] = nyu_id
+            
             semantics=np.array(semantic_seg)
 
             self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
         
         # loading multivew similarity
+        conf['use_mv_similarity'] = conf['use_mv_similarity'] and self.use_semantic
         self.use_mv_similarity = conf['use_mv_similarity']
-        if self.use_semantic and self.use_mv_similarity:
+        if self.use_mv_similarity:
             logging.info(f'Use mv_similarity: Loading mv_similarity..')
             mv_similarity_dir = f'{self.semantic_type}'
             logging.info(f'Load mv_similarity: {mv_similarity_dir}')
@@ -220,7 +223,7 @@ class Dataset:
                 self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
             
         # loading grids
-        self.use_grid = conf['use_grid']
+        self.use_grid = conf['use_grid'] if 'use_grid' in conf else False
         if self.use_grid:
             logging.info(f'Use grids: Loading grids..')
             self.grids_type = conf['grids_type']
