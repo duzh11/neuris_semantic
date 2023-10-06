@@ -186,7 +186,9 @@ class Dataset:
             semantic_seg=self.semantic_np.copy()
             if self.semantic_class==3:
                 label_mapping_nyu=mapping_nyu3(manhattan=MANHATTAN)
+                label_mapping_nyu=mapping_nyu3(manhattan=MANHATTAN)
             if self.semantic_class==40:
+                label_mapping_nyu=mapping_nyu40(manhattan=MANHATTAN)
                 label_mapping_nyu=mapping_nyu40(manhattan=MANHATTAN)
             for scan_id, nyu_id in label_mapping_nyu.items():
                 semantic_seg[self.semantic_np==scan_id] = nyu_id
