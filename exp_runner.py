@@ -1603,7 +1603,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format=FORMAT)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--conf', type=str, default='./confs/neuris.conf')
+    parser.add_argument('--conf', type=str, default='./confs/neuris_server.conf')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--server', type=str, default='local')
     parser.add_argument('--mode', type=str, default='train') #changed

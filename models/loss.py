@@ -111,15 +111,16 @@ class NeuSLoss(nn.Module):
         self.iter_step = 0
         self.iter_end = -1
 
-        self.ce_mode = conf['ce_mode'] if 'ce_mode' in conf else 'ce_loss'
-        logging.info('ce_mode: {}'.format(self.ce_mode))
+        if self.semantic_weight>0:
+            self.ce_mode = conf['ce_mode'] if 'ce_mode' in conf else 'ce_loss'
+            logging.info('ce_mode: {}'.format(self.ce_mode))
 
         # self.sv_con_mode = conf['sv_con_mode'] if 'sv_con_mode' in conf else 'num'
         # logging.info('sv_con_mode: {}'.format(self.joint_mode))
 
-        self.joint_mode = conf['joint_mode'] if 'joint_mode' in conf else 'true_se'
-        logging.info('joint_mode: {}'.format(self.joint_mode))
-
+        if self.semantic_weight>0 & self.joint_weight>0:
+            self.joint_mode = conf['joint_mode'] if 'joint_mode' in conf else 'true_se'
+            logging.info('joint_mode: {}'.format(self.joint_mode))
 
     def get_warm_up_ratio(self):
         if self.warm_up_end == 0.0:

@@ -92,7 +92,6 @@ class NeuSRenderer:
         self.color_network_fine = color_network_fine
         self.semantic_network_fine = semantic_network_fine
         self.semantic_class=semantic_class
-        logging.info(f'use semantic_network: {semantic_class} class')
         self.n_samples = n_samples
         self.n_importance = n_importance
         self.n_outside = n_outside

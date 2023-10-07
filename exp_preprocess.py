@@ -12,7 +12,7 @@ import utils.utils_io as IOUtils
 import utils.utils_normal as NormalUtils
 
 # from confs.path import lis_name_scenes
-lis_name_scenes=['scene0616_00']
+lis_name_scenes=['scene0378_00', 'scene0435_02', 'scene0616_00']
 
 if __name__ == '__main__':
     np.set_printoptions(precision=3)
