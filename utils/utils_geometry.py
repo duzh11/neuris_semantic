@@ -264,15 +264,15 @@ def generate_transform_noise(sigma_rot_angle = 1.0, sigma_trans = 0.01):
 
 # depthmap related functions
 def read_depth_maps_np(dir):
-    '''Read depthmaps in dir with .npy format
+    '''Read depthmaps in dir with .npz format
     Return:
         arr_depths: N*W*H
     '''
-    vec_path_depths = sorted(glob.glob(f"{dir}/**.npy"))
+    vec_path_depths = sorted(glob.glob(f"{dir}/**.npz"))
 
     arr_depth_maps = []
     for i in range(len(vec_path_depths)):
-        depth_map_curr = np.load(vec_path_depths[i])
+        depth_map_curr = np.load(vec_path_depths[i])['arr_0']
         arr_depth_maps.append(depth_map_curr)
     
     arr_depth_maps = np.array(arr_depth_maps)

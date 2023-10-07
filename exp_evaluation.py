@@ -13,10 +13,8 @@ import utils.utils_geometry as GeoUtils
 import utils.utils_image  as ImageUtils
 import utils.utils_io as IOUtils
 import utils.utils_normal as NormalUtils
-import utils.utils_semantic as SemanticUtils
 
 # from confs.path import lis_name_scenes
-
 
 cv2.destroyAllWindows
 if __name__ == '__main__':
@@ -26,270 +24,128 @@ if __name__ == '__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)
     
-    #3D_error_mesh
-    #eval_3D_mesh_metrics
-    #eval_semantic_2D_metrices
+    lis_name_scenes=['scene0378_00']
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', type=str, default='3D_error_mesh')
-    parser.add_argument('--semantic_class', type=int, default=3,help='number of semantic class')
+    parser.add_argument('--mode', type=str, default='evaluate_normal')
+    parser.add_argument('--exp_name', type=str, default='deeplab_semantic/ce_stop')
+    parser.add_argument('--dir_dataset', type=str, default='../Data/dataset/indoor')
+    parser.add_argument('--dir_results_baseline', type=str, default='../exps/indoor/neus')
+    parser.add_argument('--acc', type=str, default='fine')
+    parser.add_argument('--save_mean', default=False, action="store_true")
+    parser.add_argument('--semantic_class', type=int, default=40, help='number of semantic class')
     args = parser.parse_args()
 
-    lis_name_scenes=['scene0084_00','scene0616_00']
+    dir_dataset = args.dir_dataset
+    exp_name = args.exp_name
+    name_baseline = exp_name.split('/')[-1]
+    dir_results_baseline = os.path.join(args.dir_results_baseline, exp_name)
 
-    if args.mode == 'eval_3D_mesh_metrics':
-        dir_dataset = '../Data/dataset/indoor'
-        exp_name='semantic_3_test3'
-        name_baseline = f'{exp_name}'
-        
+    logging.info(f'Eval mode: {args.mode}')
+    if args.mode == 'eval_3D_mesh_neuris':
         eval_threshold = 0.05
-        check_existence = True
-        
-        dir_results_baseline = f'../exps/evaluation/'
-
         metrics_eval_all = []
         for scene_name in lis_name_scenes:
-            logging.info(f'\n\nProcess: {scene_name}')
-            # ./exps/evaluation/neus/scene_name
-            path_mesh_pred = f'{dir_results_baseline}/{name_baseline}/{scene_name}.ply'#ply
-            metrics_eval =  EvalScanNet.evaluate_3D_mesh(path_mesh_pred, scene_name, dir_dataset = dir_dataset,
-                                                                eval_threshold = 0.05, reso_level = 2, 
-                                                                check_existence = check_existence)
+            logging.info(f'Eval 3D mesh: {scene_name}')
+            path_mesh_pred = f'{dir_results_baseline}/{scene_name}/meshes/{scene_name}.ply'
+            metrics_eval =  EvalScanNet.evaluate_3D_mesh_neuris(path_mesh_pred, 
+                                                         scene_name, 
+                                                         dir_dataset = dir_dataset,
+                                                         eval_threshold = eval_threshold, 
+                                                         reso_level = 2, 
+                                                         check_existence = True)
     
             metrics_eval_all.append(metrics_eval)
         metrics_eval_all = np.array(metrics_eval_all)
         str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
-        path_log = f'{dir_results_baseline}/{name_baseline}/eval_{name_baseline}_3Dmesh_thres{eval_threshold}_{str_date}_markdown.txt'
+        path_log = f'{dir_results_baseline}/{name_baseline}_eval3Dmesh_neuris_thres{eval_threshold}_{str_date}.md'
         
-        latex_header=f'{exp_name}\n  scene_name         Accu.      Comp.      Prec.     Recall     F-score \n'
-        markdown_header=f'\n| scene_name   |    Method|    Accu.|    Comp.|    Prec.|   Recall|  F-score| \n'
-        markdown_header=markdown_header+'| -------------| ---------| ------- | ------- | ------- | ------- | ------- |\n'
+        markdown_header=f'| scene_name   |    Method|    Accu.|    Comp.|    Prec.|   Recall|  F-score|  Chamfer\n'
+        markdown_header=markdown_header+'| -------------| ---------| ------- | ------- | ------- | ------- | ------- | ------- |\n'
         EvalScanNet.save_evaluation_results_to_markdown(path_log, 
                                                         header = markdown_header, 
-                                                        exp_name=exp_name,
+                                                        name_baseline=name_baseline,
                                                         results = metrics_eval_all, 
                                                         names_item = lis_name_scenes, 
                                                         save_mean = True, 
-                                                        mode = 'w')
+                                                        mode = 'w')  
 
-    if args.mode == 'eval_semantic_2D_metrices':
-        data_dir='../Data/dataset/indoor'
-        exp_dir='../exps/indoor/random_seed'
-        dir_results_baseline = f'../exps/random_seed'
-        numclass=40
-        GT_name=f'semantic_{numclass}'
-        name_baseline=f'semantic_{numclass}_test1'
-        exp_name = name_baseline
-        flag_old=False
-        metrics_average_all = []
-        metrics_iou_all = []
-        metrics_acc_all = []
-
-        logging.info(f'Eval semantic class: {numclass}')
+    if args.mode == 'eval_3D_mesh_TSDF':
+        eval_threshold_lis = [0.03,0.05,0.07]
+        
+        metrics_eval_all = []
         for scene_name in lis_name_scenes:
-            logging.info(f'eval scene: {scene_name}')
-            #dir
-            GT_dir=os.path.join(data_dir,scene_name,GT_name)
-  
-            if flag_old:
-                render_dir=os.path.join(exp_dir,scene_name,name_baseline,'semantic_render')
-            else:
-                render_dir=os.path.join(exp_dir,scene_name,name_baseline,'semantic_npz')
-
-            # render_dir=os.path.join(data_dir,scene_name,'semantic_deeplab')
-            GT_list=os.listdir(GT_dir)
-            id_list=[int(os.path.splitext(frame)[0]) for frame in GT_list]
-            id_list=sorted(id_list)
-            semantic_GT_list=[]
-            semantic_render_list=[]
+            logging.info(f'Eval 3D mesh: {scene_name}')
+            path_mesh_pred = f'{dir_results_baseline}/{scene_name}/meshes/{scene_name}.ply'
+            metrics_eval =  EvalScanNet.evaluate_3D_mesh_TSDF(path_mesh_pred,
+                                                              scene_name,
+                                                              dir_dataset = '../Data/dataset/indoor',
+                                                              eval_threshold = eval_threshold_lis,
+                                                              reso_level = 2.0, 
+                                                              check_existence = True)
             
-            logging.info(f'loading {scene_name} semantic')
-            for idx in id_list:
-                GT_file=os.path.join(GT_dir, '%d.png'%idx)
-                
-                if flag_old:
-                    render_file=os.path.join(render_dir, '00160000_'+'0'*(4-len(str(idx)))+str(idx)+'_reso2.png')
-                    # render_file=os.path.join(render_dir, str(idx)+'.png')#deeplab
-                else:
-                    render_file=os.path.join(render_dir, '00160000_'+'0'*(4-len(str(idx)))+str(idx)+'_reso2.npz')
-
-                semantic_GT=cv2.imread(GT_file)[:,:,0]
-                
-                if flag_old:
-                    semantic_render=cv2.imread(render_file)[:,:,0]/80
-                else:
-                    semantic_render=(np.load(render_file)['arr_0'])
-
-                reso=semantic_GT.shape[0]/semantic_render.shape[0]
-                if reso>1:
-                    semantic_GT=cv2.resize(semantic_GT, (semantic_render.shape[1],semantic_render.shape[0]), interpolation=cv2.INTER_NEAREST)
-                semantic_GT_list.append(semantic_GT)
-                semantic_render_list.append(semantic_render)
-
-            if numclass>3:
-                true_labels=np.array(semantic_GT_list)-1
-                predicted_labels=np.array(semantic_render_list)-1
-            else:
-                true_labels=np.array(semantic_GT_list)
-                predicted_labels=np.array(semantic_render_list)  
-
-            acc_mean,acc_cls,acc_cls_mean, iou, iou_mean=SemanticUtils.calculate_segmentation_metrics(
-                                                                                    true_labels=true_labels, 
-                                                                                    predicted_labels=predicted_labels, 
-                                                                                    number_classes=numclass, 
-                                                                                    ignore_label=255)
-            metrics_average=np.array([acc_cls_mean,iou_mean])
-            metrics_acc=np.array(acc_cls)
-            metrics_iou=np.array(iou)
-            metrics_average_all.append(metrics_average)
-            metrics_acc_all.append(metrics_acc)
-            metrics_iou_all.append(metrics_iou)
-
-            logging.info(f'{scene_name}: {metrics_average}')
-
-        metrics_eval_all = np.array(metrics_average_all)
-        metrics_acc_all=np.array(metrics_acc_all)
-        metrics_iou_all=np.array(metrics_iou_all)
+            metrics_eval_all.append(metrics_eval)
+        metrics_eval_all = np.array(metrics_eval_all)
 
         str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
-        path_log = f'{dir_results_baseline}/{name_baseline}/eval_{name_baseline}_semantic_{str_date}_markdown.txt'
+        path_log = f'{dir_results_baseline}/{name_baseline}_eval3Dmesh_TSDF_{str_date}.md'
         
-        markdown_header='Eval metrics\n| scene_ name   |   Method|  Acc_mean|  IoU_mean|\n'
-        markdown_header=markdown_header+'| -------------| ---------| ----- | ----- |\n'
+        markdown_header='Eval mesh\n| scene_name   |    Method| F-score$_{0.03}$| F-score$_{0.05}$| F-score$_{0.07}$| Chamfer|\n'
+        markdown_header=markdown_header+'| -------------| ---------| ------- | ------- | ------- | ------- |\n'
         EvalScanNet.save_evaluation_results_to_markdown(path_log, 
                                                         header = markdown_header, 
-                                                        exp_name=exp_name,
+                                                        name_baseline=name_baseline,
                                                         results = metrics_eval_all, 
                                                         names_item = lis_name_scenes, 
                                                         save_mean = True, 
                                                         mode = 'w')
-        
-        markdown_header='\nAccuracy\n'
-        EvalScanNet.save_evaluation_results_to_txt(path_log, 
-                                                        header = markdown_header, 
-                                                        exp_name=exp_name,
-                                                        results = metrics_acc_all, 
-                                                        names_item = lis_name_scenes, 
-                                                        save_mean = False, 
-                                                        mode = 'a')
-        markdown_header='\nIoU\n'
-        EvalScanNet.save_evaluation_results_to_txt(path_log, 
-                                                        header = markdown_header, 
-                                                        exp_name=exp_name,
-                                                        results = metrics_iou_all, 
-                                                        names_item = lis_name_scenes, 
-                                                        save_mean = False, 
-                                                        mode = 'a')        
 
     if args.mode == 'eval_mesh_2D_metrices':
-        dir_dataset = '../Data/dataset/indoor'
-        
-        exp_name='semantic_3_test3'
-        name_baseline = f'{exp_name}_refuse'
-        eval_type_baseline = 'mesh'
+        eval_type_baseline = 'depth'
         scale_depth = False
-
-        dir_results_baseline = f'../exps/evaluation/{name_baseline}'
         results_all =  []
+
         for scene_name in lis_name_scenes:
-            # scene_name += '_corner'
-            print(f'Processing {scene_name}...')
-            path_intrin = f'{dir_dataset}/{scene_name}/intrinsic_depth.txt'
+            logging.info(f'Processing {scene_name}...')
+            
             dir_scan = f'{dir_dataset}/{scene_name}'
+            path_intrin = f'{dir_scan}/intrinsic_depth.txt'
             if eval_type_baseline == 'mesh':
                 # use rendered depth map
-                path_mesh_baseline =  f'{dir_results_baseline}/{scene_name}.ply'
+                path_mesh_baseline =  f'{dir_results_baseline}/{scene_name}/meshes/{scene_name}.ply'
                 pred_depths = render_depthmaps_pyrender(path_mesh_baseline, path_intrin, 
                                                             dir_poses=f'{dir_scan}/pose')
-                img_names = IOUtils.get_files_stem(f'{dir_scan}/depth', '.png')
             elif eval_type_baseline == 'depth':
-                dir_depth_baseline =  f'{dir_results_baseline}/{scene_name}'
+                dir_depth_baseline =  f'{dir_results_baseline}/{scene_name}/depth/{args.acc}'
                 pred_depths = GeoUtils.read_depth_maps_np(dir_depth_baseline)
-                img_names = IOUtils.get_files_stem(dir_depth_baseline, '.npy')
-                
+            
             # evaluation
+            img_names = IOUtils.get_files_stem(f'{dir_scan}/depth', '.png')
             dir_gt_depth = f'{dir_scan}/depth'
-            gt_depths, _ = EvalScanNet.load_gt_depths(img_names, dir_gt_depth)
+            gt_depths, _ = EvalScanNet.load_gt_depths(img_names, dir_gt_depth, pred_depths.shape[1], pred_depths.shape[2])
             err_gt_depth_scale = EvalScanNet.depth_evaluation(gt_depths, pred_depths, dir_results_baseline, scale_depth=scale_depth)
             results_all.append(err_gt_depth_scale)
             
         results_all = np.array(results_all)
-        print('All results: ', results_all)
 
-        count = 0
         str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
-        path_log_all = f'{dir_results_baseline}/eval_{name_baseline}_depth-scale_{scale_depth}_{eval_type_baseline}_{str_date}.txt'
-        # EvalScanNet.save_evaluation_results_to_markdown(path_log_all, header = f'{str_date}\n\n',  mode = 'w')
+        path_log = f'{dir_results_baseline}/{name_baseline}_evaldepth_{args.acc}_{scale_depth}_{eval_type_baseline}_{str_date}.md'
         
         precision = 3
         results_all = np.round(results_all, decimals=precision)
         markdown_header=f'depth evaluation\n| scene_ name   |   Method|  abs_rel|  sq_rel|  rmse| rmse_log| a1| a2| a3| \n'
         markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- | ----- | ----- | ----- |\n' 
-        EvalScanNet.save_evaluation_results_to_markdown(path_log_all, 
+        EvalScanNet.save_evaluation_results_to_markdown(path_log, 
                                                         header = markdown_header, 
-                                                        exp_name=exp_name,
+                                                        name_baseline=name_baseline,
                                                         results = results_all, 
                                                         names_item = lis_name_scenes, 
                                                         save_mean = True, 
-                                                        mode = 'w',
-                                                        precision = precision)
-    if args.mode=='3D_error_mesh':
-        logging.info('output 3D error mesh.')
-        dir_dataset = '../Data/dataset/indoor'
-        dir_results_baseline = f'../exps/evaluation/'
-        exp_name='semantic_3_test11'
-        name_baseline = f'{exp_name}_refuse'
-        
-        def nn_correspondance(verts1, verts2):
-            indices = []
-            distances = []
-            if len(verts1) == 0 or len(verts2) == 0:
-                return indices, distances
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(verts1)
-            kdtree = o3d.geometry.KDTreeFlann(pcd)
-            for vert in verts2:
-                _, inds, dist = kdtree.search_knn_vector_3d(vert, 1)
-                indices.append(inds[0])
-                distances.append(np.sqrt(dist[0]))
-            return indices, distances
-        
-        color_map = cm.get_cmap('Reds')
-        error_bound = 0.01
-
-        for scene_name in lis_name_scenes:
-            logging.info(f'\n\nProcess: {scene_name}')
-            path_mesh_pred = f'{dir_results_baseline}/{name_baseline}/{scene_name}.ply'
-            path_mesh_GT = f'{dir_results_baseline}/GT_refuse/{scene_name}_GT.ply'
-            # path_mesh_pred = f'{dir_results_baseline}/{name_baseline}/{scene_name}_clean_bbox_faces_mask.ply'#ply
-            # path_mesh_GT = f'{dir_dataset}/{scene_name}/{scene_name}_vh_clean_2.ply'
-            
-            error_mesh=f'{dir_results_baseline}/{name_baseline}/{scene_name}_error_{error_bound}.ply'
-
-            mesh_gt = GeoUtils.read_triangle_mesh(path_mesh_GT)
-            verts_gt = np.asarray(mesh_gt.vertices)
-            triangles_gt = np.asarray(mesh_gt.triangles)
-
-            mesh_pred = GeoUtils.read_triangle_mesh(path_mesh_pred)
-            verts_pred = np.asarray(mesh_pred.vertices)
-            triangles_pred = np.asarray(mesh_pred.triangles)
-
-            indices_a, dist_a = nn_correspondance(verts_pred, verts_gt)
-            dist_a = np.array(dist_a)
-            
-            indices_r, dist_r = nn_correspondance(verts_gt, verts_pred)
-            dist_r = np.array(dist_r)
-            
-            dist_a1=np.array(dist_r)
-            dist_a1[indices_a]=dist_a
-
-            dist=dist_r**2+dist_a1**2
-
-            dist_score = dist.clip(0, error_bound) / error_bound
-            colors = color_map(dist_score)[:, :3]
-
-            GeoUtils.save_mesh(error_mesh, verts_pred, triangles_pred, colors)
+                                                        mode = 'w')
+    
+    # if args.mode == 'evaluate_semantic':
 
 
+    #######-------to be modified----------
     if args.mode == 'evaluate_normal':
         # compute normal errors
         exp_name = 'exp_neuris'

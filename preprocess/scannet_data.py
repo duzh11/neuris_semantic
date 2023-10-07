@@ -45,6 +45,9 @@ class ScannetData:
         #     0.000000 0.000000 0.000000 1.000000'''
         self.intrinsics = GeometryUtils.read_cam_matrix(path_intrin_color)
         self.intrinsics_depth = GeometryUtils.read_cam_matrix(path_intrin_depth)
+        path_intrin_depth_target = f'{dir_scan}/intrinsic/intrinsic_depth.txt'
+        if not IOUtils.checkExistence(path_intrin_depth_target):
+            shutil.copyfile(path_intrin_depth, path_intrin_depth_target)
         
         self.dir_depthmap = os.path.join(self.dir_scan, 'depth')
         self.dir_image = os.path.join(self.dir_scan, 'image')

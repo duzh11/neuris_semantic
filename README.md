@@ -60,16 +60,16 @@ pip install -r neuris.txt
 ## Training
 
 ```
-spython ./exp_runner.py --mode train --conf ./confs/neuris.conf --server server8 --gpu 0 --scene_name scene0050_00
+python ./exp_runner.py --mode train --conf ./confs/neuris_server.conf --server server2 --gpu 0 --scene_name scene0050_00
 ```
 
 ## Mesh extraction
 ```
-python exp_runner.py --mode validate_mesh --conf ./confs/neuris.conf --gpu 0 --is_continue
+python exp_runner.py --mode validate_mesh --conf ./confs/neuris.conf --server server2 --gpu 0 --is_continue
 ```
 ## validate image
 ```
-python exp_runner.py --mode validate_image  --conf ./confs/neuris_server.conf --server server4 --gpu 0 --scene_name scene0050_00 --semantic_class 3 --stop_semantic_grad --semantic_mode sigmoid --is_continue
+python exp_runner.py --mode validate_image --conf ./confs/neuris_server.conf --server server2 --gpu 0 --scene_name scene0050_00 --is_continue
 ```
 ## Evaluation
 ```

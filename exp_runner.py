@@ -426,7 +426,7 @@ class Runner:
         self.validate_mesh(world_space=True, 
                            resolution=args.mc_reso, 
                            threshold=args.threshold, 
-                           seg_mesh=True)
+                           seg_mesh=self.use_semantic)
         logging.info(f"[Validate mesh] Consumed time (Step: {runner.iter_step}; MC resolution: {args.mc_reso}): {IOUtils.get_consumed_time(t_mesh):.02f}(s)")
         logging.info(f'Done: extract image')
 
@@ -437,13 +437,13 @@ class Runner:
                                 semantic_class=self.semantic_class, 
                                 save_peak_value=False, 
                                 validate_confidence=self.use_geocheck,
-                                save_image_render = False, 
-                                save_normal_render = False, 
-                                save_depth_render = False, 
+                                save_image_render = True, 
+                                save_normal_render = True, 
+                                save_depth_render = True, 
                                 save_semantic_render = True, 
                                 save_lis_images=True,
-                                lis_expdir=f'image_train/{int(self.end_iter)}',
-                                semantics_expdir=f'image_train_semantics/{int(self.end_iter)}')
+                                lis_expdir='image_valiate',
+                                semantics_expdir='image_valiate_semantics')
             logging.info(f"validating image time is : {(datetime.now()-t_validate).total_seconds()}")
         logging.info(f"Done: validating image")
 
@@ -815,6 +815,7 @@ class Runner:
     
         return log_val
 
+    
     def validate_image(self, 
                         idx=-1, 
                         resolution_level=-1, 
@@ -829,7 +830,7 @@ class Runner:
                         save_lis_images=True,
                         lis_expdir='image_train',
                         semantics_expdir='image_train_semantics'):
-        # validate imagegmea
+        # validate image
         ic(self.iter_step, idx)
         logging.info(f'Validate image begin: idx {idx}...')
         if idx < 0:
@@ -918,8 +919,8 @@ class Runner:
             
             # shape_depthmap = imgs_render['depth'].shape[:2]
             pts_world = torch.vstack(rays_o).cpu().numpy() +  torch.vstack(rays_d).cpu().numpy() * imgs_render['depth'].reshape(-1,1)
-            os.makedirs(os.path.join(self.base_exp_dir, 'depth_cloud'), exist_ok=True)
-            GeoUtils.save_points(os.path.join(self.base_exp_dir, 'depth_cloud', f'{self.iter_step:0>8d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.ply'),
+            os.makedirs(os.path.join(self.base_exp_dir, 'depth_cloud/fine'), exist_ok=True)
+            GeoUtils.save_points(os.path.join(self.base_exp_dir, 'depth_cloud/fine', f'{self.iter_step:0>8d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.ply'),
                                     pts_world.reshape(-1,3),
                                     colors = imgs_render['color_fine'].squeeze().reshape(-1,3),
                                     normals= imgs_render['normal'].squeeze().reshape(-1,3),
@@ -928,68 +929,62 @@ class Runner:
             # save peak depth and normal
             if save_peak_value:
                 pts_world_peak = torch.vstack(rays_o).cpu().numpy() +  torch.vstack(rays_d).cpu().numpy() * imgs_render['depth_peak'].reshape(-1,1)
-                os.makedirs(os.path.join(self.base_exp_dir, 'depth_cloud'), exist_ok=True)
-                GeoUtils.save_points(os.path.join(self.base_exp_dir, 'depth_cloud', f'{self.iter_step:0>8d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}_peak.ply'),
+                os.makedirs(os.path.join(self.base_exp_dir, 'depth_cloud/peak'), exist_ok=True)
+                GeoUtils.save_points(os.path.join(self.base_exp_dir, 'depth_cloud/peak', f'{self.iter_step:0>8d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.ply'),
                                         pts_world_peak.reshape(-1,3),
                                         colors = imgs_render['color_peak'].squeeze().reshape(-1,3),
                                         normals= imgs_render['normal_peak'].squeeze().reshape(-1,3),
                                         BRG2RGB=True)
 
         if save_depth_render:
-            depth_fine = imgs_render['depth']
-            os.makedirs(os.path.join(self.base_exp_dir, 'depth_npz'), exist_ok=True)
-            np.savez(os.path.join(self.base_exp_dir, 'depth_npz', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
+            depth_fine = imgs_render['depth']*scale
+            os.makedirs(os.path.join(self.base_exp_dir, 'depth/fine'), exist_ok=True)
+            np.savez(os.path.join(self.base_exp_dir, 'depth/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
                             depth_fine)
             
-            render_depth=depth_fine*scale*50
+            render_depth=depth_fine*50
             render_depth_map = cv.convertScaleAbs(render_depth)
             render_depth_map_jet = cv.applyColorMap(render_depth_map, cv.COLORMAP_JET)
-            os.makedirs(os.path.join(self.base_exp_dir, 'depth_render'), exist_ok=True)
-            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'depth_render', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'depth/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         render_depth_map_jet)
             
             if save_peak_value:
-                depth_peak=imgs_render['depth_peak']
-                np.savez(os.path.join(self.base_exp_dir, 'depth_npz', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}_peak.npz'),
+                depth_peak=imgs_render['depth_peak']*scale
+                os.makedirs(os.path.join(self.base_exp_dir, 'depth/peak'), exist_ok=True)
+                np.savez(os.path.join(self.base_exp_dir, 'depth/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
                             depth_peak)
                 
-                render_depth=depth_peak*scale*50
+                render_depth=depth_peak*50
                 render_depth_map = cv.convertScaleAbs(render_depth)
                 render_depth_map_jet = cv.applyColorMap(render_depth_map, cv.COLORMAP_JET)
-                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'depth_render', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}_peak.png'), 
+                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'depth/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         render_depth_map_jet)
 
         if save_normal_render:
             normal_fine=imgs_render['normal'].squeeze()
-            os.makedirs(os.path.join(self.base_exp_dir, 'normal_npz'), exist_ok=True)
-            np.savez(os.path.join(self.base_exp_dir, 'normal_npz', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'), 
+            os.makedirs(os.path.join(self.base_exp_dir, 'normal/fine'), exist_ok=True)
+            np.savez(os.path.join(self.base_exp_dir, 'normal/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'), 
                         normal_fine)
             
-            os.makedirs(os.path.join(self.base_exp_dir, 'normal_render'), exist_ok=True)
             norm_pred=np.linalg.norm(normal_fine, axis=-1, ord=2,keepdims=True)
             normal_pred=((((normal_fine/norm_pred) + 1) * 0.5).clip(0,1) * 255)
-            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'normal_render', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'normal/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         (normal_pred.astype(np.uint8))[...,::-1])
-            
-            normal_input=np.array(self.dataset.normals[idx].squeeze())
-            normal_input=(((normal_input + 1) * 0.5).clip(0,1) * 255)
-            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'normal_render', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}_input.png'), 
-                        (normal_input.astype(np.uint8))[...,::-1])
             
             if save_peak_value:  
                 normal_peak=imgs_render['normal_peak'].squeeze()    
-                os.makedirs(os.path.join(self.base_exp_dir, 'normal_npz'), exist_ok=True)
-                np.savez(os.path.join(self.base_exp_dir, 'normal_npz', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}_peak.npz'), 
+                os.makedirs(os.path.join(self.base_exp_dir, 'normal/peak'), exist_ok=True)
+                np.savez(os.path.join(self.base_exp_dir, 'normal/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'), 
                         normal_peak)
                 
                 norm_pred=np.linalg.norm(normal_peak, axis=-1, ord=2,keepdims=True)
                 normal_pred=((((normal_peak/norm_pred) + 1) * 0.5).clip(0,1) * 255)
-                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'normal_render', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}_peak.png'), 
+                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'normal/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         (normal_pred.astype(np.uint8))[...,::-1])
                 
         if save_image_render:
-            os.makedirs(os.path.join(self.base_exp_dir, 'image_render'), exist_ok=True)
-            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'image_render', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+            os.makedirs(os.path.join(self.base_exp_dir, 'img/fine'), exist_ok=True)
+            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'img/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         imgs_render['color_fine']*255)
             GT_image=np.array(self.dataset.images[idx])
             fine_image=np.array(torch.from_numpy(imgs_render['color_fine']))
@@ -997,18 +992,16 @@ class Runner:
                 GT_image=cv.resize(GT_image, (fine_image.shape[1], fine_image.shape[0]), interpolation=cv.INTER_LINEAR)  
    
             psnr_render = 20.0 * np.log10(1.0 / np.sqrt(((GT_image - fine_image)**2).sum() / (fine_image.size * 3.0)))
-            # psnr_render = 20.0 * torch.log10(1.0 / (((self.dataset.images[idx] - torch.from_numpy(imgs_render['color_fine']))**2).sum() / (imgs_render['color_fine'].size * 3.0)).sqrt())
             
             if save_peak_value:
-                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'image_render', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}_peak.png'), 
+                os.makedirs(os.path.join(self.base_exp_dir, 'img/peak'), exist_ok=True)
+                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'img/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                             imgs_render['color_peak']*255)    
                 peak_image=np.array(torch.from_numpy(imgs_render['color_fine']))
                 if (GT_image).shape[0]!=(fine_image).shape[0]:
                     GT_image=cv.resize(GT_image, (peak_image.shape[1], peak_image.shape[0]), interpolation=cv.INTER_LINEAR)  
    
                 psnr_peak = 20.0 * np.log10(1.0 / np.sqrt(((GT_image - peak_image)**2).sum() / (peak_image.size * 3.0)))
-                
-                # psnr_peak = 20.0 * torch.log10(1.0 / (((self.dataset.images[idx] - torch.from_numpy(imgs_render['color_peak']))**2).sum() / (imgs_render['color_peak'].size * 3.0)).sqrt())
                 print(f'PSNR (rener, peak): {psnr_render}  {psnr_peak}')
     
         colormap_func = matplotlib.cm.get_cmap("jet")
@@ -1017,13 +1010,13 @@ class Runner:
             if semantic_class!=3:
                 semantic_fine=semantic_fine+1
 
-            os.makedirs(os.path.join(self.base_exp_dir, 'semantic_npz'), exist_ok=True)
-            np.savez(os.path.join(self.base_exp_dir, 'semantic_npz', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
-                            semantic_fine)
+            os.makedirs(os.path.join(self.base_exp_dir, 'semantic/fine'), exist_ok=True)
+            np.savez(os.path.join(self.base_exp_dir, 'semantic/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
+                            semantic_fine.astype(np.uint8))
             
-            os.makedirs(os.path.join(self.base_exp_dir, 'semantic_render_vis'), exist_ok=True)
+            os.makedirs(os.path.join(self.base_exp_dir, 'semantic/fine'), exist_ok=True)
             vis_label = colour_map_np[(semantic_fine).astype(np.uint8)]
-            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'semantic_render_vis', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'semantic/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         (vis_label.astype(np.uint8))[...,::-1])
 
             # sem_uncertainty
@@ -1043,16 +1036,15 @@ class Runner:
                 semantic_peak=(imgs_render['semantic_peak'].argmax(axis=2))
                 if semantic_class!=3:
                     semantic_peak=semantic_peak+1 
-                os.makedirs(os.path.join(self.base_exp_dir, 'semantic_npz'), exist_ok=True)
-                np.savez(os.path.join(self.base_exp_dir, 'semantic_npz', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}_peak.npz'),
-                                semantic_peak)
+                os.makedirs(os.path.join(self.base_exp_dir, 'semantic/peak'), exist_ok=True)
+                np.savez(os.path.join(self.base_exp_dir, 'semantic/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
+                                semantic_peak.astype(np.uint8))
                 
-                os.makedirs(os.path.join(self.base_exp_dir, 'semantic_render_vis'), exist_ok=True)
+                os.makedirs(os.path.join(self.base_exp_dir, 'semantic/peak'), exist_ok=True)
                 vis_label = colour_map_np[(semantic_peak).astype(np.uint8)]
-                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'semantic_render_vis', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}_peak.png'), 
+                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'semantic/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                             (vis_label.astype(np.uint8))[...,::-1])
 
-        
         # (3) save images
         if save_lis_images:
             lis_semantics = []
@@ -1148,19 +1140,22 @@ class Runner:
             if self.use_semantic:
                 dir_semantics = os.path.join(self.base_exp_dir, semantics_expdir)
                 os.makedirs(dir_semantics, exist_ok=True)
-                if self.conf['dataset']['use_mv_similarity']:
+                
+                lis_semantics_0 = [img_gt, vis_input]
+
+                if self.dataset.use_grid:
+                    grids = ImageUtils.resize_image(self.dataset.grids[idx].cpu().numpy(), 
+                            (img_temp.shape[1], img_temp.shape[0]))
+                    vis_grids = label2rgb(grids, img_gt.astype(np.uint8), bg_label=0, alpha=0.5, kind='overlay')
+                    lis_semantics_0 = [img_gt, vis_grids, vis_input]
+
+                if self.dataset.use_mv_similarity:
                     mv_similarity = ImageUtils.resize_image(self.dataset.mv_similarity[idx].cpu().numpy(), 
                                                         (lis_imgs[0].shape[1], lis_imgs[0].shape[0])) 
                     mv_similarity_vis = colormap_func(mv_similarity)[:, :, :3]
-                    if self.dataset.use_grid:
-                        grids = ImageUtils.resize_image(self.dataset.grids[idx].cpu().numpy(), 
-                                (img_temp.shape[1], img_temp.shape[0]))
-                        vis_grids = label2rgb(grids, img_gt.astype(np.uint8), bg_label=0, alpha=0.5, kind='overlay')
-                        lis_semantics=[img_gt, vis_grids[...,::-1], vis_input, mv_similarity_vis] + lis_semantics
-                    else:
-                        lis_semantics=[img_gt, vis_input, mv_similarity_vis] + lis_semantics
-                else:
-                    lis_semantics=[img_gt] + lis_semantics
+                    lis_semantics_0 = lis_semantics_0 + [mv_similarity_vis]
+                    
+                lis_semantics = lis_semantics_0 + lis_semantics
                 
                 ImageUtils.write_image_lis(f'{dir_semantics}/{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png',
                                             lis_semantics)
@@ -1225,7 +1220,6 @@ class Runner:
                     os.makedirs(os.path.join(self.base_exp_dir, 'results', key), exist_ok=True)
                     np.savez(os.path.join(self.base_exp_dir, 'results', key, f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'), 
                         save_results[key])
-
 
     def compare_ncc_confidence(self, idx=-1, resolution_level=-1):
         # validate image
@@ -1326,9 +1320,19 @@ class Runner:
             mesh.export(path_mesh_semantic)
             
         if path_mesh_gt:
-            GeoUtils.clean_mesh_points_outside_bbox(path_mesh, path_mesh, path_mesh_gt, scale_bbox = 1.1, check_existence=False)
+            path_mesh_clean_bbox = IOUtils.add_file_name_suffix(path_mesh, '_clean_bbox')
+            GeoUtils.clean_mesh_points_outside_bbox(path_mesh_clean_bbox, 
+                                                    path_mesh, 
+                                                    path_mesh_gt, 
+                                                    scale_bbox = 1.1, 
+                                                    check_existence=True)
             if seg_mesh:
-                GeoUtils.clean_mesh_points_outside_bbox(path_mesh_semantic, path_mesh_semantic, path_mesh_gt, scale_bbox = 1.1, check_existence=False)
+                path_mesh_semantic_clean_bbox = IOUtils.add_file_name_suffix(path_mesh_semantic, '_clean_bbox')
+                GeoUtils.clean_mesh_points_outside_bbox(path_mesh_semantic_clean_bbox, 
+                                                        path_mesh_semantic, 
+                                                        path_mesh_gt, 
+                                                        scale_bbox = 1.1, 
+                                                        check_existence=True)
         return path_mesh
 
     def validate_fields(self, iter_step=-1):
@@ -1637,7 +1641,7 @@ if __name__ == '__main__':
     elif args.mode == 'validate_mesh':
         if runner.model_type == 'neus':
             t1= datetime.now()
-            runner.validate_mesh(world_space=True, resolution=args.mc_reso, threshold=args.threshold)
+            runner.validate_mesh(world_space=True, resolution=args.mc_reso, threshold=args.threshold, seg_mesh=runner.use_semantic)
             logging.info(f"[Validate mesh] Consumed time (Step: {runner.iter_step}; MC resolution: {args.mc_reso}): {IOUtils.get_consumed_time(t1):.02f}(s)")
 
         elif runner.model_type == 'nerf':
@@ -1646,27 +1650,23 @@ if __name__ == '__main__':
             runner.validate_mesh_nerf(world_space=True, resolution=args.mc_reso, threshold=thres)
             logging.info(f"[Validate mesh] Consumed time (MC resolution: {args.mc_reso}； Threshold: {thres}): {IOUtils.get_consumed_time(t1):.02f}(s)")
     
-    elif args.mode == 'seg_mesh':
-        if runner.model_type == 'neus':
-            t1= datetime.now()
-            runner.validate_mesh(world_space=True, resolution=args.mc_reso, threshold=args.threshold, seg_mesh=True)
-            logging.info(f"[Validate mesh] Consumed time (Step: {runner.iter_step}; MC resolution: {args.mc_reso}): {IOUtils.get_consumed_time(t1):.02f}(s)")
-
     elif args.mode == 'validate_image':
         if runner.model_type == 'neus':
-            for i in range(0, runner.dataset.n_images, 1):
+            for idx in range(0, runner.dataset.n_images, 1):
                 t1 = datetime.now()
-                runner.validate_image(i, resolution_level=2, semantic_class=runner.semantic_class,
-                                            save_normamap_npz=args.save_normamap_npz, 
-                                            save_peak_value=args.save_peak_value,
-                                            save_image_render=args.nvs,
-                                            validate_confidence=runner.use_geocheck,
-                                            save_normal_render=False,
-                                            save_depth_render=False,
-                                            save_semantic_render = True,
-                                            save_lis_images=True,
-                                            lis_expdir='image_valiate',
-                                            semantics_expdir='image_valiate_semantics')
+                runner.validate_image(idx, 
+                                    resolution_level=2, 
+                                    semantic_class=runner.semantic_class,
+                                    save_normamap_npz=args.save_normamap_npz, 
+                                    save_peak_value=args.save_peak_value,
+                                    save_image_render=args.nvs,
+                                    validate_confidence=runner.use_geocheck,
+                                    save_normal_render=True,
+                                    save_depth_render=True,
+                                    save_semantic_render = True,
+                                    save_lis_images=True,
+                                    lis_expdir='image_valiate',
+                                    semantics_expdir='image_valiate_semantics')
                 logging.info(f"validating image time is : {(datetime.now()-t1).total_seconds()}")
         
         elif runner.model_type == 'nerf':

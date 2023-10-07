@@ -7,7 +7,7 @@ import open3d as o3d
 
 import evaluation.EvalScanNet as EvalScanNet
 import utils.utils_semantic as SemanticUtils
-import utils.utils_mesh as MeshUtils
+import utils.utils_TSDF as MeshUtils
 import utils.utils_geometry as GeoUtils
 import utils.utils_chamfer as ChamferUtils
 
@@ -44,10 +44,10 @@ def evalute_mesh(exp_name,
         path_mesh_pred = f'../exps/indoor/neus/{scene_name}/{exp_name}/meshes/{scene_name}.ply'
         path_mesh_GT=os.path.join(scene_dir,f'{scene_name}_vh_clean_2.ply')
         mesh_pred_dir, mesh_GT_dir= MeshUtils.refuse_mesh(scene_name=scene_name,
-                                                              scene_dir=scene_dir,
-                                                              output_dir=output_dir,
-                                                              path_mesh_pred=path_mesh_pred,
-                                                              path_mesh_GT=path_mesh_GT)
+                                                            scene_dir=scene_dir,
+                                                            output_dir=output_dir,
+                                                            path_mesh_pred=path_mesh_pred,
+                                                            path_mesh_GT=path_mesh_GT)
         metrices_eval=[]
         for thredhold_i in eval_threshold:
             metrices = EvalScanNet.evaluate_geometry_neucon(mesh_pred_dir, mesh_GT_dir, 
@@ -99,21 +99,6 @@ def Error_mesh(exp_name,
         colors = color_map(dist_score)[:, :3]
 
         GeoUtils.save_mesh(error_mesh, verts_pred, triangles_pred, colors)    
-
-def label_mesh(exp_name,
-               lis_name_scenes,
-               name_baseline,
-               dir_dataset='../Data/dataset/indoor',
-               dir_results_baseline='../exps/evaluation'):
-    for scene_name in lis_name_scenes:
-        scene_dir=os.path.join(dir_dataset,scene_name)
-        output_dir=f'{dir_results_baseline}/{name_baseline}'
-        path_mesh_pred=f'{dir_results_baseline}/{exp_name}/{scene_name}.ply'
-        MeshUtils.label3D(exp_name=exp_name,
-                scene_name=scene_name,
-                scene_dir=scene_dir,
-                output_dir=output_dir,
-                path_mesh_pred=path_mesh_pred)
     
 
 def save_result(name_baseline,
@@ -172,9 +157,9 @@ def save_result(name_baseline,
 if __name__=='__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)    
-    method='neuris'
-    lis_exp_name=['neuris_test4']
-    lis_name_scenes=['scene0025_00', 'scene0050_00', 'scene0169_00', 'scene0426_00', 'scene0580_00', 'scene0616_00']
+    method='test'
+    lis_exp_name=['test1', 'test2']
+    lis_name_scenes=['scene0378_00', 'scene0435_02']
     numclass=40
     eval_threshold=[0.03,0.05,0.07]
     
@@ -190,19 +175,17 @@ if __name__=='__main__':
     for exp_name in lis_exp_name:
         name_baseline=f'{exp_name}_refuse'
 
-        # logging.info(f'------render: {exp_name}')
-        # for scene in lis_name_scenes:
-        #     render_cmd = f'python ./render/render_mesh_open3d.py {scene} {exp_name}'
-        #     vedio_cmd=f'python ./render/render_vedio.py {scene} {exp_name} {0} {-1}'
-        #     os.system(render_cmd)
-        #     os.system(vedio_cmd)
+        logging.info(f'------render: {exp_name}')
+        for scene in lis_name_scenes:
+            render_cmd = f'python ./render/render_mesh_open3d.py {scene} {exp_name}'
+            vedio_cmd=f'python ./render/render_vedio.py {scene} {exp_name} {0} {-1}'
+            os.system(render_cmd)
+            os.system(vedio_cmd)
 
-        # logging.info(f'------Evaluate semantics: {exp_name}')
-        # metrics_eval_semantic, metrics_acc, metrics_iou=SemanticUtils.evaluate_semantic(exp_name, 
-        #                                                           lis_name_scenes,
-        #                                                           numclass)
-        
-        # label_mesh(exp_name, lis_name_scenes, name_baseline, dir_results_baseline=dir_results_baseline)
+        logging.info(f'------Evaluate semantics: {exp_name}')
+        metrics_eval_semantic, metrics_acc, metrics_iou=SemanticUtils.evaluate_semantic(exp_name, 
+                                                                  lis_name_scenes,
+                                                                  numclass)
     
         logging.info(f'------Evaluate mesh: {exp_name}')
         metrics_eval_mesh=evalute_mesh(exp_name, 

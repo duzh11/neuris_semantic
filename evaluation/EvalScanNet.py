@@ -5,6 +5,7 @@ import numpy as np
 import open3d as o3d
 
 import utils.utils_geometry as GeoUtils
+import utils.utils_TSDF as TSDFUtils
 import utils.utils_io as IOUtils
 
 def load_gt_depths(image_list, datadir, H=None, W=None):
@@ -112,7 +113,6 @@ def depth_evaluation(gt_depths, pred_depths, savedir=None, pred_masks=None, min_
     mean_errors = np.array(errors).mean(0)
 
     # print("\n  " + ("{:>8} | " * 7).format("abs_rel", "sq_rel", "rmse", "rmse_log", "a1", "a2", "a3"))
-    print(("&{: 8.3f}  " * 7).format(*mean_errors.tolist()))
     # print("\n-> Done!")
 
     # if savedir is not None:
@@ -206,28 +206,29 @@ def evaluate_geometry_neucon(file_pred, file_trgt, threshold=.05, down_sample=.0
                'fscore': fscore,
                'chamfer': chamfer,
                }
-    # plot graph
-    # if path_fscore_curve:
-    #     EvalUtils.draw_figure_fscore(path_fscore_curve, threshold, dist2, dist1, plot_stretch=5)
 
     metrics = np.array([np.mean(dist2), np.mean(dist1), precision, recal, fscore, chamfer])
     logging.info(f'{file_pred.split("/")[-1]}: {metrics}')
     return metrics
 
-def evaluate_3D_mesh(path_mesh_pred, scene_name, dir_dataset = '../Data/dataset/indoor',
-                            eval_threshold = 0.05, reso_level = 2.0, 
-                            check_existence = True):
-    '''Evaluate geometry quality of neus using Precison, Recall and F-score.
+def evaluate_3D_mesh_neuris(path_mesh_pred, 
+                     scene_name, 
+                     dir_dataset = '../Data/dataset/indoor',
+                     eval_threshold = 0.05, 
+                     reso_level = 2.0, 
+                     check_existence = True):
     '''
-    path_intrin = f'{dir_dataset}/{scene_name}/intrinsic_depth.txt'
-    target_img_size = (640, 480)
+    1. clean extra part
+    2. Evaluate geometry quality of neus using Precison, Recall and F-score.
+    '''
     dir_scan = f'{dir_dataset}/{scene_name}'
+    path_intrin = f'{dir_scan}/intrinsic_depth.txt'
+    target_img_size = (640, 480)
     dir_poses = f'{dir_scan}/pose'
-    # dir_images = f'{dir_scan}/image'
     
-    path_mesh_gt = f'{dir_dataset}/{scene_name}/{scene_name}_vh_clean_2.ply'
+    path_mesh_gt = f'{dir_scan}/{scene_name}_vh_clean_2.ply'
     path_mesh_gt_clean = IOUtils.add_file_name_suffix(path_mesh_gt, '_clean')
-    path_mesh_gt_2dmask = f'{dir_dataset}/{scene_name}/{scene_name}_vh_clean_2_2dmask.npz'
+    path_mesh_gt_2dmask = f'{dir_scan}/{scene_name}_vh_clean_2_2dmask.npz'
     
     # (1) clean GT mesh
     GeoUtils.clean_mesh_faces_outside_frustum(path_mesh_gt_clean, path_mesh_gt, 
@@ -245,30 +246,88 @@ def evaluate_3D_mesh(path_mesh_pred, scene_name, dir_dataset = '../Data/dataset/
                                                 path_mask_npz=path_mesh_gt_2dmask,
                                                 check_existence = check_existence)
 
-
     # (2) clean predicted mesh
-    path_mesh_pred_clean_bbox = path_mesh_pred #IOUtils.add_file_name_suffix(path_mesh_pred, '_clean_bbox')
+    path_mesh_pred_clean_bbox = IOUtils.add_file_name_suffix(path_mesh_pred, '_clean_bbox')
     path_mesh_pred_clean_bbox_faces = IOUtils.add_file_name_suffix(path_mesh_pred, '_clean_bbox_faces')
     path_mesh_pred_clean_bbox_faces_mask = IOUtils.add_file_name_suffix(path_mesh_pred, '_clean_bbox_faces_mask')
 
-    GeoUtils.clean_mesh_points_outside_bbox(path_mesh_pred_clean_bbox, path_mesh_pred, path_mesh_gt,
-                                                scale_bbox=1.1,
-                                                check_existence = check_existence)
-    GeoUtils.clean_mesh_faces_outside_frustum(path_mesh_pred_clean_bbox_faces, path_mesh_pred_clean_bbox, 
-                                                    path_intrin, dir_poses, 
-                                                    target_img_size, reso_level=reso_level,
-                                                    check_existence = check_existence)
-    GeoUtils.clean_mesh_points_outside_frustum(path_mesh_pred_clean_bbox_faces_mask, path_mesh_pred_clean_bbox_faces, 
-                                                    path_intrin, dir_poses, 
-                                                    target_img_size, reso_level=reso_level,
-                                                    path_mask_npz=path_mesh_gt_2dmask,
-                                                    check_existence = check_existence)
+    # 在validate_mesh中已经做了第一步
+    GeoUtils.clean_mesh_points_outside_bbox(path_mesh_pred_clean_bbox, 
+                                            path_mesh_pred, 
+                                            path_mesh_gt,
+                                            scale_bbox=1.1,
+                                            check_existence = check_existence)
+    GeoUtils.clean_mesh_faces_outside_frustum(path_mesh_pred_clean_bbox_faces, 
+                                              path_mesh_pred_clean_bbox, 
+                                              path_intrin, 
+                                              dir_poses, 
+                                              target_img_size, 
+                                              reso_level=reso_level,
+                                              check_existence = check_existence)
+    GeoUtils.clean_mesh_points_outside_frustum(path_mesh_pred_clean_bbox_faces_mask, 
+                                               path_mesh_pred_clean_bbox_faces, 
+                                               path_intrin, 
+                                               dir_poses, 
+                                               target_img_size, 
+                                               reso_level=reso_level,
+                                               path_mask_npz=path_mesh_gt_2dmask,
+                                               check_existence = check_existence)
     
     path_eval = path_mesh_pred_clean_bbox_faces_mask 
-    metrices_eval = evaluate_geometry_neucon(path_eval, path_mesh_gt_clean, 
-                                                        threshold=eval_threshold, down_sample=.02) #f'{dir_eval_fig}/{scene_name}_step{iter_step:06d}_thres{eval_threshold}.png')
+    metrices_eval = evaluate_geometry_neucon(path_eval, 
+                                             path_mesh_gt_clean,             
+                                             threshold=eval_threshold, 
+                                             down_sample=.02) #f'{dir_eval_fig}/{scene_name}_step{iter_step:06d}_thres{eval_threshold}.png')
 
     return metrices_eval
+
+def evaluate_3D_mesh_TSDF(path_mesh_pred, 
+                     scene_name, 
+                     dir_dataset = '../Data/dataset/indoor',
+                     eval_threshold = 0.05, 
+                     reso_level = 2.0, 
+                     check_existence = True):
+    '''
+    1. construct a TSDF mesh
+    2. evaluate geometry quality of neus using Precison, Recall and F-score.
+    '''
+    dir_scan = f'{dir_dataset}/{scene_name}'
+    target_img_size = (640, 480)
+
+    # 1.construct TSDF of GT mesh
+    path_mesh_gt = f'{dir_dataset}/{scene_name}/{scene_name}_vh_clean_2.ply'
+    path_mesh_gt_TSDF = IOUtils.add_file_name_suffix(path_mesh_gt, '_TSDF')
+    
+    logging.info(f'Constructing TSDF of GT mesh: {path_mesh_gt}')
+    TSDFUtils.construct_TSDF(path_mesh_gt,
+                        path_mesh_gt_TSDF,
+                        scene_name=scene_name,
+                        dir_scan=dir_scan,
+                        target_img_size=target_img_size,
+                        check_existence=check_existence)
+    
+    # 2.construct TSDF of predicted mesh
+    path_mesh_pred = path_mesh_pred
+    path_mesh_pred_TSDF = IOUtils.add_file_name_suffix(path_mesh_pred, '_TSDF')
+    logging.info(f'Constructing TSDF of predicted mesh: {path_mesh_pred}')
+    TSDFUtils.construct_TSDF(path_mesh_pred,
+                    path_mesh_pred_TSDF,
+                    scene_name=scene_name,
+                    dir_scan=dir_scan,
+                    target_img_size=target_img_size,
+                    check_existence=check_existence)
+    
+    metrices_eval=[]
+    for thredhold_i in eval_threshold:
+        metrices = evaluate_geometry_neucon(path_mesh_pred_TSDF, 
+                                            path_mesh_gt_TSDF, 
+                                            threshold=thredhold_i, 
+                                            down_sample=.02)
+        metrices_eval.append(metrices[-2])
+    metrices_eval.append(metrices[-1])
+
+    return metrices_eval
+
 
 def save_evaluation_results_to_latex(path_log, 
                                         header = '                     Accu.      Comp.      Prec.     Recall     F-score \n', 
@@ -307,7 +366,7 @@ def save_evaluation_results_to_latex(path_log,
  
 def save_evaluation_results_to_markdown(path_log, 
                                         header = '                     Accu.      Comp.      Prec.     Recall     F-score \n', 
-                                        exp_name=None,
+                                        name_baseline=None,
                                         results = None, 
                                         names_item = None, 
                                         save_mean = None, 
@@ -336,11 +395,11 @@ def save_evaluation_results_to_markdown(path_log,
             if names_item is None:
                 names_item = np.arange(results.shape[0])
             for idx in range(num_lines):
-                f_log.writelines((f'|{names_item[idx]}  | {exp_name}|' + ("{: 8.3f}|" * num_metrices).format(*results[idx, :].tolist())) + " \n")
+                f_log.writelines((f'|{names_item[idx]}  | {name_baseline}|' + ("{: 8.3f}|" * num_metrices).format(*results[idx, :].tolist())) + " \n")
         if save_mean:
             mean_results = np.nanmean(results,axis=0)     # 4*7
             mean_results = np.round(mean_results, decimals=precision)
-            f_log.writelines(( f'|       Mean  | {exp_name}|' + "{: 8.3f}|" * num_metrices).format(*mean_results[:].tolist()) + " \n")
+            f_log.writelines(( f'|       Mean  | {name_baseline}|' + "{: 8.3f}|" * num_metrices).format(*mean_results[:].tolist()) + " \n")
 
 def save_evaluation_results_to_txt(path_log, 
                                         header = '                     Accu.      Comp.      Prec.     Recall     F-score \n', 

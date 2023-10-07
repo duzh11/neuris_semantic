@@ -175,6 +175,7 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
     H,W, _ = read_image(f'{dir_scan}/color/0.jpg').shape
     # H,W, =968,1296
     path_intrin_color = f'{dir_scan}/intrinsic/intrinsic_color.txt'
+    path_intrin_depth = f'{dir_scan}/intrinsic/intrinsic_depth.txt'
     
     if W == 1296: 
         path_intrin_color_crop_resize = f'{dir_neus}/intrinsic_color_crop1248_resize640.txt'
