@@ -4,6 +4,7 @@ import numpy as np
 import skimage
 import mcubes
 import trimesh
+import logging
 from tqdm import tqdm
 
 def extract_fields(bound_min, bound_max, resolution, query_func):
@@ -83,21 +84,27 @@ class NeuSRenderer:
                  n_importance,
                  n_outside,
                  perturb,
-                 alpha_type='div'):
+                 alpha_type='div',
+                 stop_ce_grad=False):
         self.nerf = nerf
         self.sdf_network_fine = sdf_network_fine
         self.variance_network_fine = variance_network_fine
         self.color_network_fine = color_network_fine
         self.semantic_network_fine = semantic_network_fine
         self.semantic_class=semantic_class
-        if self.semantic_network_fine:
-            print(f'use semantic_network: {semantic_class} class')
+        logging.info(f'use semantic_network: {semantic_class} class')
         self.n_samples = n_samples
         self.n_importance = n_importance
         self.n_outside = n_outside
         self.perturb = perturb
         self.alpha_type = alpha_type
         self.radius = 1.0
+
+        if semantic_network_fine:
+            self.stop_ce_grad = stop_ce_grad
+        else:
+            self.stop_ce_grad = False
+        logging.info(f'stop_ce_grad: {self.stop_ce_grad}')
 
     def render_core_outside(self, rays_o, rays_d, z_vals, sample_dist, nerf, background_rgb=None):
         batch_size, n_samples = z_vals.shape
@@ -194,7 +201,6 @@ class NeuSRenderer:
                     background_sampled_color=None,
                     background_rgb=None,
                     alpha_inter_ratio=0.0,
-                    stop_semantic_grad=False,
                     validate_flag=False):
         logs_summary = {}
 
@@ -222,7 +228,7 @@ class NeuSRenderer:
         sampled_semantic=torch.zeros([batch_size, n_samples, semantic_class])
         if semantic_network:
             # stop semantic gradients to geometry feature
-            if stop_semantic_grad:
+            if self.stop_ce_grad:
                 feature_vector_new=feature_vector.detach()
                 sampled_semantic = semantic_network(pts, feature_vector_new).reshape(batch_size, n_samples, semantic_class) 
             else:
@@ -277,8 +283,8 @@ class NeuSRenderer:
         if background_rgb is not None:
             color = color + background_rgb * (1.0 - weights_sum)
         
-        # stop semantic grad
-        if stop_semantic_grad:
+        # stop semantic grad to weights
+        if self.stop_ce_grad:
             weights_new=weights.detach()
             semantic = (sampled_semantic * weights_new[:, :, None]).sum(dim=1)
         else:
@@ -401,7 +407,6 @@ class NeuSRenderer:
                perturb_overwrite=-1, 
                background_rgb=None, 
                alpha_inter_ratio=0.0, 
-               stop_semantic_grad=False, 
                validate_flag=False):
         batch_size = len(rays_o)
         sphere_diameter = torch.abs(far-near).mean()
@@ -473,7 +478,6 @@ class NeuSRenderer:
                                     background_alpha=background_alpha,
                                     background_sampled_color=background_sampled_color,
                                     alpha_inter_ratio=alpha_inter_ratio,
-                                    stop_semantic_grad=stop_semantic_grad,
                                     validate_flag=validate_flag)
         return ret_fine, logs_summary
 

@@ -129,7 +129,7 @@ class NeuSLoss(nn.Module):
         else:
             return np.min([1.0, (self.iter_step - self.warm_up_start) / (self.warm_up_end - self.warm_up_start)])
 
-    def forward(self, input_model, render_out, sdf_network_fine, patchmatch_out = None, joint_start=False, theta=0):
+    def forward(self, input_model, render_out, sdf_network_fine, patchmatch_out = None, warm_start=False, theta=0):
         true_rgb = input_model['true_rgb']
 
         mask, rays_o, rays_d, near, far = input_model['mask'], input_model['rays_o'], input_model['rays_d'],  \
@@ -216,7 +216,7 @@ class NeuSLoss(nn.Module):
         
         # sv_con loss
         sv_con_loss=0
-        if joint_start and self.semantic_weight>0 and self.sv_con_weight>0:
+        if warm_start and self.semantic_weight>0 and self.sv_con_weight>0:
             grid=input_model['grid']
             mv_similarity = input_model['mv_similarity']
             semantic_score = F.softmax(semantic_fine, dim=-1)
@@ -256,7 +256,7 @@ class NeuSLoss(nn.Module):
 
         # joint loss
         joint_loss = 0.
-        if joint_start and self.semantic_weight>0 and self.joint_weight>0:
+        if warm_start and self.semantic_weight>0 and self.joint_weight>0:
             semantic_class=semantic_fine.shape[1]
             WALL_SEMANTIC_ID=1
             FLOOR_SEMANTIC_ID=2

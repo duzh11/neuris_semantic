@@ -124,7 +124,7 @@ class ScannetData:
                 assert semantic_crop.shape[0] == cropped_size[1]
                 semantic_raw = cv2.resize(semantic_crop, (640, 480), interpolation=cv2.INTER_NEAREST)
             path_target = f"{dir_scan_select}/semantic/semantic_GT/{idx:04d}.png"
-            cv2.imwrite(path_target, semantic_raw)
+            cv2.imwrite(path_target, semantic_raw.astype(np.uint8))
             
             # semantic_vis map
             semantic_nyu = semantic_raw.copy()

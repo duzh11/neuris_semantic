@@ -7,8 +7,9 @@ import os, logging, argparse, trimesh, copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from skimage.color import label2rgb
 from torch.utils.tensorboard import SummaryWriter
- 
+
 from models.dataset import Dataset
 from models.fields import SDFNetwork, RenderingNetwork, SingleVarianceNetwork, NeRF, SemanticNetwork
 from models.renderer import NeuSRenderer, extract_fields
@@ -27,6 +28,8 @@ import utils.utils_geometry as GeoUtils
 import utils.utils_image as ImageUtils
 import utils.utils_training as TrainingUtils
 import utils.utils_nyu as utils_nyu
+
+
 
 class Runner:
     def __init__(self, conf_path, scene_name = '', mode='train', model_type='', 
@@ -168,16 +171,12 @@ class Runner:
             self.use_semantic=self.conf['dataset']['use_semantic']
 
             self.semantic_class=40
-            self.stop_semantic_grad=False
             self.use_joint = False
             if self.use_semantic:
                 # semantic network parameters
                 self.semantic_class=self.conf['dataset']['semantic_class']
                 self.conf['model']['semantic_network']['d_out']=self.semantic_class
-                self.stop_semantic_grad=self.conf['train.stop_semantic_grad']
-
                 logging.info(f'use semantic: class={self.semantic_class}, ce_loss={semantic_loss_weight}')
-                logging.info(f'stop semantic grad: {self.stop_semantic_grad}')
 
                 # use grid
                 semantic_consistency_weight=self.conf['model.loss.sv_con_weight']
@@ -218,8 +217,6 @@ class Runner:
             logging.info(f"DTU scan ID: {self.scan_id}")
         else:
             raise NotImplementedError
-        
-        logging.info(f"Use normal: {self.conf['dataset']['use_normal']}")
         
         self.conf['dataset']['use_planes'] = True if self.conf['model.loss.normal_consistency_weight'] > 0 else False
         self.conf['dataset']['use_plane_offset_loss'] = True if self.conf['model.loss.plane_offset_weight'] > 0 else False
@@ -373,11 +370,12 @@ class Runner:
             input_model, logs_input = self.get_model_input(image_perm, iter_i)
             logs_summary.update(logs_input)
 
-            render_out, logs_render = self.renderer.render(input_model['rays_o'], input_model['rays_d'], 
-                                            input_model['near'], input_model['far'],
-                                            background_rgb=input_model['background_rgb'],
-                                            alpha_inter_ratio=self.get_alpha_inter_ratio(),
-                                            stop_semantic_grad=self.stop_semantic_grad)
+            render_out, logs_render = self.renderer.render(input_model['rays_o'], 
+                                                           input_model['rays_d'], 
+                                                            input_model['near'], 
+                                                            input_model['far'],
+                                                            background_rgb=input_model['background_rgb'],
+                                                            alpha_inter_ratio=self.get_alpha_inter_ratio())
             logs_summary.update(logs_render)
 
             patchmatch_out=None
@@ -386,12 +384,12 @@ class Runner:
                 logs_summary.update(logs_patchmatch)
 
             if self.use_joint:
-                self.joint_start=self.iter_step>self.warm_iter-1
+                self.warm_start=self.iter_step>self.warm_iter-1
             else:
-                self.joint_start=False
+                self.warm_start=False
             loss, logs_loss, mask_keep_gt_normal = self.loss_neus(input_model, render_out, 
                                                                   self.sdf_network_fine, patchmatch_out,
-                                                                  joint_start=self.joint_start, 
+                                                                  warm_start=self.warm_start, 
                                                                   theta=self.theta)
             logs_summary.update(logs_loss)
 
@@ -634,7 +632,10 @@ class Runner:
                 mask = torch.ones_like(mask)
 
             mask_sum = mask.sum() + 1e-5
-            render_out = self.renderer.render(rays_o, rays_d, near, far,
+            render_out = self.renderer.render(rays_o, 
+                                              rays_d, 
+                                              near, 
+                                              far,
                                               background_rgb=background_rgb)
 
             color_coarse = render_out['color_coarse']
@@ -777,7 +778,7 @@ class Runner:
                 var=render_out['variance'].mean()
                 logging.info('iter:{:8>d} loss={:.03f} lr={:.06f} var={:.04f} theta={:02f}'.format(
                     self.iter_step, loss, lr, var.mean(), theta[0]) + 
-                    f'joint begin: {self.joint_start}')
+                    f' joint start: {self.warm_start}')
    
             else:
                 logging.info('iter:{:8>d} loss={:.03f} lr={:.06f} var={:.04f}'.format(
@@ -849,8 +850,13 @@ class Runner:
             colour_map_np = utils_nyu.nyu13_colour_code
 
         imgs_render = {}
-        for key in ['color_fine', 'confidence','confidence_mask', 'normal', 'depth', 'depth_variance', 'semantic_fine', 'sem_uncertainty_fine']:
+        for key in ['color_fine', 'confidence','confidence_mask', 'normal', 'depth', 'depth_variance']:
             imgs_render[key] = []
+        if self.use_semantic:
+            imgs_render.update({
+                'semantic_fine': [], 
+                'sem_uncertainty_fine': []
+            })
         if save_peak_value:
             imgs_render.update({
                 'color_peak': [], 
@@ -877,7 +883,6 @@ class Runner:
                                                  far, 
                                                  alpha_inter_ratio=self.get_alpha_inter_ratio(), 
                                                  background_rgb=background_rgb, 
-                                                 stop_semantic_grad=self.stop_semantic_grad, 
                                                  validate_flag=False)
             feasible = lambda key: ((key in render_out) and (render_out[key] is not None))
 
@@ -904,7 +909,7 @@ class Runner:
                 elif imgs_render[key].shape[1] == 1:  
                     imgs_render[key] = imgs_render[key].reshape([H, W])
                 elif imgs_render[key].shape[1]==semantic_class:
-                    imgs_render[key] = imgs_render[key].reshape([H, W,semantic_class])
+                    imgs_render[key] = imgs_render[key].reshape([H, W, semantic_class])
 
         # confidence map
         if save_normamap_npz:
@@ -1102,7 +1107,6 @@ class Runner:
                         (img_temp.shape[1], img_temp.shape[0]))
                     vis_input = colour_map_np[(semantic_input).astype(np.uint8)]
                     vis_input=(vis_input.astype(np.uint8))[...,::-1]
-                    lis_semantics.append(vis_input)
                     # semantic render
                     vis_label = colour_map_np[(img_temp).astype(np.uint8)]
                     vis_label=(vis_label.astype(np.uint8))[...,::-1]
@@ -1137,7 +1141,7 @@ class Runner:
             else:
                 lis_imgs=[img_gt] + lis_imgs
                 
-            ImageUtils.write_image_lis(f'{dir_images}/{self.iter_step:08d}_reso{resolution_level}_{idx:08d}.png',
+            ImageUtils.write_image_lis(f'{dir_images}/{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png',
                                             lis_imgs)
             
             # write lis_semantics
@@ -1148,11 +1152,17 @@ class Runner:
                     mv_similarity = ImageUtils.resize_image(self.dataset.mv_similarity[idx].cpu().numpy(), 
                                                         (lis_imgs[0].shape[1], lis_imgs[0].shape[0])) 
                     mv_similarity_vis = colormap_func(mv_similarity)[:, :, :3]
-                    lis_semantics=[img_gt, mv_similarity_vis] + lis_semantics
+                    if self.dataset.use_grid:
+                        grids = ImageUtils.resize_image(self.dataset.grids[idx].cpu().numpy(), 
+                                (img_temp.shape[1], img_temp.shape[0]))
+                        vis_grids = label2rgb(grids, img_gt.astype(np.uint8), bg_label=0, alpha=0.5, kind='overlay')
+                        lis_semantics=[img_gt, vis_grids[...,::-1], vis_input, mv_similarity_vis] + lis_semantics
+                    else:
+                        lis_semantics=[img_gt, vis_input, mv_similarity_vis] + lis_semantics
                 else:
                     lis_semantics=[img_gt] + lis_semantics
                 
-                ImageUtils.write_image_lis(f'{dir_semantics}/{self.iter_step:08d}_reso{resolution_level}_{idx:08d}.png',
+                ImageUtils.write_image_lis(f'{dir_semantics}/{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png',
                                             lis_semantics)
 
         if save_peak_value:
@@ -1197,7 +1207,6 @@ class Runner:
                                                 far, 
                                                 alpha_inter_ratio=self.get_alpha_inter_ratio(), 
                                                 background_rgb=background_rgb, 
-                                                stop_semantic_grad=self.stop_semantic_grad, 
                                                 validate_flag=True)
             for key in save_results:
                 if feasible(key):
@@ -1244,7 +1253,12 @@ class Runner:
             near, far, _ = self.get_near_far(rays_o = rays_o_batch, rays_d = rays_d_batch)
             background_rgb = torch.ones([1, 3]) if self.use_white_bkgd else None
 
-            render_out, _ = self.renderer.render(rays_o_batch, rays_d_batch, near, far, alpha_inter_ratio=self.get_alpha_inter_ratio(), background_rgb=background_rgb)
+            render_out, _ = self.renderer.render(rays_o_batch, 
+                                                 rays_d_batch, 
+                                                 near, 
+                                                 far, 
+                                                 alpha_inter_ratio=self.get_alpha_inter_ratio(), 
+                                                 background_rgb=background_rgb)
 
 
             pts_peak = rays_o_batch + rays_d_batch * render_out['depth_peak']
@@ -1591,7 +1605,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--conf', type=str, default='./confs/neuris.conf')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
-    parser.add_argument('--server', type=str, default='lab')
+    parser.add_argument('--server', type=str, default='local')
     parser.add_argument('--mode', type=str, default='train') #changed
     parser.add_argument('--model_type', type=str, default='neus')
     parser.add_argument('--threshold', type=float, default=0.0)

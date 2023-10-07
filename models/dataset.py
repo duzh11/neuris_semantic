@@ -177,7 +177,7 @@ class Dataset:
             self.n_semantic = len(semantic_lis)
             logging.info(f"Read {self.n_semantic} semantics.")
             self.semantic_lis = semantic_lis
-            self.semantic_np = np.stack([(self.read_img(im_name, self.resolution_level))[:,:,0] for im_name in semantic_lis])
+            self.semantic_np = np.stack([(self.read_img(im_name, self.resolution_level, unchanged=True)) for im_name in semantic_lis])
 
             # 使用masnhattan-sdf的语义类merge
             MANHATTAN = conf['MANHATTAN']
@@ -211,7 +211,7 @@ class Dataset:
             
             # loading mv_similarity
             mv_similarity = np.array(mv_similarity)
-            self.mv_similarity = torch.from_numpy(mv_similarity).cpu()
+            self.mv_similarity = torch.from_numpy(mv_similarity.astype(np.float32)).cpu()
 
             # semantic_mask
             self.use_mv_filter = conf['use_mv_filter'] if 'use_mv_filter' in conf else False
@@ -241,7 +241,7 @@ class Dataset:
             self.n_grids = len(grids_lis)
             logging.info(f"Read {self.n_grids} grids.")
             self.grids_lis = grids_lis
-            self.grids_np = np.stack([(self.read_img(im_name, self.resolution_level, grid_flag=True)) for im_name in grids_lis])
+            self.grids_np = np.stack([(self.read_img(im_name, self.resolution_level, unchanged=True)) for im_name in grids_lis])
 
             grids=np.array(self.grids_np)
 
@@ -424,8 +424,8 @@ class Dataset:
         if b_accum_all_data:
             self.colors_accum = torch.zeros_like(self.images, dtype=torch.float32).cuda()
                     
-    def read_img(self, path, resolution_level, grid_flag=False):
-        if grid_flag:
+    def read_img(self, path, resolution_level, unchanged=False):
+        if unchanged:
             img = cv.imread(path, cv.IMREAD_ANYDEPTH)
         else: 
             img = cv.imread(path)
