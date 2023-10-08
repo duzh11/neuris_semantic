@@ -1,11 +1,10 @@
-import os, argparse, logging
+import os, logging,argparse
 from datetime import datetime
 import numpy as np
 import cv2
 from matplotlib import cm
 import open3d as o3d
 
-import preprocess.neuris_data  as neuris_data
 import evaluation.EvalScanNet as EvalScanNet
 from evaluation.renderer import render_depthmaps_pyrender
 
