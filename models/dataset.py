@@ -20,7 +20,8 @@ import utils.utils_geometry as GeoUtils
 import utils.utils_io as IOUtils
 import models.patch_match_cuda as PatchMatch
 import utils.utils_training as TrainingUtils
-import utils.utils_image as ImageUtils
+import utils.utils_image as ImageUtilserror_bound
+import utils.utils_semantic as SemanticUtils
 
 def load_K_Rt_from_P(filename, P=None):
     if P is None:
@@ -44,35 +45,6 @@ def load_K_Rt_from_P(filename, P=None):
     pose[:3, 3] = (t[:3] / t[3])[:, 0]
 
     return intrinsics, pose
-    
-def mapping_nyu3(manhattan=False):
-    mapping = {}
-    for i in range(41):
-        if i in [0, 1, 2]:
-            mapping[i]=i
-        else:
-            mapping[i]=0
-        if manhattan:
-            if i==8: # regard door as wall
-                mapping[i]=1
-            elif i == 30: # regard white board as wall
-                mapping[i]=1
-            elif i == 20: # regard floor mat as floor
-                mapping[i]=2
-    return mapping
-
-def mapping_nyu40(manhattan=False):
-    mapping = {}
-    for i in range(41):
-        mapping[i]=i
-        if manhattan:
-            if i==8: # regard door as wall
-                mapping[i]=1
-            elif i == 30: # regard white board as wall
-                mapping[i]=1
-            elif i == 20: # regard floor mat as floor
-                mapping[i]=2
-    return mapping
 
 class Dataset:
     '''Check normal and depth in folder depth_cloud
@@ -186,9 +158,9 @@ class Dataset:
             
             if MANHATTAN:
                 if self.semantic_class==3:
-                    label_mapping_nyu=mapping_nyu3(manhattan=MANHATTAN)
+                    label_mapping_nyu=SemanticUtils.mapping_nyu3(manhattan=MANHATTAN)
                 if self.semantic_class==40:
-                    label_mapping_nyu=mapping_nyu40(manhattan=MANHATTAN)
+                    label_mapping_nyu=SemanticUtils.mapping_nyu40(manhattan=MANHATTAN)
                 for scan_id, nyu_id in label_mapping_nyu.items():
                     semantic_seg[self.semantic_np==scan_id] = nyu_id
             

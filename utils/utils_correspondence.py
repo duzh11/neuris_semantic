@@ -1,4 +1,3 @@
-# find correspondence (x,y) in another pic
 import matplotlib.pyplot as plt
 
 import numpy as np

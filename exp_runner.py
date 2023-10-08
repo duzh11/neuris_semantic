@@ -1096,7 +1096,8 @@ class Runner:
                         img_temp = img_temp+1
                     # semantic input
                     semantic_input = ImageUtils.resize_image(self.dataset.semantics[idx].cpu().numpy(), 
-                        (img_temp.shape[1], img_temp.shape[0]))
+                                                             (img_temp.shape[1], img_temp.shape[0]), 
+                                                             interpolation=cv.INTER_NEAREST)
                     vis_input = colour_map_np[(semantic_input).astype(np.uint8)]
                     vis_input=(vis_input.astype(np.uint8))[...,::-1]
                     # semantic render
@@ -1145,13 +1146,13 @@ class Runner:
 
                 if self.dataset.use_grid:
                     grids = ImageUtils.resize_image(self.dataset.grids[idx].cpu().numpy(), 
-                            (img_temp.shape[1], img_temp.shape[0]))
+                                                    (img_temp.shape[1], img_temp.shape[0]))
                     vis_grids = label2rgb(grids, img_gt.astype(np.uint8), bg_label=0, alpha=0.5, kind='overlay')
                     lis_semantics_0 = [img_gt, vis_grids, vis_input]
 
                 if self.dataset.use_mv_similarity:
                     mv_similarity = ImageUtils.resize_image(self.dataset.mv_similarity[idx].cpu().numpy(), 
-                                                        (lis_imgs[0].shape[1], lis_imgs[0].shape[0])) 
+                                                            (lis_imgs[0].shape[1], lis_imgs[0].shape[0])) 
                     mv_similarity_vis = colormap_func(mv_similarity)[:, :, :3]
                     lis_semantics_0 = lis_semantics_0 + [mv_similarity_vis]
                     

@@ -127,9 +127,3 @@ nyu3_colour_code = np.array([
        (174, 199, 232),		# wall
        (152, 223, 138),		# floor
     ]).astype(np.uint8)
-
-nyu3_colourT_code = np.array([
-       (0, 0, 0),
-       (232, 199, 174),		# wall
-       (138, 223, 152),		# floor
-    ]).astype(np.uint8)

@@ -126,16 +126,18 @@ class ScannetData:
                 semantic_crop = semantic_raw[crop_height_half:height-crop_height_half, crop_width_half:width-crop_width_half]
                 assert semantic_crop.shape[0] == cropped_size[1]
                 semantic_raw = cv2.resize(semantic_crop, (640, 480), interpolation=cv2.INTER_NEAREST)
-            path_target = f"{dir_scan_select}/semantic/semantic_GT/{idx:04d}.png"
-            cv2.imwrite(path_target, semantic_raw.astype(np.uint8))
-            
-            # semantic_vis map
+            ## map scannet_label to nyu40_label
             semantic_nyu = semantic_raw.copy()
             label_mapping_nyu = ScannetUtils.load_scannet_nyu40_mapping(os.path.dirname(os.path.dirname(dir_scan)))
             colour_map_np = NyuUtils.nyu40_colour_code
             for scan_id, nyu_id in label_mapping_nyu.items():
                 semantic_nyu[semantic_raw==scan_id] = nyu_id
             semantic_nyu=np.array(semantic_nyu)
+
+            path_target = f"{dir_scan_select}/semantic/semantic_GT/{idx:04d}.png"
+            cv2.imwrite(path_target, semantic_nyu.astype(np.uint8))
+
+            # semantic_vis map
             semantic_vis = colour_map_np[semantic_nyu]
             path_target = f"{dir_scan_select}/semantic/semantic_GT_vis/{idx:04d}.png"
             cv2.imwrite(path_target, semantic_vis[...,::-1].astype(np.uint8))

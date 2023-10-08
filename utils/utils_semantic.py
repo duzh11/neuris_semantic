@@ -1,7 +1,17 @@
 import numpy as np
-import logging,os
+import logging
 import cv2
+from glob import glob
 from sklearn.metrics import confusion_matrix
+
+label = np.array(["wall", "floor", "cabinet", "bed", "chair",
+        "sofa", "table", "door", "window", "book", 
+        "picture", "counter", "blinds", "desk", "shelves",
+        "curtain", "dresser", "pillow", "mirror", "floor",
+        "clothes", "ceiling", "books", "fridge", "tv",
+        "paper", "towel", "shower curtain", "box", "white board",
+        "person", "night stand", "toilet", "sink", "lamp",
+        "bath tub", "bag", "other struct", "other furntr", "other prop"])
 
 def mapping_nyu3(manhattan=False):
     mapping = {}
@@ -31,12 +41,9 @@ def mapping_nyu40(manhattan=False):
             elif i == 20: # regard floor mat as floor
                 mapping[i]=2
     return mapping
-def nanmean(data, **args):
-    # This makes it ignore the first 'background' class
-    return np.ma.masked_array(data, np.isnan(data)).mean(**args)
-    # In np.ma.masked_array(data, np.isnan(data), elements of data == np.nan is invalid and will be ingorned during computation of np.mean()
 
-def calculate_segmentation_metrics(true_labels, predicted_labels, number_classes, ignore_label):
+def compute_segmentation_metrics(true_labels, predicted_labels, semantic_class, ignore_label):
+
     true_labels=np.array(true_labels)
     predicted_labels=np.array(predicted_labels)
     
@@ -49,112 +56,82 @@ def calculate_segmentation_metrics(true_labels, predicted_labels, number_classes
     predicted_labels = predicted_labels[valid_pix_ids] 
     true_labels = true_labels[valid_pix_ids]
     
-    conf_mat = confusion_matrix(true_labels, predicted_labels, labels=list(range(0, number_classes)))
+    # 利用confusion matrix进行计算
+    conf_mat = confusion_matrix(true_labels, predicted_labels, labels=list(range(0, semantic_class)))
     norm_conf_mat = np.transpose(
         np.transpose(conf_mat) / conf_mat.astype(float).sum(axis=1))
 
     missing_class_mask = np.isnan(norm_conf_mat.sum(1)) # missing class will have NaN at corresponding class
     exsiting_class_mask = ~ missing_class_mask
 
-    average_accuracy = nanmean(np.diagonal(norm_conf_mat)) #平均精度
+    exsiting_label = label[exsiting_class_mask]
+    # ACC
+    average_accuracy = np.mean(np.diagonal(norm_conf_mat)[exsiting_class_mask]) #平均精度
     total_accuracy = (np.sum(np.diagonal(conf_mat)) / np.sum(conf_mat)) #总精度
-    class_accuray=np.diagonal(norm_conf_mat).copy() #类别精度
-    # class_accuray[missing_class_mask]=-1
+    class_accuray_0=np.diagonal(norm_conf_mat).copy() #类别精度
+    class_accuray=class_accuray_0[exsiting_class_mask]
     
-    class_iou = np.zeros(number_classes)
-
-    for class_id in range(number_classes):
-        class_iou[class_id] = (conf_mat[class_id, class_id] / (
+    # IoU
+    class_iou_0 = np.zeros(semantic_class)
+    for class_id in range(semantic_class):
+        class_iou_0[class_id] = (conf_mat[class_id, class_id] / (
                 np.sum(conf_mat[class_id, :]) + np.sum(conf_mat[:, class_id]) -
                 conf_mat[class_id, class_id])) 
-    average_iou = np.mean(class_iou[exsiting_class_mask]) #平均IoU
     
-    #iou
+    class_iou = class_iou_0[exsiting_class_mask]
+    average_iou = np.mean(class_iou) #平均IoU
     freq = conf_mat.sum(axis=1) / conf_mat.sum()
-    FW_iou = (freq[freq > 0] * class_iou[freq > 0]).sum()
+    FW_iou = (freq[exsiting_class_mask] * class_iou_0[exsiting_class_mask]).sum()
 
-    return average_accuracy, total_accuracy, class_accuray, average_iou, FW_iou, class_iou 
+    metric_avg = [average_accuracy, total_accuracy, average_iou, FW_iou]
+    return metric_avg, exsiting_label, class_iou, class_accuray
 
-def evaluate_semantic(exp_name, 
-                      lis_name_scenes,
-                      numclass,
-                      dir_dataset='../Data/dataset/indoor',
-                      exp_dir='../exps/indoor/neus',
-                      flag='',
-                      manhattan=True):    
-    
-    GT_name=f'semantic_GT'
-    metrics_average = []
-    metrics_iou = []
-    metrics_acc = []
+def evaluate_semantic(dir_scan, 
+                      dir_exp,
+                      semantic_class=40,
+                      MANHATTAN=False):    
+    # loading data
+    semantic_GT_lis = sorted(glob(f'{dir_scan}/semantic/semantic_GT/*.png'))
+    semantic_render_lis = sorted(glob(f'{dir_exp}/semantic/fine/00160000_*.npz'))
 
-    logging.info(f'Eval semantic class: {numclass}')
-    for scene_name in lis_name_scenes:
-        logging.info(f'\n\nProcess semantic: {scene_name}')
-        #dir
-        GT_dir=os.path.join(dir_dataset, scene_name, 'semantic', GT_name)
+    semantic_GT_list=[]
+    semantic_render_list=[]
+    for idx in range(len(semantic_GT_lis)):
+        semantic_GT=(cv2.imread(semantic_GT_lis[idx], cv2.IMREAD_UNCHANGED)).astype(np.uint8)
+        semantic_render=(np.load(semantic_render_lis[idx])['arr_0']).astype(np.uint8)
 
-        if flag=='old':
-            render_dir=os.path.join(exp_dir, scene_name, exp_name,'semantic_render')
-        else:
-            render_dir=os.path.join(exp_dir, scene_name, exp_name,'semantic_npz')
-
-        # render_dir=os.path.join(dir_dataset,scene_name,'semantic_deeplab')
-        GT_list=os.listdir(GT_dir)
-        id_list=[int(os.path.splitext(frame)[0]) for frame in GT_list]
-        id_list=sorted(id_list)
-        semantic_GT_list=[]
-        semantic_render_list=[]
+        # 考虑渲染的语义是(320,240)
+        reso=semantic_GT.shape[0]/semantic_render.shape[0]
+        if reso>1:
+            semantic_GT=cv2.resize(semantic_GT, (semantic_render.shape[1],semantic_render.shape[0]), interpolation=cv2.INTER_NEAREST)
         
-        for idx in id_list:
-            GT_file=os.path.join(GT_dir, '%d.png'%idx)
-            
-            if flag=='old':
-                render_file=os.path.join(render_dir, '00160000_'+'0'*(4-len(str(idx)))+str(idx)+'_reso2.png')
-                # render_file=os.path.join(render_dir, str(idx)+'.png')#deeplab
-            else:
-                render_file=os.path.join(render_dir, '00160000_'+'0'*(4-len(str(idx)))+str(idx)+'_reso2.npz')
-
-            semantic_GT=cv2.imread(GT_file)[:,:,0]
-            
-            if flag=='old':
-                semantic_render=cv2.imread(render_file)[:,:,0]/80
-            else:
-                semantic_render=(np.load(render_file)['arr_0'])
-
-            reso=semantic_GT.shape[0]/semantic_render.shape[0]
-            if reso>1:
-                semantic_GT=cv2.resize(semantic_GT, (semantic_render.shape[1],semantic_render.shape[0]), interpolation=cv2.INTER_NEAREST)
-            
-            semantic_seg=semantic_GT.copy()
-            if numclass==3:
-                label_mapping_nyu=mapping_nyu3(manhattan=manhattan)
-            if numclass==40:
-                label_mapping_nyu=mapping_nyu40(manhattan=manhattan)
+        semantic_GT_copy = semantic_GT.copy()
+        semantic_render_copy = semantic_render.copy()
+        # 遵循Manhattan-sdf的语义merge策略
+        if MANHATTAN:
+            if semantic_class==3:
+                label_mapping_nyu=mapping_nyu3(manhattan=MANHATTAN)
+            if semantic_class==40:
+                label_mapping_nyu=mapping_nyu40(manhattan=MANHATTAN)
             for scan_id, nyu_id in label_mapping_nyu.items():
-                semantic_seg[semantic_GT==scan_id] = nyu_id
-            semantics=np.array(semantic_seg)
-            
-            semantic_GT_list.append(semantics)
-            semantic_render_list.append(semantic_render)
-
-        if numclass>3:
-            true_labels=np.array(semantic_GT_list)-1
-            predicted_labels=np.array(semantic_render_list)-1
-        else:
-            true_labels=np.array(semantic_GT_list)
-            predicted_labels=np.array(semantic_render_list)  
-
-        average_accuracy, total_accuracy, class_accuray, average_iou, FW_iou, class_iou=calculate_segmentation_metrics(
-                                                                                true_labels=true_labels, 
-                                                                                predicted_labels=predicted_labels, 
-                                                                                number_classes=numclass, 
-                                                                                ignore_label=255)
+                semantic_GT_copy[semantic_GT==scan_id] = nyu_id
+                semantic_render_copy[semantic_render==scan_id] = nyu_id
         
-        metrics_average.append([average_accuracy, total_accuracy, average_iou, FW_iou])
-        metrics_acc.append(class_accuray)
-        metrics_iou.append(class_iou)
-        # logging.info(f'{scene_name}: {[average_accuracy, total_accuracy, average_iou, FW_iou]}')
+        semantic_GT_list.append(np.array(semantic_GT_copy))
+        semantic_render_list.append(semantic_render_copy)
 
-    return metrics_average, metrics_acc, metrics_iou
+    if semantic_class>3:
+        true_labels=np.array(semantic_GT_list)-1
+        predicted_labels=np.array(semantic_render_list)-1
+    else:
+        true_labels=np.array(semantic_GT_list)
+        predicted_labels=np.array(semantic_render_list)  
+
+    metric_avg, exsiting_label, class_iou, class_accuray = compute_segmentation_metrics(true_labels=true_labels, 
+                                                                                        predicted_labels=predicted_labels, 
+                                                                                        semantic_class=semantic_class, 
+                                                                                        ignore_label=255)
+    
+    logging.info(f'exsiting_label: {exsiting_label}')
+    return metric_avg, exsiting_label, class_iou, class_accuray
 
