@@ -9,21 +9,17 @@ scan = sys.argv[1]
 method_name = sys.argv[2]
 target_idx= int(sys.argv[3])
 end_idx= int(sys.argv[4])
-# scan = 'scene0616_00'
-# method_name = 'semantic_40_test1'
-# target_idx= 0
-# end_idx= -1
 
 H , W=240 , 320
 
-exps_dir = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/exps/indoor/neus/{scan}/{method_name}'
+exps_dir = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/exps/indoor/neus/{method_name}/{scan}'
 
 out_path = f'{exps_dir}/rendering/vedio'
 Path(out_path).mkdir(exist_ok=True, parents=True)
 
 # sdf，semantic
 mesh_path = os.path.join(exps_dir, 'rendering', 'mesh')
-render_semantic = sorted(glob(os.path.join(exps_dir, 'semantic_render_vis', '00160000_*_reso2.png')))
+render_semantic = sorted(glob(os.path.join(exps_dir, 'semantic/fine', '00160000_*_reso2.png')))
 
 images = []
 N_image=len(render_semantic)

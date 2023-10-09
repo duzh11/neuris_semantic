@@ -15,6 +15,7 @@ import utils.utils_normal as NormalUtils
 import utils.utils_semantic as SemanticUtils
 
 # from confs.path import lis_name_scenes
+MANHATTAN=False
 
 cv2.destroyAllWindows
 if __name__ == '__main__':
@@ -24,10 +25,11 @@ if __name__ == '__main__':
     FORMAT = "[%(filename)s:%(lineno)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=FORMAT)
     
-    lis_name_scenes=['scene0378_00']
+    lis_name_scenes=['scene0616_00']
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', type=str, default='eval_chamfer')
-    parser.add_argument('--exp_name', type=str, default='test/test2')
+    # eval_3D_mesh_neuris， eval_3D_mesh_TSDF， eval_chamfer， eval_mesh_2D_metrices， eval_semantic
+    parser.add_argument('--mode', type=str, default='eval_semantic')
+    parser.add_argument('--exp_name', type=str, default='test')
     parser.add_argument('--dir_dataset', type=str, default='../Data/dataset/indoor')
     parser.add_argument('--dir_results_baseline', type=str, default='../exps/indoor/neus')
     parser.add_argument('--acc', type=str, default='fine')
@@ -100,8 +102,23 @@ if __name__ == '__main__':
             logging.info(f'Processing: {scene_name}')
             path_mesh_pred = f'{dir_results_baseline}/{scene_name}/meshes/{scene_name}.ply'
 
-            EvalScanNet.eval_chamfer(path_mesh_pred, scene_name, dir_dataset = '../Data/dataset/indoor')
+            metric_eval = EvalScanNet.eval_chamfer(path_mesh_pred, 
+                                                   scene_name, 
+                                                   dir_dataset = '../Data/dataset/indoor',
+                                                   MANHATTAN=MANHATTAN)
+            metrics_eval_all.append(metric_eval)
 
+        str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")  
+        path_log = f'{dir_results_baseline}/{name_baseline}_evalchamfer_{str_date}.md'
+
+        markdown_header='Eval mesh\n| scene_name   |    Method| CD| Wall| Floor| Other|\n'
+        markdown_header=markdown_header+'| -------------| ---------| ------- | ------- | ------- | ------- |\n'
+        EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+                                                        header = markdown_header, 
+                                                        name_baseline=name_baseline,
+                                                        results = metrics_eval_all, 
+                                                        names_item = lis_name_scenes, 
+                                                        mode = 'w')
 
     if args.mode == 'eval_mesh_2D_metrices':
         eval_type_baseline = 'depth'
@@ -147,7 +164,6 @@ if __name__ == '__main__':
     if args.mode == 'eval_semantic':
         metric_avg_all = []
         semantic_class = args.semantic_class
-        MANHATTAN=False
         str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
         for scene_name in lis_name_scenes:
@@ -185,7 +201,7 @@ if __name__ == '__main__':
 
 
         
-        path_log = f'{dir_results_baseline}/{name_baseline}_evalsemantic_{semantic_class}_{str_date}_markdown.md'
+        path_log = f'{dir_results_baseline}/{name_baseline}_evalsemantic_{semantic_class}_{MANHATTAN}_{str_date}_markdown.md'
         markdown_header='| scene_ name   |   Method|  Acc|  M_Acc|  M_IoU| FW_IoU|\n'
         markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- |\n'
         EvalScanNet.save_evaluation_results_to_markdown(path_log, 

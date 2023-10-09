@@ -63,12 +63,8 @@ scan = sys.argv[1]
 method_name = sys.argv[2]
 
 data_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
-
-exps_dir = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/exps/indoor/neus/{scan}/{method_name}'
-mesh_path = f'{exps_dir}/meshes/{scan}.ply'
-
-# evaluation_dir=f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/exps/evaluation/deeplab_pred/{method_name}_refuse'
-# mesh_path = f'{evaluation_dir}/scene0050_00.ply'
+exps_dir = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/exps/indoor/neus/{method_name}/{scan}'
+mesh_path = f'{exps_dir}/meshes/{scan}_TSDF.ply'
 
 out_path = f'{exps_dir}/rendering/mesh'
 Path(out_path).mkdir(exist_ok=True, parents=True)

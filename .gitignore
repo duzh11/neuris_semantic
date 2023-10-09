@@ -1,6 +1,4 @@
 __pycache__/
-confs/neuris.conf
-confs/neuris_server.conf
 .vscode/
 rendering/
 video_poses/

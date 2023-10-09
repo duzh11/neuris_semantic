@@ -118,7 +118,7 @@ class NeuSLoss(nn.Module):
         # self.sv_con_mode = conf['sv_con_mode'] if 'sv_con_mode' in conf else 'num'
         # logging.info('sv_con_mode: {}'.format(self.joint_mode))
 
-        if self.semantic_weight>0 & self.joint_weight>0:
+        if (self.semantic_weight>0) and (self.joint_weight>0):
             self.joint_mode = conf['joint_mode'] if 'joint_mode' in conf else 'true_se'
             logging.info('joint_mode: {}'.format(self.joint_mode))
 

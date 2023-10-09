@@ -4,6 +4,7 @@ import os, cv2,logging
 import numpy as np
 import open3d as o3d
 from matplotlib import cm
+from tqdm import tqdm
 
 import utils.utils_geometry as GeoUtils
 import utils.utils_TSDF as TSDFUtils
@@ -329,7 +330,6 @@ def evaluate_3D_mesh_TSDF(path_mesh_pred,
     # 1.construct TSDF of GT mesh
     path_mesh_gt = f'{dir_dataset}/{scene_name}/{scene_name}_vh_clean_2.ply'
     path_mesh_gt_TSDF = IOUtils.add_file_name_suffix(path_mesh_gt, '_TSDF')
-    
     logging.info(f'Constructing TSDF of GT mesh: {path_mesh_gt}')
     TSDFUtils.construct_TSDF(path_mesh_gt,
                         path_mesh_gt_TSDF,
@@ -361,17 +361,18 @@ def evaluate_3D_mesh_TSDF(path_mesh_pred,
 
     return metrices_eval
 
-def compute_chamfer(pcd_pred, pcd_gt, colour_map_np, draw_label=False, Manhattan=True):
+def compute_chamfer(pcd_pred, pcd_gt, colour_map_np, draw_label=False, Manhattan=False):
     verts_pred = np.asarray(pcd_pred.points)
     verts_gt = np.asarray(pcd_gt.points)
     colors_gt =np.asarray(pcd_gt.colors)
     labels_gt=np.zeros(colors_gt.shape[0])
     
     #标签索引
-    for idx in range(colour_map_np.shape[0]):
+    for idx in tqdm(range(colour_map_np.shape[0]), desc='indexing label...'):
         for jdx in range(colors_gt.shape[0]):
             if np.linalg.norm(colors_gt[jdx]-colour_map_np[idx]/255)<0.05:
                 labels_gt[jdx]=int(idx)
+    
     #检查标签是否正确
     if draw_label:
         verts_colors=colour_map_np[labels_gt.squeeze().astype(np.uint8)]/255
@@ -380,10 +381,12 @@ def compute_chamfer(pcd_pred, pcd_gt, colour_map_np, draw_label=False, Manhattan
 
     indices_t, dist_t = nn_correspondance(verts_pred, verts_gt)  # gt->pred
     indices_p, dist_p = nn_correspondance(verts_gt, verts_pred)  # pred->gt
-    dist_t=dist_t**2
-    dist_p=dist_p**2
-    #gt->pred
-    chamfer=np.mean(dist_t)
+    
+    dist_t = np.array(dist_t)**2
+    dist_p = np.array(dist_p)**2
+    
+    chamfer=np.mean(dist_t)+np.mean(dist_p)
+    # gt->pred
     if Manhattan:
         indices_gt_wall= (labels_gt==1) | (labels_gt==8) | (labels_gt==30)
         indices_gt_floor= (labels_gt==2) | (labels_gt==20)
@@ -396,28 +399,38 @@ def compute_chamfer(pcd_pred, pcd_gt, colour_map_np, draw_label=False, Manhattan
     chamfel_wall=np.mean(dist_t[indices_gt_wall])
     chamfel_floor=np.mean(dist_t[indices_gt_floor])
     chamfel_other=np.mean(dist_t[indices_gt_other])
-    #pred->gt
+    
+    # pred->gt
     indices_pred_wall= (labels_gt[indices_p]==1) 
     indices_pred_floor= (labels_gt[indices_p]==2)
     indices_pred_other= (~indices_pred_wall & ~indices_pred_floor)
     assert indices_pred_wall.sum()+indices_pred_floor.sum()+indices_pred_other.sum()==dist_p.shape[0]
     
-    chamfer+=np.mean(dist_p)
     chamfel_wall+=np.mean(dist_p[indices_pred_wall])
     chamfel_floor+=np.mean(dist_p[indices_pred_floor])
     chamfel_other+=np.mean(dist_p[indices_pred_other])
-    return np.array([chamfer, chamfel_wall, chamfel_floor, chamfel_other])
+
+    return np.array([chamfer, chamfel_wall, chamfel_floor, chamfel_other])*100
 
 def eval_chamfer(path_mesh_pred, 
                      scene_name, 
                      dir_dataset = '../Data/dataset/indoor',
-                     down_sample=0.02):
+                     down_sample=0.02,
+                     MANHATTAN=False):
     dir_scan = f'{dir_dataset}/{scene_name}'
     target_img_size = (640, 480)
 
     # read points
     path_mesh_gt = f'{dir_dataset}/{scene_name}/{scene_name}_vh_clean_2.labels.ply'
+    
     path_mesh_pred_TSDF = IOUtils.add_file_name_suffix(path_mesh_pred, '_TSDF')
+    logging.info(f'Constructing TSDF of predicted mesh: {path_mesh_pred}')
+    TSDFUtils.construct_TSDF(path_mesh_pred,
+                    path_mesh_pred_TSDF,
+                    scene_name=scene_name,
+                    dir_scan=dir_scan,
+                    target_img_size=target_img_size,
+                    check_existence=True)
 
     pcd_gt = GeoUtils.read_point_cloud(path_mesh_gt)
     pcd_pred = GeoUtils.read_point_cloud(path_mesh_pred_TSDF)
@@ -428,7 +441,9 @@ def eval_chamfer(path_mesh_pred,
 
     # compute chamfer distance
     colour_map_np = NYUUtils.nyu40_colour_code
-    chamfer_metric = compute_chamfer(pcd_pred, pcd_gt, colour_map_np, draw_label=False, Manhattan=True)
+    chamfer_metric = compute_chamfer(pcd_pred, pcd_gt, colour_map_np, draw_label=False, Manhattan=MANHATTAN)
+
+    return chamfer_metric
      
 def save_evaluation_results_to_latex(path_log, 
                                         header = '                     Accu.      Comp.      Prec.     Recall     F-score \n', 

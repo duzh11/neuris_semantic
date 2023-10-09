@@ -51,7 +51,7 @@ class Dataset:
     '''
     def __init__(self, conf):
         super(Dataset, self).__init__()
-        logging.info('Loading data: Begin')
+        logging.info('------Loading data: Begin------')
         self.device = torch.device('cuda')
         self.conf = conf
 

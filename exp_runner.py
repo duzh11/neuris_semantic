@@ -864,6 +864,7 @@ class Runner:
                 'normal_peak': [], 
                 'depth_peak':[],
                 'semantic_peak':[],
+                'sem_uncertainty_peak':[]
             })
             pts_peak_all = []
 
@@ -1028,8 +1029,8 @@ class Runner:
             sem_uncertainty_vis = colormap_func(sem_uncertainty_norm)[:, :, :3]
             sem_uncertainty_vis = (sem_uncertainty_vis*255)
 
-            os.makedirs(os.path.join(self.base_exp_dir, 'sem_uncertainty_vis'), exist_ok=True)
-            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'sem_uncertainty_vis', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+            os.makedirs(os.path.join(self.base_exp_dir, 'sem_uncertainty_vis/fine'), exist_ok=True)
+            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'sem_uncertainty_vis/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         (sem_uncertainty_vis[..., ::-1].astype(np.uint8)))
 
             if save_peak_value:
@@ -1044,6 +1045,19 @@ class Runner:
                 vis_label = colour_map_np[(semantic_peak).astype(np.uint8)]
                 ImageUtils.write_image(os.path.join(self.base_exp_dir, 'semantic/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                             (vis_label.astype(np.uint8))[...,::-1])
+                
+                # sem_uncertainty
+                sem_uncertainty_peak=imgs_render['sem_uncertainty_peak']
+                uncertain_min = sem_uncertainty_peak.min()
+                uncertain_max = sem_uncertainty_peak.max()
+                sem_uncertainty_peak_norm = (sem_uncertainty_peak - uncertain_min) / (uncertain_max - uncertain_min)
+
+                sem_uncertainty_peak_vis = colormap_func(sem_uncertainty_peak_norm)[:, :, :3]
+                sem_uncertainty_peak_vis = (sem_uncertainty_peak_vis*255)
+
+                os.makedirs(os.path.join(self.base_exp_dir, 'sem_uncertainty_vis/peak'), exist_ok=True)
+                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'sem_uncertainty_vis/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+                            (sem_uncertainty_peak_vis[..., ::-1].astype(np.uint8)))
 
         # (3) save images
         if save_lis_images:

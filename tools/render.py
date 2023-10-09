@@ -1,7 +1,7 @@
 import os
 
 scan_lis = ['scene0616_00']
-method_name_lis = ['semantic_40_test1', 'pred_40_test2_a', 'pred_40_test2_compa2']
+method_name_lis = ['test']
 target_idx= 0
 end_idx= -1
 
