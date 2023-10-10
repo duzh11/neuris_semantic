@@ -203,7 +203,6 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
         crop_width_half = (origin_size[0]-cropped_size[0])//2
         crop_height_half =(origin_size[1]-cropped_size[1]) //2
         
-        
         intrin = np.loadtxt(path_intrin_color)
         intrin[0,2] -= crop_width_half
         intrin[1,2] -= crop_height_half                                                                                     
@@ -214,8 +213,13 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
         start_id = 0
         num_images = len(glob.glob(f"{dir_scan}/color/**.jpg"))
         end_id = num_images
-        ScannetData.select_data_by_range(dir_scan, dir_neus, start_id, end_id, sample_interval, 
-                                            b_crop_images, cropped_size)
+        ScannetData.select_data_by_range(dir_scan, 
+                                         dir_neus, 
+                                         start_id, 
+                                         end_id, 
+                                         sample_interval, 
+                                         b_crop_images, 
+                                         cropped_size)
     # prepare neus data
     if b_generate_neus_data:
         dir_neus = dir_neus
@@ -229,14 +233,17 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
         if b_crop_images:
             path_intrin_color = path_intrin_color_crop_resize
         path_intrin_depth = f'{dir_scan}/intrinsic/intrinsic_depth.txt'
-        dataset = ScannetData(dir_neus, height, width, 
-                                    use_normal = False,
-                                    path_intrin_color = path_intrin_color,
-                                    path_intrin_depth = path_intrin_depth)
-        dataset.generate_neus_data()
+        for mode in ['train', 'test']:
+            dataset = ScannetData(dir_neus, height, width, 
+                                        use_normal = False,
+                                        path_intrin_color = path_intrin_color,
+                                        path_intrin_depth = path_intrin_depth,
+                                        mode = mode)
+            dataset.generate_neus_data()
 
     if b_pred_normal:
-        predict_normal(dir_neus, normal_method)
+        for mode in ['train', 'test']:
+            predict_normal(dir_neus, mode, normal_method)
 
     # detect planes
     if b_detect_planes == True:
@@ -271,7 +278,7 @@ def prepare_neuris_data_from_private_data(dir_neus, size_img = (6016, 4016),
         segment_images_superpixels(dir_neus + '/image')
         compose_normal_img_planes(dir_neus)
 
-def predict_normal(dir_neus, normal_method = 'snu'):
+def predict_normal(dir_neus, mode='train', normal_method = 'snu'):
     # For scannet data, retraining of normal network is required to guarantee the test scenes are in the test set of normal network.
     # For your own data, the officially provided pretrained model of the normal network can be utilized directly.
     if normal_method == 'snu':
@@ -282,7 +289,8 @@ def predict_normal(dir_neus, normal_method = 'snu'):
                   --pretrained scannet \
                   --path_ckpt {path_snu_pth} \
                   --architecture BN \
-                  --imgs_dir {dir_neus}/image')
+                  --imgs_dir {dir_neus}/image/{mode}\
+                  --output_dir {dir_neus}/normal/{mode}')
 
     # Tilted-SN
     if normal_method == 'tiltedsn':

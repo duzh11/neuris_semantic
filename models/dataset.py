@@ -51,9 +51,11 @@ class Dataset:
     '''
     def __init__(self, conf):
         super(Dataset, self).__init__()
-        logging.info('------Loading data: Begin------')
         self.device = torch.device('cuda')
         self.conf = conf
+
+        self.data_mode = conf['data_mode']
+        logging.info(f'------Loading {self.data_mode} data------')
 
         self.data_dir = conf['data_dir']
         self.cache_all_data = conf['cache_all_data']
@@ -71,15 +73,15 @@ class Dataset:
         self.use_planes = conf['use_planes']
         self.use_plane_offset_loss = conf['use_plane_offset_loss']
  
-        path_cam = os.path.join(self.data_dir, './cameras_sphere.npz')  # cameras_sphere, cameras_linear_init
+        path_cam = os.path.join(self.data_dir, f'./cameras_sphere_{self.data_mode}.npz')  # cameras_sphere, cameras_linear_init
         camera_dict = np.load(path_cam)
         logging.info(f'Load camera dict: {path_cam.split("/")[-1]}')
         
         ### color image
         images_lis = None
         for ext in ['.png', '.JPG']:
-            images_lis = sorted(glob(os.path.join(self.data_dir, f'image/*{ext}')))
-            self.vec_stem_files = get_files_stem(f'{self.data_dir}/image', ext_file=ext)
+            images_lis = sorted(glob(os.path.join(self.data_dir, f'image/{self.data_mode}/*{ext}')))
+            self.vec_stem_files = get_files_stem(f'{self.data_dir}/image/{self.data_mode}', ext_file=ext)
             if len(images_lis) > 0:
                 break
         assert len(images_lis) > 0
@@ -141,7 +143,7 @@ class Dataset:
             for ext in ['.png', '.JPG']:
                 semantic_dir=self.semantic_type
                 logging.info(f'Load semantic: {semantic_dir}')
-                semantic_lis = sorted(glob(os.path.join(self.data_dir, f'semantic/{semantic_dir}/*{ext}')))
+                semantic_lis = sorted(glob(os.path.join(self.data_dir, f'semantic/{self.data_mode}/{semantic_dir}/*{ext}')))
                 if len(semantic_lis) > 0:
                     break
             assert len(semantic_lis) > 0
@@ -176,7 +178,7 @@ class Dataset:
             mv_similarity_dir = f'{self.semantic_type}'
             logging.info(f'Load mv_similarity: {mv_similarity_dir}')
 
-            mv_similarity_lis = sorted(glob(os.path.join(f'{self.data_dir}', 'mv_similarity', mv_similarity_dir, '*.npz')))
+            mv_similarity_lis = sorted(glob(os.path.join(f'{self.data_dir}', f'mv_similarity/{self.data_mode}', mv_similarity_dir, '*.npz')))
             mv_similarity = np.stack([ np.load(idx)['arr_0'] for idx in mv_similarity_lis ])
             n_similarity = len(mv_similarity)
             logging.info(f"Read {n_similarity} mv_similarity.")
@@ -222,7 +224,7 @@ class Dataset:
         # loading normals
         logging.info(f'Use normal:{self.use_normal}, Loading estimated normals...')
         normals_np = []
-        normals_npz, stems_normal = read_images(f'{self.data_dir}/pred_normal', target_img_size=(w_img, h_img), img_ext='.npz')
+        normals_npz, stems_normal = read_images(f'{self.data_dir}/{self.data_mode}/pred_normal', target_img_size=(w_img, h_img), img_ext='.npz')
         assert len(normals_npz) == self.n_images
         for i in tqdm(range(self.n_images)):
             normal_img_curr = normals_npz[i]

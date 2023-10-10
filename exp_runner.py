@@ -29,8 +29,6 @@ import utils.utils_image as ImageUtils
 import utils.utils_training as TrainingUtils
 import utils.utils_nyu as utils_nyu
 
-
-
 class Runner:
     def __init__(self, conf_path, scene_name = '', mode='train', model_type='', 
                  is_continue=False, checkpoint_id = -1, 
@@ -165,6 +163,8 @@ class Runner:
             self.sample_range_indoor =  self.conf['dataset']['sample_range_indoor']
             self.conf['dataset']['use_normal'] = True if self.conf['model.loss.normal_weight'] > 0 else False
             
+            # select train/test
+            self.conf['dataset']['data_mode'] = self.mode
             # use semantic
             semantic_loss_weight=self.conf['model.loss.semantic_weight']
             self.conf['dataset']['use_semantic'] = True if semantic_loss_weight> 0 else False
@@ -284,6 +284,9 @@ class Runner:
             self.train_nerf()
         else:
             NotImplementedError
+    
+    def test(self):
+        return -1
 
     def get_near_far(self, rays_o, rays_d):
         log_vox = {}
@@ -828,6 +831,7 @@ class Runner:
                         save_depth_render = False,
                         save_semantic_render = False,
                         save_lis_images=True,
+                        mode = 'train',
                         lis_expdir='image_train',
                         semantics_expdir='image_train_semantics'):
         # validate image
@@ -1602,19 +1606,20 @@ class Runner:
 
 def setup_seed(seed):
     logging.info(f'random seed :{seed}')
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    
+
     np.random.seed(seed)
     random.seed(seed)
 
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
+    torch.use_deterministic_algorithms(True)
 
     os.environ['PYTHONHASHSEED'] = str(seed)
     os.environ['CUBLAS_WORKSPACE_CONFIG']=':4096:8'
-    torch.use_deterministic_algorithms(True)
          
 if __name__ == '__main__':
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
@@ -1652,6 +1657,9 @@ if __name__ == '__main__':
     
     if args.mode == 'train':
         runner.train()
+    
+    if args.mode == 'test':
+        runner.test()
 
     elif args.mode == 'validate_mesh':
         if runner.model_type == 'neus':

@@ -13,6 +13,7 @@ import utils.utils_normal as NormalUtils
 
 # from confs.path import lis_name_scenes
 lis_name_scenes=['scene0616_00']
+np.random.seed(42)
 
 if __name__ == '__main__':
     np.set_printoptions(precision=3)
@@ -26,7 +27,6 @@ if __name__ == '__main__':
     parser.add_argument('--data_type', type=str, default='scannet')
     args = parser.parse_args()
     
-
     dataset_type = args.data_type
     
     if dataset_type == 'scannet':
@@ -40,8 +40,8 @@ if __name__ == '__main__':
             os.makedirs(dir_neus,exist_ok=True)
             neuris_data.prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=10, 
                                                 b_sample = True, 
-                                                b_generate_neus_data = False,
-                                                b_pred_normal = False, 
+                                                b_generate_neus_data = True,
+                                                b_pred_normal = True, 
                                                 b_detect_planes = False) 
     
     if dataset_type == 'private':

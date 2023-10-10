@@ -7,32 +7,47 @@ The data is organized as follows:
 <scene_name>
 |-- cameras_sphere.npz   # camera parameters
 |-- image
-    |-- 0000.png        # target image for each view
-    |-- 0001.png
+    |--train
+        |-- 0000.png        # target image for each view
+        |-- 0001.png
+    |--test
     ...
 |-- depth
-    |-- 0000.png        # target depth for each view
-    |-- 0001.png
+    |--train
+        |-- 0000.png        # target depth for each view
+        |-- 0001.png
+    |--test
+    ...
+|-- depth_vis
+    |--train
+        |-- 0000.png        # target depth for each view
+        |-- 0001.png
+    |--test
     ...
 |-- pose
-    |-- 0000.txt        # camera pose for each view
-    |-- 0001.txt
+    |--train
+        |-- 0000.txt        # camera pose for each view
+        |-- 0001.txt
+    |--test
     ...
-|-- pred_normal
-    |-- 0000.npz        # predicted normal for each view
-    |-- 0001.npz
+|-- normal
+    |--train
+        |-- pred_normal
+            |-- 0000.npz        # predicted normal for each view
+            |-- 0001.npz
     ...
 |-- semantic
-    |-- semantic_GT     # target GT semantic for each view
-        |-- 0000.png
-    |-- semantic_GT_vis
-        |-- 0000.png
-    |-- predicted semantic         # target predicted semantics for each view
-        |-- 0000.png
-    |-- predicted semantic_vis
-        |-- 0000.png  
-    |-- predicted semantic_logits # target predicted logits for each view
-        |-- 0000.npz   
+    |--train
+        |-- semantic_GT     # target GT semantic for each view
+            |-- 0000.png
+        |-- semantic_GT_vis
+            |-- 0000.png
+        |-- predicted semantic         # target predicted semantics for each view
+            |-- 0000.png
+        |-- predicted semantic_vis
+            |-- 0000.png  
+        |-- predicted semantic_logits # target predicted logits for each view
+            |-- 0000.npz   
     ...
 |-- grids
     |-- instance     # target instance for each view

@@ -19,7 +19,8 @@ class ScannetData:
                         dir_extrinsics = None, 
                         path_intrin_color = None,
                         path_intrin_depth = None,
-                        path_cloud_sfm = None):
+                        path_cloud_sfm = None,
+                        mode='train'):
         '''
         ScanNet Dataset:
             default pose: camera to world
@@ -32,7 +33,9 @@ class ScannetData:
         self.use_normal = use_normal
         self.height = height
         self.width = width
+        self.mode = mode
         self.cam_sphere_radius = cam_sphere_radius
+        logging.info(f'generation dat: {mode}')
         logging.info(f'cam_sphere_radius: {self.cam_sphere_radius}. Image height: {self.height}. width: {self.width}')
 
         # intrinsics_rgb = '''1169.621094 0.000000 646.295044 0.000000
@@ -45,22 +48,22 @@ class ScannetData:
         #     0.000000 0.000000 0.000000 1.000000'''
         self.intrinsics = GeometryUtils.read_cam_matrix(path_intrin_color)
         self.intrinsics_depth = GeometryUtils.read_cam_matrix(path_intrin_depth)
-        path_intrin_depth_target = f'{dir_scan}/intrinsic/intrinsic_depth.txt'
+        path_intrin_depth_target = f'{dir_scan}/intrinsic_depth.txt'
         if not IOUtils.checkExistence(path_intrin_depth_target):
             shutil.copyfile(path_intrin_depth, path_intrin_depth_target)
         
-        self.dir_depthmap = os.path.join(self.dir_scan, 'depth')
-        self.dir_image = os.path.join(self.dir_scan, 'image')
+        self.dir_depthmap = os.path.join(self.dir_scan, 'depth', mode)
+        self.dir_image = os.path.join(self.dir_scan, 'image', mode)
         if dir_extrinsics is not None: 
             self.poses_w2c = GeometryUtils.read_poses(dir_extrinsics)   # default pose: camera to world
             self.poses_c2w = np.linalg.inv(self.poses_w2c)
             # print( self.poses_w2c @ self.poses_c2w )
         else:
-            self.dir_pose = os.path.join(self.dir_scan, 'pose')
+            self.dir_pose = os.path.join(self.dir_scan, 'pose', mode)
             self.poses_c2w = GeometryUtils.read_poses(self.dir_pose)   # default pose: camera to world
             self.poses_w2c = GeometryUtils.get_poses_inverse(self.poses_c2w)  # extrinsics: world to camera
         
-        self.dir_normal = os.path.join(self.dir_scan, 'normal')
+        self.dir_normal = os.path.join(self.dir_scan, 'normal', mode, 'generated_from_depthmap')
         self.path_cloud_sfm = path_cloud_sfm if path_cloud_sfm is not None else None
 
     @staticmethod
@@ -71,76 +74,81 @@ class ScannetData:
             cropped_size: (640,480)*1.95
         '''    
         IOUtils.ensure_dir_existence(dir_scan_select)
-        for i in ['image', 'pose', 'depth', 'depth_vis', 'semantic/semantic_GT', 'semantic/semantic_GT_vis']:
-            IOUtils.ensure_dir_existence(f"{dir_scan_select}/{i}/")
-        
+
         crop_height_half, crop_width_half = 0, 0
-        for idx in tqdm(range(start_id, end_id, interval), desc = 'select data'):
-            # pose
-            path_src = f"{dir_scan}/pose/{idx}.txt"
+        mode_list = ['train', 'test']
+        for mode in mode_list:
+            for i in [f'image/{mode}', f'pose/{mode}', f'depth/{mode}', f'depth_vis/{mode}', f'semantic/{mode}/semantic_GT', f'semantic/{mode}/semantic_GT_vis']:
+                IOUtils.ensure_dir_existence(f"{dir_scan_select}/{i}/")
+
+            for idx in tqdm(range(start_id, end_id, interval), desc = f'select {mode} data'):
+                # pose
+                path_src = f"{dir_scan}/pose/{idx}.txt"
+                
+                pose = np.loadtxt(path_src)
+                # skip frames with no valid pose
+                if not np.all(np.isfinite(pose)):
+                    continue
+
+                path_target = f"{dir_scan_select}/pose/{mode}/{idx:04d}.txt"
+                shutil.copyfile(path_src, path_target)
+
+                # rgb
+                path_src = f"{dir_scan}/color/{idx}.jpg"
+                img = cv2.imread(path_src, cv2.IMREAD_UNCHANGED)
+                height, width, _ = img.shape
+                if b_crop_images:
+                    W_target, H_target = cropped_size
+                    # if width == 640:
+                    #     raise NotImplementedError
+                    # crop
+                    crop_width_half = (width-W_target)//2
+                    crop_height_half = (height-H_target) //2
+                    assert (width-W_target)%2 ==0 and (height- H_target) %2 == 0
+                    # resize
+                    img_crop = img[crop_height_half:height-crop_height_half, crop_width_half:width-crop_width_half, :]
+                    assert img_crop.shape[0] == cropped_size[1]
+                    img = cv2.resize(img_crop, (640, 480), interpolation=cv2.INTER_LINEAR)
+                path_target = f"{dir_scan_select}/image/{mode}/{idx:04d}.png"
+                cv2.imwrite(path_target, img)
             
-            pose = np.loadtxt(path_src)
-            # skip frames with no valid pose
-            if not np.all(np.isfinite(pose)):
-                continue
+                # depth map
+                path_src = f"{dir_scan}/depth/{idx}.png"
+                path_target = f"{dir_scan_select}/depth/{mode}/{idx:04d}.png"
+                shutil.copyfile(path_src, path_target)
 
-            path_target = f"{dir_scan_select}/pose/{idx:04d}.txt"
-            shutil.copyfile(path_src, path_target)
+                # depth_vis map
+                depth_raw = (cv2.imread(path_src,cv2.IMREAD_UNCHANGED).astype(np.float32))
+                depth_raw = (depth_raw/1000)*50 # scale 50 to get a better vis 
 
-            # rgb
-            path_src = f"{dir_scan}/color/{idx}.jpg"
-            img = cv2.imread(path_src, cv2.IMREAD_UNCHANGED)
-            height, width, _ = img.shape
-            if b_crop_images:
-                W_target, H_target = cropped_size
-                # if width == 640:
-                #     raise NotImplementedError
-                # crop
-                crop_width_half = (width-W_target)//2
-                crop_height_half = (height-H_target) //2
-                assert (width-W_target)%2 ==0 and (height- H_target) %2 == 0
-                # resize
-                img_crop = img[crop_height_half:height-crop_height_half, crop_width_half:width-crop_width_half, :]
-                assert img_crop.shape[0] == cropped_size[1]
-                img = cv2.resize(img_crop, (640, 480), interpolation=cv2.INTER_LINEAR)
-            path_target = f"{dir_scan_select}/image/{idx:04d}.png"
-            cv2.imwrite(path_target, img)
-        
-            # depth map
-            path_src = f"{dir_scan}/depth/{idx}.png"
-            path_target = f"{dir_scan_select}/depth/{idx:04d}.png"
-            shutil.copyfile(path_src, path_target)
+                depth_vis = cv2.convertScaleAbs(depth_raw)
+                depth_vis_jet = cv2.applyColorMap(depth_vis, cv2.COLORMAP_JET)
+                cv2.imwrite(f"{dir_scan_select}/depth_vis/{mode}/{idx:04d}.png", depth_vis_jet)
 
-            # depth_vis map
-            depth_raw = (cv2.imread(path_src,cv2.IMREAD_UNCHANGED).astype(np.float32))
-            depth_raw = (depth_raw/1000)*50 # scale 50 to get a better vis 
+                # semantic map
+                path_src = f"{dir_scan}/label-filt/{idx}.png"
+                semantic_raw = cv2.imread(path_src, cv2.IMREAD_UNCHANGED)
+                if b_crop_images:
+                    semantic_crop = semantic_raw[crop_height_half:height-crop_height_half, crop_width_half:width-crop_width_half]
+                    assert semantic_crop.shape[0] == cropped_size[1]
+                    semantic_raw = cv2.resize(semantic_crop, (640, 480), interpolation=cv2.INTER_NEAREST)
+                ## map scannet_label to nyu40_label
+                semantic_nyu = semantic_raw.copy()
+                label_mapping_nyu = ScannetUtils.load_scannet_nyu40_mapping(os.path.dirname(os.path.dirname(dir_scan)))
+                colour_map_np = NyuUtils.nyu40_colour_code
+                for scan_id, nyu_id in label_mapping_nyu.items():
+                    semantic_nyu[semantic_raw==scan_id] = nyu_id
+                semantic_nyu=np.array(semantic_nyu)
 
-            depth_vis = cv2.convertScaleAbs(depth_raw)
-            depth_vis_jet = cv2.applyColorMap(depth_vis, cv2.COLORMAP_JET)
-            cv2.imwrite(f"{dir_scan_select}/depth_vis/{idx:04d}.png", depth_vis_jet)
+                path_target = f"{dir_scan_select}/semantic/{mode}/semantic_GT/{idx:04d}.png"
+                cv2.imwrite(path_target, semantic_nyu.astype(np.uint8))
 
-            # semantic map
-            path_src = f"{dir_scan}/label-filt/{idx}.png"
-            semantic_raw = cv2.imread(path_src, cv2.IMREAD_UNCHANGED)
-            if b_crop_images:
-                semantic_crop = semantic_raw[crop_height_half:height-crop_height_half, crop_width_half:width-crop_width_half]
-                assert semantic_crop.shape[0] == cropped_size[1]
-                semantic_raw = cv2.resize(semantic_crop, (640, 480), interpolation=cv2.INTER_NEAREST)
-            ## map scannet_label to nyu40_label
-            semantic_nyu = semantic_raw.copy()
-            label_mapping_nyu = ScannetUtils.load_scannet_nyu40_mapping(os.path.dirname(os.path.dirname(dir_scan)))
-            colour_map_np = NyuUtils.nyu40_colour_code
-            for scan_id, nyu_id in label_mapping_nyu.items():
-                semantic_nyu[semantic_raw==scan_id] = nyu_id
-            semantic_nyu=np.array(semantic_nyu)
-
-            path_target = f"{dir_scan_select}/semantic/semantic_GT/{idx:04d}.png"
-            cv2.imwrite(path_target, semantic_nyu.astype(np.uint8))
-
-            # semantic_vis map
-            semantic_vis = colour_map_np[semantic_nyu]
-            path_target = f"{dir_scan_select}/semantic/semantic_GT_vis/{idx:04d}.png"
-            cv2.imwrite(path_target, semantic_vis[...,::-1].astype(np.uint8))
+                # semantic_vis map
+                semantic_vis = colour_map_np[semantic_nyu]
+                path_target = f"{dir_scan_select}/semantic/{mode}/semantic_GT_vis/{idx:04d}.png"
+                cv2.imwrite(path_target, semantic_vis[...,::-1].astype(np.uint8))
+            
+            start_id+=interval//2
 
         # GT mesh
         path_gt_mesh = IOUtils.find_target_file(dir_scan, '_vh_clean_2.ply')
@@ -159,21 +167,20 @@ class ScannetData:
         return crop_height_half, crop_width_half
     
     def load_and_merge_depth_maps(self):
-        self.depthmaps = self.read_depthmaps(self.dir_depthmap)
-        self.num_images = len(glob.glob(f"{self.dir_image}/**.png"))
  
-        if self.depthmaps.shape[0]> 200:
-            logging.info("Sample 200 depth maps to get merged points...")
-            idx_imgs = np.random.randint(low=0, high=self.depthmaps.shape[0], size=200)
-            depthmaps_fuse = self.depthmaps[idx_imgs]
-            points = GeometryUtils.fuse_depthmaps(depthmaps_fuse, self.intrinsics_depth, self.poses_w2c[idx_imgs])
+        # if self.depthmaps.shape[0]> 200:
+        #     logging.info("Sample 200 depth maps to get merged points...")
+        #     idx_imgs = np.random.randint(low=0, high=self.depthmaps.shape[0], size=200)
+        #     depthmaps_fuse = self.depthmaps[idx_imgs]
+        #     points = GeometryUtils.fuse_depthmaps(depthmaps_fuse, self.intrinsics_depth, self.poses_w2c[idx_imgs])
 
-            self.arr_imgs = (self.read_rgbs(self.dir_image, (640,480))[idx_imgs])
-            arr_imgs = self.arr_imgs.reshape(-1,3)
-        else:
-            points = GeometryUtils.fuse_depthmaps(self.depthmaps, self.intrinsics_depth, self.poses_w2c)
-            self.arr_imgs = self.read_rgbs(self.dir_image, (640,480))
-            arr_imgs = self.arr_imgs.reshape(-1,3)
+        #     self.arr_imgs = (self.read_rgbs(self.dir_image, (640,480))[idx_imgs])
+        #     arr_imgs = self.arr_imgs.reshape(-1,3)
+        # else:
+        points = GeometryUtils.fuse_depthmaps(self.depthmaps, self.intrinsics_depth, self.poses_w2c)
+        self.arr_imgs = self.read_rgbs(self.dir_image, (640,480))
+        arr_imgs = self.arr_imgs.reshape(-1,3)
+
         idx_pts = np.random.randint(low=0, high=points.shape[0], size=int(1e6))
         self.pts_sample = points[idx_pts]
         self.colors_sample = arr_imgs[idx_pts]
@@ -226,7 +233,7 @@ class ScannetData:
         
         projs = []
         poses_norm = []
-        dir_pose_norm = self.dir_scan + "/extrin_norm"
+        dir_pose_norm = self.dir_scan + f"/extrin_norm/{self.mode}"
         IOUtils.ensure_dir_existence(dir_pose_norm)
         for i in range(num_poses):
             # pose_norm_i = poses[i] @ trans_n2w
@@ -264,32 +271,42 @@ class ScannetData:
             cv2.imwrite(f"{self.dir_normal}/{i:04d}.png", normal_map_i*255)
                 
     def generate_neus_data(self, radius_normalize_sphere=1.0):
+        self.num_images = len(glob.glob(f"{self.dir_image}/**.png"))
+        self.depthmaps = self.read_depthmaps(self.dir_depthmap)
+
         if self.path_cloud_sfm:
             msg = input('Check bounding box of openMVS point cloud (Manually remove floating outliers)...[y/n]')
             if msg != 'y':
                 exit()
             cloud_clean = GeometryUtils.read_point_cloud(self.path_cloud_sfm)
         else:
-            self.load_and_merge_depth_maps()
             path_point_cloud_scan = f'{self.dir_scan}/point_cloud_scan.ply'
-            GeometryUtils.save_points(path_point_cloud_scan,  self.pts_sample, self.colors_sample)
+            if not IOUtils.checkExistence(path_point_cloud_scan):
+                logging.info(f"Generate point cloud: {path_point_cloud_scan}")
+                self.load_and_merge_depth_maps()
+                GeometryUtils.save_points(path_point_cloud_scan,  self.pts_sample, self.colors_sample)
             # msg = input('Check bounding box of merged point cloud (Manually remove floating outliers)...[y/n]')
             # if msg != 'y':
             #     exit()
+            cloud_clean = GeometryUtils.read_point_cloud(path_point_cloud_scan)
 
             if self.use_normal:
                 t1 = datetime.now()
                 self.calculate_normals()
                 logging.info(f"Calculate normal: {(datetime.now()-t1).total_seconds():.0f} seconds")
                     
-            cloud_clean = GeometryUtils.read_point_cloud(path_point_cloud_scan)
-            
-        trans_n2w = GeometryUtils.get_norm_matrix_from_point_cloud(cloud_clean, radius_normalize_sphere=radius_normalize_sphere)
+        path_trans_n2w = f'{self.dir_scan}/trans_n2w.txt'  
+        if not IOUtils.checkExistence(path_trans_n2w):
+            logging.info(f"Generating transformation matrix...")
+            trans_n2w = GeometryUtils.get_norm_matrix_from_point_cloud(cloud_clean, radius_normalize_sphere=radius_normalize_sphere)
+            np.savetxt(path_trans_n2w, trans_n2w, fmt = '%.04f')
+        else:
+            logging.info(f"Load transformation matrix: {path_trans_n2w}")
+            trans_n2w = np.loadtxt(path_trans_n2w, dtype=np.float32)
+        
         # n2i
         projs, poses_norm = self.get_projection_matrix(self.intrinsics, self.poses_w2c, trans_n2w)
-        path_trans_n2w = f'{self.dir_scan}/trans_n2w.txt'
-        np.savetxt(path_trans_n2w, trans_n2w, fmt = '%.04f')
-
+        
         cloud_clean_trans = cloud_clean.transform(np.linalg.inv(trans_n2w))
         o3d.io.write_point_cloud(f'{self.dir_scan}/point_cloud_scan_norm.ply', cloud_clean_trans)
 
@@ -306,7 +323,7 @@ class ScannetData:
             cams_neus[f"scale_mat_{i}"] = scale_mat
             cams_neus[f'world_mat_{i}'] = projs[i] #n2i
         
-        np.savez(f'{self.dir_scan}/cameras_sphere.npz', **cams_neus)
+        np.savez(f'{self.dir_scan}/cameras_sphere_{self.mode}.npz', **cams_neus)
         
         # transform gt mesh
         path_gt_mesh = IOUtils.find_target_file(self.dir_scan, '_vh_clean_2.ply')
