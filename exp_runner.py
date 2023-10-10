@@ -30,8 +30,13 @@ import utils.utils_training as TrainingUtils
 import utils.utils_nyu as utils_nyu
 
 class Runner:
-    def __init__(self, conf_path, scene_name = '', mode='train', model_type='', 
-                 is_continue=False, checkpoint_id = -1, 
+    def __init__(self, 
+                 conf_path, 
+                 scene_name = '', 
+                 mode='train', 
+                 model_type='', 
+                 is_continue=False, 
+                 checkpoint_id = -1, 
                  args=None):
         # Initial setting: Genreal
         self.device = torch.device('cuda')
@@ -178,14 +183,6 @@ class Runner:
                 self.conf['model']['semantic_network']['d_out']=self.semantic_class
                 logging.info(f'use semantic: class={self.semantic_class}, ce_loss={semantic_loss_weight}')
 
-                # use grid
-                semantic_consistency_weight=self.conf['model.loss.sv_con_weight']
-                if (semantic_consistency_weight>0):
-                    self.conf['dataset']['use_grid'] = True
-                    logging.info(f'use sv_con: loss weight={semantic_consistency_weight}')
-                else:
-                    self.conf['dataset']['use_grid'] = False
-
                 # joint optimization parameters 
                 joint_weight=self.conf['model.loss.joint_weight']
                 if (joint_weight > 0):
@@ -195,6 +192,14 @@ class Runner:
                 else:
                     self.conf['dataset']['use_joint'] = False
                 self.use_joint=self.conf['dataset']['use_joint']
+
+                # use grid
+                semantic_consistency_weight=self.conf['model.loss.sv_con_weight']
+                if (semantic_consistency_weight>0):
+                    self.conf['dataset']['use_grid'] = True
+                    logging.info(f'use sv_con: loss weight={semantic_consistency_weight}')
+                else:
+                    self.conf['dataset']['use_grid'] = False
             
             ### normal parameters
             normal_weight=self.conf['model.loss.normal_weight']
@@ -286,7 +291,18 @@ class Runner:
             NotImplementedError
     
     def test(self):
-        return -1
+        for idx in tqdm(range(0,self.dataset.n_images,1), desc='validating test output...'):
+            self.validate_image(idx, 
+                                semantic_class=self.semantic_class, 
+                                save_peak_value=False, 
+                                validate_confidence=self.use_geocheck,
+                                save_image_render = True, 
+                                save_normal_render = True, 
+                                save_depth_render = True, 
+                                save_semantic_render = True, 
+                                save_lis_images=True,
+                                lis_expdir='image_test',
+                                semantics_expdir='image_test_semantics')
 
     def get_near_far(self, rays_o, rays_d):
         log_vox = {}
@@ -831,7 +847,6 @@ class Runner:
                         save_depth_render = False,
                         save_semantic_render = False,
                         save_lis_images=True,
-                        mode = 'train',
                         lis_expdir='image_train',
                         semantics_expdir='image_train_semantics'):
         # validate image
@@ -924,8 +939,8 @@ class Runner:
             
             # shape_depthmap = imgs_render['depth'].shape[:2]
             pts_world = torch.vstack(rays_o).cpu().numpy() +  torch.vstack(rays_d).cpu().numpy() * imgs_render['depth'].reshape(-1,1)
-            os.makedirs(os.path.join(self.base_exp_dir, 'depth_cloud/fine'), exist_ok=True)
-            GeoUtils.save_points(os.path.join(self.base_exp_dir, 'depth_cloud/fine', f'{self.iter_step:0>8d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.ply'),
+            os.makedirs(os.path.join(self.base_exp_dir, f'depth_cloud/{self.mode}/fine'), exist_ok=True)
+            GeoUtils.save_points(os.path.join(self.base_exp_dir, f'depth_cloud/{self.mode}/fine', f'{self.iter_step:0>8d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.ply'),
                                     pts_world.reshape(-1,3),
                                     colors = imgs_render['color_fine'].squeeze().reshape(-1,3),
                                     normals= imgs_render['normal'].squeeze().reshape(-1,3),
@@ -934,8 +949,8 @@ class Runner:
             # save peak depth and normal
             if save_peak_value:
                 pts_world_peak = torch.vstack(rays_o).cpu().numpy() +  torch.vstack(rays_d).cpu().numpy() * imgs_render['depth_peak'].reshape(-1,1)
-                os.makedirs(os.path.join(self.base_exp_dir, 'depth_cloud/peak'), exist_ok=True)
-                GeoUtils.save_points(os.path.join(self.base_exp_dir, 'depth_cloud/peak', f'{self.iter_step:0>8d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.ply'),
+                os.makedirs(os.path.join(self.base_exp_dir, f'depth_cloud/{self.mode}/peak'), exist_ok=True)
+                GeoUtils.save_points(os.path.join(self.base_exp_dir, f'depth_cloud/{self.mode}/peak', f'{self.iter_step:0>8d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.ply'),
                                         pts_world_peak.reshape(-1,3),
                                         colors = imgs_render['color_peak'].squeeze().reshape(-1,3),
                                         normals= imgs_render['normal_peak'].squeeze().reshape(-1,3),
@@ -943,53 +958,53 @@ class Runner:
 
         if save_depth_render:
             depth_fine = imgs_render['depth']*scale
-            os.makedirs(os.path.join(self.base_exp_dir, 'depth/fine'), exist_ok=True)
-            np.savez(os.path.join(self.base_exp_dir, 'depth/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
+            os.makedirs(os.path.join(self.base_exp_dir, f'depth/{self.mode}/fine'), exist_ok=True)
+            np.savez(os.path.join(self.base_exp_dir, f'depth/{self.mode}/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
                             depth_fine)
             
             render_depth=depth_fine*50
             render_depth_map = cv.convertScaleAbs(render_depth)
             render_depth_map_jet = cv.applyColorMap(render_depth_map, cv.COLORMAP_JET)
-            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'depth/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+            ImageUtils.write_image(os.path.join(self.base_exp_dir, f'depth/{self.mode}/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         render_depth_map_jet)
             
             if save_peak_value:
                 depth_peak=imgs_render['depth_peak']*scale
-                os.makedirs(os.path.join(self.base_exp_dir, 'depth/peak'), exist_ok=True)
-                np.savez(os.path.join(self.base_exp_dir, 'depth/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
+                os.makedirs(os.path.join(self.base_exp_dir, f'depth/{self.mode}/peak'), exist_ok=True)
+                np.savez(os.path.join(self.base_exp_dir, f'depth/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
                             depth_peak)
                 
                 render_depth=depth_peak*50
                 render_depth_map = cv.convertScaleAbs(render_depth)
                 render_depth_map_jet = cv.applyColorMap(render_depth_map, cv.COLORMAP_JET)
-                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'depth/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+                ImageUtils.write_image(os.path.join(self.base_exp_dir, f'depth/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         render_depth_map_jet)
 
         if save_normal_render:
             normal_fine=imgs_render['normal'].squeeze()
-            os.makedirs(os.path.join(self.base_exp_dir, 'normal/fine'), exist_ok=True)
-            np.savez(os.path.join(self.base_exp_dir, 'normal/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'), 
+            os.makedirs(os.path.join(self.base_exp_dir, f'normal/{self.mode}/fine'), exist_ok=True)
+            np.savez(os.path.join(self.base_exp_dir, f'normal/{self.mode}/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'), 
                         normal_fine)
             
             norm_pred=np.linalg.norm(normal_fine, axis=-1, ord=2,keepdims=True)
             normal_pred=((((normal_fine/norm_pred) + 1) * 0.5).clip(0,1) * 255)
-            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'normal/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+            ImageUtils.write_image(os.path.join(self.base_exp_dir, f'normal/{self.mode}/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         (normal_pred.astype(np.uint8))[...,::-1])
             
             if save_peak_value:  
                 normal_peak=imgs_render['normal_peak'].squeeze()    
-                os.makedirs(os.path.join(self.base_exp_dir, 'normal/peak'), exist_ok=True)
-                np.savez(os.path.join(self.base_exp_dir, 'normal/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'), 
+                os.makedirs(os.path.join(self.base_exp_dir, f'normal/{self.mode}/peak'), exist_ok=True)
+                np.savez(os.path.join(self.base_exp_dir, f'normal/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'), 
                         normal_peak)
                 
                 norm_pred=np.linalg.norm(normal_peak, axis=-1, ord=2,keepdims=True)
                 normal_pred=((((normal_peak/norm_pred) + 1) * 0.5).clip(0,1) * 255)
-                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'normal/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+                ImageUtils.write_image(os.path.join(self.base_exp_dir, f'normal/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         (normal_pred.astype(np.uint8))[...,::-1])
                 
         if save_image_render:
-            os.makedirs(os.path.join(self.base_exp_dir, 'img/fine'), exist_ok=True)
-            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'img/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+            os.makedirs(os.path.join(self.base_exp_dir, f'img/{self.mode}/fine'), exist_ok=True)
+            ImageUtils.write_image(os.path.join(self.base_exp_dir, f'img/{self.mode}/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         imgs_render['color_fine']*255)
             GT_image=np.array(self.dataset.images[idx])
             fine_image=np.array(torch.from_numpy(imgs_render['color_fine']))
@@ -999,8 +1014,8 @@ class Runner:
             psnr_render = 20.0 * np.log10(1.0 / np.sqrt(((GT_image - fine_image)**2).sum() / (fine_image.size * 3.0)))
             
             if save_peak_value:
-                os.makedirs(os.path.join(self.base_exp_dir, 'img/peak'), exist_ok=True)
-                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'img/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+                os.makedirs(os.path.join(self.base_exp_dir, f'img/{self.mode}/peak'), exist_ok=True)
+                ImageUtils.write_image(os.path.join(self.base_exp_dir, f'img/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                             imgs_render['color_peak']*255)    
                 peak_image=np.array(torch.from_numpy(imgs_render['color_fine']))
                 if (GT_image).shape[0]!=(fine_image).shape[0]:
@@ -1015,13 +1030,13 @@ class Runner:
             if semantic_class!=3:
                 semantic_fine=semantic_fine+1
 
-            os.makedirs(os.path.join(self.base_exp_dir, 'semantic/fine'), exist_ok=True)
-            np.savez(os.path.join(self.base_exp_dir, 'semantic/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
+            os.makedirs(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/fine'), exist_ok=True)
+            np.savez(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
                             semantic_fine.astype(np.uint8))
             
-            os.makedirs(os.path.join(self.base_exp_dir, 'semantic/fine'), exist_ok=True)
+            os.makedirs(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/fine'), exist_ok=True)
             vis_label = colour_map_np[(semantic_fine).astype(np.uint8)]
-            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'semantic/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+            ImageUtils.write_image(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         (vis_label.astype(np.uint8))[...,::-1])
 
             # sem_uncertainty
@@ -1033,21 +1048,21 @@ class Runner:
             sem_uncertainty_vis = colormap_func(sem_uncertainty_norm)[:, :, :3]
             sem_uncertainty_vis = (sem_uncertainty_vis*255)
 
-            os.makedirs(os.path.join(self.base_exp_dir, 'sem_uncertainty_vis/fine'), exist_ok=True)
-            ImageUtils.write_image(os.path.join(self.base_exp_dir, 'sem_uncertainty_vis/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+            os.makedirs(os.path.join(self.base_exp_dir, f'sem_uncertainty_vis/{self.mode}/fine'), exist_ok=True)
+            ImageUtils.write_image(os.path.join(self.base_exp_dir, f'sem_uncertainty_vis/{self.mode}/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         (sem_uncertainty_vis[..., ::-1].astype(np.uint8)))
 
             if save_peak_value:
                 semantic_peak=(imgs_render['semantic_peak'].argmax(axis=2))
                 if semantic_class!=3:
                     semantic_peak=semantic_peak+1 
-                os.makedirs(os.path.join(self.base_exp_dir, 'semantic/peak'), exist_ok=True)
-                np.savez(os.path.join(self.base_exp_dir, 'semantic/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
+                os.makedirs(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/peak'), exist_ok=True)
+                np.savez(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
                                 semantic_peak.astype(np.uint8))
                 
-                os.makedirs(os.path.join(self.base_exp_dir, 'semantic/peak'), exist_ok=True)
+                os.makedirs(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/peak'), exist_ok=True)
                 vis_label = colour_map_np[(semantic_peak).astype(np.uint8)]
-                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'semantic/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+                ImageUtils.write_image(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                             (vis_label.astype(np.uint8))[...,::-1])
                 
                 # sem_uncertainty
@@ -1059,8 +1074,8 @@ class Runner:
                 sem_uncertainty_peak_vis = colormap_func(sem_uncertainty_peak_norm)[:, :, :3]
                 sem_uncertainty_peak_vis = (sem_uncertainty_peak_vis*255)
 
-                os.makedirs(os.path.join(self.base_exp_dir, 'sem_uncertainty_vis/peak'), exist_ok=True)
-                ImageUtils.write_image(os.path.join(self.base_exp_dir, 'sem_uncertainty_vis/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+                os.makedirs(os.path.join(self.base_exp_dir, f'sem_uncertainty_vis/{self.mode}/peak'), exist_ok=True)
+                ImageUtils.write_image(os.path.join(self.base_exp_dir, f'sem_uncertainty_vis/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                             (sem_uncertainty_peak_vis[..., ::-1].astype(np.uint8)))
 
         # (3) save images
@@ -1647,9 +1662,10 @@ if __name__ == '__main__':
     torch.cuda.set_device(args.gpu)
     setup_seed(args.seed)
 
+    mode = args.mode if args.mode == 'test' else 'train'
     runner = Runner(args.conf, 
                     args.scene_name, 
-                    args.mode, 
+                    mode, 
                     args.model_type, 
                     args.is_continue, 
                     args.checkpoint_id, 

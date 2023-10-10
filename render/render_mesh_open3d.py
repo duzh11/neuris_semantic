@@ -19,17 +19,17 @@ def glob_data(data_dir):
     data_paths = sorted(data_paths)
     return data_paths
  
-def render_scan(scan, mesh, out_path):
+def render_scan(scan, data_mode, mesh, out_path):
     
-    instance_dir = os.path.join(data_dir, scan)
+    dir_scan = os.path.join(data_dir, scan)
     
-    image_paths = glob_data(os.path.join('{0}'.format(instance_dir), 'image', "*.png"))
+    image_paths = glob_data(os.path.join('{0}'.format(dir_scan), f'image/{data_mode}', "*.png"))
     n_images = len(image_paths)
     
-    intrinsics_path = '{0}/intrinsic_color_crop1248_resize640.txt'.format(instance_dir)
+    intrinsics_path = '{0}/intrinsic_color_crop1248_resize640.txt'.format(dir_scan)
     intrinsics = read_file(intrinsics_path)
 
-    pose_paths = glob_data('{0}/pose/*.txt'.format(instance_dir))
+    pose_paths = glob_data(f'{dir_scan}/pose/{data_mode}/*.txt')
 
     pose_all = []
     for pose_file in pose_paths:
@@ -61,13 +61,14 @@ def render_scan(scan, mesh, out_path):
 
 scan = sys.argv[1]
 method_name = sys.argv[2]
+data_mode = sys.argv[3]
 
 data_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
 exps_dir = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/exps/indoor/neus/{method_name}/{scan}'
-mesh_path = f'{exps_dir}/meshes/{scan}_TSDF.ply'
+mesh_path = f'{exps_dir}/meshes/{scan}.ply'
 
-out_path = f'{exps_dir}/rendering/mesh'
+out_path = f'{exps_dir}/rendering/mesh/{data_mode}'
 Path(out_path).mkdir(exist_ok=True, parents=True)
 
-render_scan(scan, mesh_path, out_path)
+render_scan(scan, data_mode, mesh_path, out_path)
 

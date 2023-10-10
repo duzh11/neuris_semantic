@@ -55,7 +55,7 @@ class Dataset:
         self.conf = conf
 
         self.data_mode = conf['data_mode']
-        logging.info(f'------Loading {self.data_mode} data------')
+        logging.info(f'------Loading train/test data: {self.data_mode}------')
 
         self.data_dir = conf['data_dir']
         self.cache_all_data = conf['cache_all_data']
@@ -178,7 +178,7 @@ class Dataset:
             mv_similarity_dir = f'{self.semantic_type}'
             logging.info(f'Load mv_similarity: {mv_similarity_dir}')
 
-            mv_similarity_lis = sorted(glob(os.path.join(f'{self.data_dir}', f'mv_similarity/{self.data_mode}', mv_similarity_dir, '*.npz')))
+            mv_similarity_lis = sorted(glob(os.path.join(f'{self.data_dir}', f'mv_similarity/{self.data_mode}/{mv_similarity_dir}/*.npz')))
             mv_similarity = np.stack([ np.load(idx)['arr_0'] for idx in mv_similarity_lis ])
             n_similarity = len(mv_similarity)
             logging.info(f"Read {n_similarity} mv_similarity.")
@@ -206,8 +206,7 @@ class Dataset:
 
                 grids_dir=self.grids_type
                 logging.info(f'Load grids: {grids_dir}')
-                grids_lis = glob(os.path.join(self.data_dir, f'grids/{grids_dir}/*{ext}'))
-                grids_lis.sort(key=lambda x:int((x.split('/')[-1]).split('.')[0]))
+                grids_lis = sorted(glob(os.path.join(self.data_dir, f'grids/{self.data_mode}/{grids_dir}/*{ext}')))
                 if len(grids_lis) > 0:
                     break
             assert len(grids_lis) > 0
@@ -224,7 +223,7 @@ class Dataset:
         # loading normals
         logging.info(f'Use normal:{self.use_normal}, Loading estimated normals...')
         normals_np = []
-        normals_npz, stems_normal = read_images(f'{self.data_dir}/{self.data_mode}/pred_normal', target_img_size=(w_img, h_img), img_ext='.npz')
+        normals_npz, stems_normal = read_images(f'{self.data_dir}/normal/{self.data_mode}/pred_normal', target_img_size=(w_img, h_img), img_ext='.npz')
         assert len(normals_npz) == self.n_images
         for i in tqdm(range(self.n_images)):
             normal_img_curr = normals_npz[i]
@@ -353,7 +352,7 @@ class Dataset:
         self.images_denoise_np = []
 
         if self.denoise_gray_image:
-            dir_denoise = f'{self.data_dir}/image_denoised_cv{self.denoise_paras[0]:02d}{self.denoise_paras[1]:02d}{self.denoise_paras[2]:02d}{self.denoise_paras[3]:02d}'
+            dir_denoise = f'{self.data_dir}/image_{self.data_mode}_denoised_cv{self.denoise_paras[0]:02d}{self.denoise_paras[1]:02d}{self.denoise_paras[2]:02d}{self.denoise_paras[3]:02d}'
             if not checkExistence(dir_denoise) and len(get_files_stem(dir_denoise, '.png'))==0:
                 logging.info(f'Use opencv structural denoise...')
                 for i in tqdm(range(self.n_images)):
@@ -367,7 +366,7 @@ class Dataset:
                 self.images_denoise_np = np.array(self.images_denoise_np)
 
                 # save denoised images
-                stems_imgs = get_files_stem(f'{self.data_dir}/image', '.png')
+                stems_imgs = get_files_stem(f'{self.data_dir}/image/{self.data_mode}', '.png')
                 write_images(dir_denoise, self.images_denoise_np, stems_imgs)
             else:
                 logging.info(f'Load predenoised images by openCV structural denoise: {dir_denoise}')

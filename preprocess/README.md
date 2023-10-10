@@ -15,33 +15,63 @@ python exp_preprocess.py --data_type scannet
 
 
 Data organization:
-
 ```
 <scene_name>
-|-- tmp_sfm_mvs         # optional, for private data or ScanNet data with unknown poses
-    |-- video.MOV       # optional, a video of an indoor scene
-    |-- images      # a set of uncalibrated images from a video or captured individually, or a set of ScanNet images
-        |-- 0000.png        # target image for each view
-        |-- 0001.png
-        ...
 |-- cameras_sphere.npz   # camera parameters
 |-- image
-    |-- 0000.png        # target image for each view
-    |-- 0001.png
+    |--train
+        |-- 0000.png        # target image for each view
+        |-- 0001.png
+    |--test
     ...
 |-- depth
-    |-- 0000.png        # target depth for each view, 0000.npy for private data
-    |-- 0001.png
+    |--train
+        |-- 0000.png        # target depth for each view
+        |-- 0001.png
+    |--test
+    ...
+|-- depth_vis
+    |--train
+        |-- 0000.png        # target depth for each view
+        |-- 0001.png
+    |--test
     ...
 |-- pose
-    |-- 0000.txt        # camera pose for each view
-    |-- 0001.txt
+    |--train
+        |-- 0000.txt        # camera pose for each view
+        |-- 0001.txt
+    |--test
     ...
-|-- pred_normal
-    |-- 0000.npz        # predicted normal for each view
-    |-- 0001.npz
+|-- normal
+    |--train
+        |-- pred_normal
+            |-- 0000.npz        # predicted normal for each view
+            |-- 0001.npz
     ...
-|-- neighbors.txt       # nearest neighbors of source view, optional for private data
-|-- xxx.ply     # GT mesh or point cloud from MVS
-|-- trans_n2w.txt		# transformation matrix from normalized coordinates to world coordinates
+|-- semantic
+    |--train
+        |-- semantic_GT     # target GT semantic for each view
+            |-- 0000.png
+        |-- semantic_GT_vis
+            |-- 0000.png
+        |-- predicted semantic         # target predicted semantics for each view
+            |-- 0000.png
+        |-- predicted semantic_vis
+            |-- 0000.png  
+        |-- predicted semantic_logits # target predicted logits for each view
+            |-- 0000.npz   
+    ...
+|-- grids
+    |-- instance     # target instance for each view
+        |-- 0000.png
+    |-- instance_vis
+        |-- 0000.png
+    |-- spp_seg     # target superpixel segments for each view
+        |-- 0000.png
+    |-- spp_seg_vis
+        |-- 0000.png     
+    ...  
+|-- xxx.ply		# GT mesh or point cloud from MVS
+|-- xxx.labels.ply # GT semantic mesh
+|-- trans_n2w.txt       # transformation matrix from normalized coordinates to world coordinates
 ```

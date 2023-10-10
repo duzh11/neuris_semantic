@@ -88,11 +88,13 @@ def compute_segmentation_metrics(true_labels, predicted_labels, semantic_class, 
 
 def evaluate_semantic(dir_scan, 
                       dir_exp,
+                      acc,
+                      data_mode,
                       semantic_class=40,
                       MANHATTAN=False):    
     # loading data
-    semantic_GT_lis = sorted(glob(f'{dir_scan}/semantic/semantic_GT/*.png'))
-    semantic_render_lis = sorted(glob(f'{dir_exp}/semantic/fine/00160000_*.npz'))
+    semantic_GT_lis = sorted(glob(f'{dir_scan}/semantic/{data_mode}/semantic_GT/*.png'))
+    semantic_render_lis = sorted(glob(f'{dir_exp}/semantic/{data_mode}/{acc}/00160000_*.npz'))
 
     semantic_GT_list=[]
     semantic_render_list=[]

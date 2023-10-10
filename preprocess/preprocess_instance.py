@@ -26,43 +26,43 @@ for scene_name in scene_list:
     logging.info(f'loading instance: {scene_name} ')
     scene_dir=os.path.join(data_base, scene_name)
     target_dir=os.path.join(target_base, scene_name)
+    for data_mode in ['train', 'test']:
+        instance_filt_dir =  os.path.join(scene_dir, 'instance-filt')
+        target_instance_dir = os.path.join(target_dir, f'grids/{data_mode}', 'instance')
+        target_vis_dir = os.path.join(target_dir, f'grids/{data_mode}', 'instance_vis')
+        os.makedirs(target_instance_dir, exist_ok=True)
+        os.makedirs(target_vis_dir, exist_ok=True)
 
-    instance_filt_dir =  os.path.join(scene_dir, 'instance-filt')
-    target_instance_dir = os.path.join(target_dir, 'grids', 'instance')
-    target_vis_dir = os.path.join(target_dir, 'grids', 'instance_vis')
-    os.makedirs(target_instance_dir, exist_ok=True)
-    os.makedirs(target_vis_dir, exist_ok=True)
+        frame_ids = os.listdir(os.path.join(target_dir, f'image/{data_mode}'))
+        frame_ids = [int(os.path.splitext(frame)[0]) for frame in frame_ids]
+        frame_ids =  sorted(frame_ids)
+        logging.info(f'sample steps: {int(frame_ids[1])-int(frame_ids[0])}; Total: {len(frame_ids)}')
 
-    frame_ids = os.listdir(os.path.join(target_dir, 'image'))
-    frame_ids = [int(os.path.splitext(frame)[0]) for frame in frame_ids]
-    frame_ids =  sorted(frame_ids)
-    logging.info(f'sample steps: {frame_ids[1]}; Total: {len(frame_ids)}')
+        # ----loading instance---
+        instance_list=[]
+        for idx in frame_ids:
+            file_instance=os.path.join(instance_filt_dir, '%d.png'%idx)
+            instance = cv2.imread(file_instance, cv2.IMREAD_UNCHANGED)
 
-    # ----loading instance---
-    instance_list=[]
-    for idx in frame_ids:
-        file_instance=os.path.join(instance_filt_dir, '%d.png'%idx)
-        instance = cv2.imread(file_instance, cv2.IMREAD_UNCHANGED)
-
-        if (img_h is not None and img_h != instance.shape[0]) or \
-            (img_w is not None and img_w != instance.shape[1]):
-            instance = cv2.resize(instance, (img_w, img_h), interpolation=cv2.INTER_NEAREST)   
+            if (img_h is not None and img_h != instance.shape[0]) or \
+                (img_w is not None and img_w != instance.shape[1]):
+                instance = cv2.resize(instance, (img_w, img_h), interpolation=cv2.INTER_NEAREST)   
+            
+            cv2.imwrite(os.path.join(target_instance_dir, f"{idx:04d}.png"), instance)
+            instance_list.append(instance)
+        instance_list=np.array(instance_list)
         
-        cv2.imwrite(os.path.join(target_instance_dir, f"{idx:04d}.png"), instance)
-        instance_list.append(instance)
-    instance_list=np.array(instance_list)
-    
-    # ----visualize instance---
-    if vis_flag:
-        instance_vis=np.zeros([len(instance_list), img_h, img_w, 3])
-        label_list = np.unique(instance_list)
-        for label in label_list:
-            mask = (instance_list ==label) #分割结果
-            if label==0:
-                instance_vis[mask,:] = np.array([0,0,0])
-                continue
-            instance_vis[mask,:] = random_rgb()
+        # ----visualize instance---
+        if vis_flag:
+            instance_vis=np.zeros([len(instance_list), img_h, img_w, 3])
+            label_list = np.unique(instance_list)
+            for label in label_list:
+                mask = (instance_list ==label) #分割结果
+                if label==0:
+                    instance_vis[mask,:] = np.array([0,0,0])
+                    continue
+                instance_vis[mask,:] = random_rgb()
 
-        for idx in range(len(instance_list)):
-            vis = instance_vis[idx]
-            cv2.imwrite(os.path.join(target_vis_dir, f"{frame_ids[idx]:04d}.png"), vis[...,::-1])
+            for idx in range(len(instance_list)):
+                vis = instance_vis[idx]
+                cv2.imwrite(os.path.join(target_vis_dir, f"{frame_ids[idx]:04d}.png"), vis[...,::-1])

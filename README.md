@@ -2,67 +2,6 @@
 
 ## Data preparation
 Scene data used in NeuRIS can be downloaded from [here](https://connecthkuhk-my.sharepoint.com/:f:/g/personal/jiepeng_connect_hku_hk/ElKcK1sus9pLnARZ_e9l-IcBS6cE-6w8xt34bMsvMAiuIQ?e=0z1eka) and extract the scene data into folder `../Data/dataset/indoor`. And the scene data used in [ManhattanSDF](https://github.com/zju3dv/manhattan_sdf) are also included for convenient comparisons.
-The data is organized as follows:
-```
-<scene_name>
-|-- cameras_sphere.npz   # camera parameters
-|-- image
-    |--train
-        |-- 0000.png        # target image for each view
-        |-- 0001.png
-    |--test
-    ...
-|-- depth
-    |--train
-        |-- 0000.png        # target depth for each view
-        |-- 0001.png
-    |--test
-    ...
-|-- depth_vis
-    |--train
-        |-- 0000.png        # target depth for each view
-        |-- 0001.png
-    |--test
-    ...
-|-- pose
-    |--train
-        |-- 0000.txt        # camera pose for each view
-        |-- 0001.txt
-    |--test
-    ...
-|-- normal
-    |--train
-        |-- pred_normal
-            |-- 0000.npz        # predicted normal for each view
-            |-- 0001.npz
-    ...
-|-- semantic
-    |--train
-        |-- semantic_GT     # target GT semantic for each view
-            |-- 0000.png
-        |-- semantic_GT_vis
-            |-- 0000.png
-        |-- predicted semantic         # target predicted semantics for each view
-            |-- 0000.png
-        |-- predicted semantic_vis
-            |-- 0000.png  
-        |-- predicted semantic_logits # target predicted logits for each view
-            |-- 0000.npz   
-    ...
-|-- grids
-    |-- instance     # target instance for each view
-        |-- 0000.png
-    |-- instance_vis
-        |-- 0000.png
-    |-- spp_seg     # target superpixel segments for each view
-        |-- 0000.png
-    |-- spp_seg_vis
-        |-- 0000.png     
-    ...  
-|-- xxx.ply		# GT mesh or point cloud from MVS
-|-- xxx.labels.ply # GT semantic mesh
-|-- trans_n2w.txt       # transformation matrix from normalized coordinates to world coordinates
-```
 
 ## Setup
 ```
@@ -82,9 +21,13 @@ python ./exp_runner.py --mode train --conf ./confs/neuris_server.conf --server s
 ```
 python exp_runner.py --mode validate_mesh --conf ./confs/neuris.conf --server server2 --gpu 0 --is_continue
 ```
-## validate image
+## validate train image
 ```
 python exp_runner.py --mode validate_image --conf ./confs/neuris_server.conf --server server2 --gpu 0 --scene_name scene0050_00 --is_continue
+```
+## validate test image
+```
+python exp_runner.py --mode test --conf ./confs/neuris_server.conf --server server2 --gpu 0 --scene_name scene0050_00 --is_continue
 ```
 ## Evaluation
 ```

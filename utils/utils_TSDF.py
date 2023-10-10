@@ -85,7 +85,7 @@ def construct_TSDF(path_mesh,
                     target_img_size,
                     check_existence=True):
     
-    image_dir=os.path.join(dir_scan, 'image', '*.png')
+    image_dir=os.path.join(dir_scan, 'image/train', '*.png')
     image_list=sorted(glob(image_dir))
 
     c2w_all=[]
@@ -96,7 +96,7 @@ def construct_TSDF(path_mesh,
         return -1
 
     for img_name in image_list:
-        c2w = np.loadtxt(f'{dir_scan}/pose/{img_name[-8:-4]}.txt')
+        c2w = np.loadtxt(f'{dir_scan}/pose/train/{img_name[-8:-4]}.txt')
         c2w_all.append(c2w)
 
         rgb = cv2.imread(img_name)
