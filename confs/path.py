@@ -20,7 +20,7 @@ names_scenes_neuris_remove = ['scene0009_01','scene0050_00','scene0084_00','scen
 names_scenes_manhattansdf_remove = []
 lis_name_scenes_remove = names_scenes_neuris_remove + names_scenes_manhattansdf_remove
 
-lis_name_scenes = ['scene0009_01','scene0050_00', 'scene0084_00','scene0616_00']
+lis_name_scenes = ['scene0378_00']
 
 
     

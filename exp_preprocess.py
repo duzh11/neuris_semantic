@@ -12,7 +12,7 @@ import utils.utils_io as IOUtils
 import utils.utils_normal as NormalUtils
 
 # from confs.path import lis_name_scenes
-lis_name_scenes=['scene0616_00']
+lis_name_scenes=['scene0378_00', 'scene0435_02']
 np.random.seed(42)
 
 if __name__ == '__main__':
@@ -34,7 +34,7 @@ if __name__ == '__main__':
         dir_root_neus = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
 
         for scene_name in lis_name_scenes:
-            logging.info(f'--process scene: {scene_name}--')
+            logging.info(f'***process scene: {scene_name}**\n\n')
             dir_scan = f'{dir_root_scannet}/{scene_name}'
             dir_neus = f'{dir_root_neus}/{scene_name}'
             os.makedirs(dir_neus,exist_ok=True)

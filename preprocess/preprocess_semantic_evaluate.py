@@ -8,7 +8,7 @@ from glob import glob
 import evaluation.EvalScanNet as EvalScanNet
 import utils.utils_semantic as SemanticUtils
 
-lis_name_scenes=['scene0616_00']
+lis_name_scenes=['scene0378_00', 'scene0435_02']
 semantic_type_lis = ['deeplab']
 data_mode_lis = ['train', 'test']
 
@@ -68,12 +68,12 @@ for semantic_type in semantic_type_lis:
                                                                                                 predicted_labels=predicted_labels, 
                                                                                                 semantic_class=semantic_class, 
                                                                                                 ignore_label=255)
-            if mode == 'train':
+            if data_mode == 'train':
                 metric_train_all.append(metric_avg)
-            elif mode == 'test':
+            elif data_mode == 'test':
                 metric_test_all.append(metric_avg)
 
-            path_log = f'{dir_scan}/semantic/{semantic_type}_evalsemantic_{mode}_{semantic_class}_{MANHATTAN}_{str_date}_markdown.md'
+            path_log = f'{dir_scan}/semantic/{semantic_type}_evalsemantic_{data_mode}_{semantic_class}_{MANHATTAN}_{str_date}_markdown.md'
             markdown_header_0=[f' {label} |'for label in exsiting_label]
             markdown_header_1 = '\n| -------------| ---------|'+'---------|'*len(exsiting_label)
             markdown_header=  'IoU\n| scene_ name   |   Method|'+''.join(markdown_header_0)+markdown_header_1+'\n'

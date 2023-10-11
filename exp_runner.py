@@ -291,7 +291,7 @@ class Runner:
             NotImplementedError
     
     def test(self):
-        for idx in tqdm(range(0,self.dataset.n_images,1), desc='validating test output...'):
+        for idx in tqdm(range(0,self.dataset.n_images,1), desc=f'validating {self.mode} output...'):
             self.validate_image(idx, 
                                 semantic_class=self.semantic_class, 
                                 save_peak_value=False, 
@@ -450,7 +450,7 @@ class Runner:
         logging.info(f'Done: extract image')
 
         logging.info(f'Begin: validate image')
-        for idx in tqdm(range(0,self.dataset.n_images,1)):
+        for idx in tqdm(range(0,self.dataset.n_images,1), desc = f'validating {self.mode} output...'):
             t_validate = datetime.now()
             self.validate_image(idx, 
                                 semantic_class=self.semantic_class, 
@@ -1691,7 +1691,7 @@ if __name__ == '__main__':
     
     elif args.mode == 'validate_image':
         if runner.model_type == 'neus':
-            for idx in range(0, runner.dataset.n_images, 1):
+            for idx in tqdm(range(0, runner.dataset.n_images, 1), desc = f'validating {mode} output...'):
                 t1 = datetime.now()
                 runner.validate_image(idx, 
                                     resolution_level=2, 

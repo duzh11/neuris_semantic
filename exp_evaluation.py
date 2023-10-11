@@ -15,7 +15,7 @@ import utils.utils_normal as NormalUtils
 import utils.utils_semantic as SemanticUtils
 
 from confs.path import lis_name_scenes
-# lis_name_scenes=['scene0616_00']
+
 MANHATTAN=False
 
 cv2.destroyAllWindows
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # eval_3D_mesh_neuris， eval_3D_mesh_TSDF， eval_chamfer， eval_mesh_2D_metrices， eval_semantic
     parser.add_argument('--mode', type=str, default='eval_semantic')
-    parser.add_argument('--exp_name', type=str, default='test')
+    parser.add_argument('--exp_name', type=str, default='test/test2')
     parser.add_argument('--dir_dataset', type=str, default='../Data/dataset/indoor')
     parser.add_argument('--dir_results_baseline', type=str, default='../exps/indoor/neus')
     parser.add_argument('--acc', type=str, default='fine')

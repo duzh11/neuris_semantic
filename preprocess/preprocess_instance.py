@@ -16,7 +16,7 @@ def random_rgb():
     rgb[2] = random.randint(1, 255)
     return rgb
 
-scene_list=['scene0616_00']
+scene_list=['scene0378_00', 'scene0435_02']
 
 img_h,img_w=480,640
 data_base='/home/du/Proj/Dataset/ScanNet/scans'

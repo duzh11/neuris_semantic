@@ -1,4 +1,5 @@
 import os, sys
+sys.path.append(os.getcwd())
 
 method_name = sys.argv[1]
 from confs.path import lis_name_scenes
