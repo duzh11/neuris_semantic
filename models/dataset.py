@@ -317,7 +317,7 @@ class Dataset:
             self.train_idx = []
 
             for i in range(len(self.images)):
-                cur_data = torch.cat([rays_o[i], rays_d[i], self.images[i].to(self.device),self.semantics[i].to(self.device),self.masks[i, :, :, :1].to(self.device)], dim=-1).detach() 
+                cur_data = torch.cat([rays_o[i], rays_d[i], self.images[i].to(self.device), self.semantics[i].to(self.device),self.masks[i, :, :, :1].to(self.device)], dim=-1).detach() 
                 # cur_data: [H, W, 3+3+3+1+1]
                 cur_data = cur_data[torch.randperm(len(cur_data))]
                 train_data.append(cur_data.reshape(-1, 10).detach().cpu())
@@ -535,13 +535,22 @@ class Dataset:
         rays_o = self.pose_all[img_idx, None, :3, 3].expand(rays_v.shape) # batch_size, 3
         return torch.cat([rays_o.cpu(), rays_v.cpu(), color, mask[:, :1]], dim=-1).cuda()    # batch_size, 10
         
-    def random_get_rays_at(self, img_idx, batch_size, pose = None):
+    def random_get_rays_at(self, img_idx, batch_size, pose = None, iter=-1, exp_dir=''):
         
         pose_cur = self.get_pose(img_idx, pose)
         
         pixels_x = torch.randint(low=0, high=self.W, size=[batch_size]) 
         pixels_y = torch.randint(low=0, high=self.H, size=[batch_size])
-            
+        
+        # 考虑随机性，检查是否一致
+        pixels_dir = os.path.join(exp_dir,'pixels')
+        os.makedirs(pixels_dir, exist_ok=True)
+        if iter % 5000 == 0:
+            with open(os.path.join(pixels_dir, '{:0>6d}.txt'.format(iter)), 'w') as f:
+                f.writelines(f'img_idx: {img_idx}\n\n')
+                f.writelines(f'pixels_x: {pixels_x}\n\n')
+                f.writelines(f'pixels_y: {pixels_y}\n\n')
+
         color = self.images[img_idx][(pixels_y, pixels_x)]    # batch_size, 3
         mask = self.masks[img_idx][(pixels_y, pixels_x)][:,None]     # batch_size, 1
         semantic=torch.zeros_like(mask)

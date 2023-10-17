@@ -16,11 +16,16 @@ path_tiltedsn_pth_sr = f"{dir_tiltedsn_ckpt}/SR_only/model-latest.ckpt"
 assert os.path.exists(path_tiltedsn_pth_sr)
 
 # update training/test split
-names_scenes_neuris_remove = ['scene0009_01','scene0050_00','scene0084_00','scene0580_00','scene0616_00','scene0625_00']
-names_scenes_manhattansdf_remove = []
-lis_name_scenes_remove = names_scenes_neuris_remove + names_scenes_manhattansdf_remove
+names_scenes_neuris_remove = ['scene0009', 'scene0085', 'scene0114',
+                        'scene0603', 'scene0617', 'scene0625',
+                        'scene0721', 'scene0771']
+names_scenes_manhattansdf_remove = ['scene0050', 'scene0084', 
+                                'scene0580', 'scene0616']
+# lis_name_scenes_remove = names_scenes_neuris_remove + names_scenes_manhattansdf_remove
 
-lis_name_scenes = ['scene0378_00']
+lis_name_scenes = ['scene0378_00', 'scene0435_02']
+# lis_name_scenes += ['scene0050_00','scene0616_00'] # 简单
+# lis_name_scenes += ['scene0084_00', 'scene0648_00', 'scene0474_01', 'scene0030_00'] # 难
 
 
     

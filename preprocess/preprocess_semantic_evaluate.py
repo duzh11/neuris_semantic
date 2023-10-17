@@ -8,7 +8,7 @@ from glob import glob
 import evaluation.EvalScanNet as EvalScanNet
 import utils.utils_semantic as SemanticUtils
 
-lis_name_scenes=['scene0378_00', 'scene0435_02']
+from confs.path import lis_name_scenes
 semantic_type_lis = ['deeplab']
 data_mode_lis = ['train', 'test']
 

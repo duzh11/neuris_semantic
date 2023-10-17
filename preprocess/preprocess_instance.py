@@ -1,4 +1,5 @@
-import os
+import os, sys
+sys.path.append(os.getcwd())
 import logging
 import cv2
 import numpy as np
@@ -16,13 +17,13 @@ def random_rgb():
     rgb[2] = random.randint(1, 255)
     return rgb
 
-scene_list=['scene0378_00', 'scene0435_02']
+from confs.path import lis_name_scenes
 
 img_h,img_w=480,640
 data_base='/home/du/Proj/Dataset/ScanNet/scans'
 target_base='../Data/dataset/indoor'
 vis_flag=True
-for scene_name in scene_list:
+for scene_name in lis_name_scenes:
     logging.info(f'loading instance: {scene_name} ')
     scene_dir=os.path.join(data_base, scene_name)
     target_dir=os.path.join(target_base, scene_name)

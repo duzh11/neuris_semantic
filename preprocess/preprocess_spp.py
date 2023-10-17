@@ -6,7 +6,8 @@ from tqdm import tqdm
 import numpy as np
 import random
 import matplotlib.pyplot as plt
-import os
+import os, sys
+sys.path.append(os.getcwd())
 import cv2
 
 alpha=0.8
@@ -18,10 +19,10 @@ def random_rgb():
     rgb[2] = random.randint(1, 255)
     return rgb
 
-scene_list=['scene0378_00', 'scene0435_02']
+from confs.path import lis_name_scenes
 method_name = 'felzenszwalb_100_1_50_a'
 delete_small_area = True
-for scene in scene_list:
+for scene in lis_name_scenes:
     print(f'---process scene: {scene}---')
     for mode in ['train', 'test']:
         data_dir=f'../Data/dataset/indoor/{scene}'

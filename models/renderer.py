@@ -85,6 +85,7 @@ class NeuSRenderer:
                  n_outside,
                  perturb,
                  alpha_type='div',
+                 semantic_mode=None,
                  stop_ce_grad=False):
         self.nerf = nerf
         self.sdf_network_fine = sdf_network_fine
@@ -100,10 +101,16 @@ class NeuSRenderer:
         self.radius = 1.0
 
         if semantic_network_fine:
+            self.semantic_mode = semantic_mode
+            logging.info(f'semantic mode: {self.semantic_mode}')
             self.stop_ce_grad = stop_ce_grad
+            logging.info(f'stop_ce_grad: {self.stop_ce_grad}')
         else:
+            self.semantic_mode = None
+            logging.info(f'semantic mode: {self.semantic_mode}')
             self.stop_ce_grad = False
-        logging.info(f'stop_ce_grad: {self.stop_ce_grad}')
+            logging.info(f'stop_ce_grad: {self.stop_ce_grad}')
+        
 
     def render_core_outside(self, rays_o, rays_d, z_vals, sample_dist, nerf, background_rgb=None):
         batch_size, n_samples = z_vals.shape
@@ -282,18 +289,30 @@ class NeuSRenderer:
         if background_rgb is not None:
             color = color + background_rgb * (1.0 - weights_sum)
         
+        # softmax策略
+        # softmax_a: 对logits进行softmax，在积分后log，然后送入ce_loss
+        # softmax_b: 对logits进行softmax，在积分后log，然后送入nll_loss
+        # softmax_c: 对logits进行softmax，在积分前log，然后送入nll_loss
+        if semantic_network:
+            if self.semantic_mode=='softmax_a' or self.semantic_mode=='softmax_b':
+                sampled_semantic_0 = F.softmax(sampled_semantic, dim=-1)
+            elif self.semantic_mode=='softmax_c':
+                sampled_semantic_0 = F.log_softmax(sampled_semantic, dim=-1)
+            else:
+                sampled_semantic_0 = sampled_semantic
+
         # stop semantic grad to weights
         if self.stop_ce_grad:
             weights_new=weights.detach()
-            semantic = (sampled_semantic * weights_new[:, :, None]).sum(dim=1)
+            semantic = (sampled_semantic_0 * weights_new[:, :, None]).sum(dim=1)
         else:
-            semantic = (sampled_semantic * weights[:, :, None]).sum(dim=1)        
-        # todo 是否应该在前面进行softmax
+            semantic = (sampled_semantic_0 * weights[:, :, None]).sum(dim=1)        
+        
+        # softmax策略
         if semantic_network:
-            if semantic_network.semantic_mode=='softmax' or semantic_network.semantic_mode=='sigmoid':
+            if self.semantic_mode=='softmax_a' or self.semantic_mode=='softmax_b':
                 semantic = semantic / (semantic.sum(-1).unsqueeze(-1) + 1e-8)
                 semantic = torch.log(semantic + 1e-8)
-                # semantic_0 = torch.log(semantic + 1e-8) # 考虑直接进行nll_loss
 
         logits_2_uncertainty = lambda x: torch.sum(-F.log_softmax(x, dim=-1)*F.softmax(x, dim=-1), dim=-1, keepdim=True)
         sem_uncertainty = logits_2_uncertainty(semantic)

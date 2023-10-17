@@ -185,22 +185,25 @@ class NeuSLoss(nn.Module):
                 'Loss/loss_bg':     background_loss
             })
         
-        # ce loss    
-        if self.semantic_class==3:
-            CrossEntropyLoss = nn.CrossEntropyLoss()
-            crossentropy_loss = lambda logit, label: CrossEntropyLoss(logit, label)
-        else:
-            CrossEntropyLoss = nn.CrossEntropyLoss(ignore_index=-1)
-            crossentropy_loss = lambda logit, label: CrossEntropyLoss(logit, label-1)
-
+        # ce_loss
         semantic_fine_loss=0.
         if self.semantic_weight>0:
             true_semantic = input_model['true_semantic']
             semantic_fine_0 = semantic_fine.reshape(-1, self.semantic_class)
             true_semantic_0 = true_semantic.reshape(-1).long()
             
+            # ce loss    
+            if self.semantic_class==3:
+                CrossEntropyLoss = nn.CrossEntropyLoss()
+                crossentropy_loss = lambda logit, label: CrossEntropyLoss(logit, label)
+            else:
+                CrossEntropyLoss = nn.CrossEntropyLoss(ignore_index=-1)
+                crossentropy_loss = lambda logit, label: CrossEntropyLoss(logit, label-1)
+
             if self.ce_mode == 'ce_loss':
                 semantic_fine_loss = crossentropy_loss(semantic_fine_0, true_semantic_0)
+            elif self.ce_mode =='nll_loss':
+                semantic_fine_loss = F.nll_loss(semantic_fine_0, true_semantic_0-1, ignore_index=-1) # todo 考虑class=3的情况
             elif self.ce_mode == 'mv_con':
                 semantic_fine_loss_0 = 0
                 N_rays = semantic_fine_0.shape[0]
