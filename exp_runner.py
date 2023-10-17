@@ -178,6 +178,10 @@ class Runner:
             self.semantic_class=40
             self.use_joint = False
             if self.use_semantic:
+                # train parameters
+                self.warm_iter=self.conf['train.warm_iter'] 
+                logging.info(f'warm iter = {self.warm_iter}')
+
                 # semantic network parameters
                 self.semantic_class=self.conf['dataset']['semantic_class']
                 self.conf['model']['semantic_network']['d_out']=self.semantic_class
@@ -187,8 +191,7 @@ class Runner:
                 joint_weight=self.conf['model.loss.joint_weight']
                 if (joint_weight > 0):
                     self.conf['dataset']['use_joint'] = True 
-                    self.warm_iter=self.conf['train.warm_iter']
-                    logging.info(f'use joint optimization: begin at {self.warm_iter}, loss weight={joint_weight}')
+                    logging.info(f'use joint optimization: loss weight={joint_weight}')
                 else:
                     self.conf['dataset']['use_joint'] = False
                 self.use_joint=self.conf['dataset']['use_joint']
@@ -323,7 +326,10 @@ class Runner:
         
         idx_img = image_perm[self.iter_step % self.dataset.n_images]
         self.curr_img_idx = idx_img
-        data, pixels_x, pixels_y,  normal_sample, planes_sample, subplanes_sample = self.dataset.random_get_rays_at(idx_img, self.batch_size)
+        data, pixels_x, pixels_y,  normal_sample, planes_sample, subplanes_sample = self.dataset.random_get_rays_at(idx_img, 
+                                                                                                                    self.batch_size, 
+                                                                                                                    iter=self.iter_step,
+                                                                                                                    exp_dir=self.base_exp_dir)
         rays_o, rays_d, true_rgb, true_mask, true_semantic, grid, mv_similarity = data[:, :3], data[:, 3: 6], data[:, 6: 9], data[:, 9: 10], data[:, 10: 11], data[:,11: 12], data[:,12: 13]
         true_mask =  (true_mask > 0.5).float()
         mask = true_mask
@@ -377,8 +383,9 @@ class Runner:
         self.update_iter_step()
         res_step = self.end_iter - self.iter_step
 
+        # False
         if self.dataset.cache_all_data:
-            self.dataset.shuffle()
+            self.dataset.shuffle() 
 
         # self.validate_mesh() # save mesh at iter 0
         logs_summary = {}
@@ -402,10 +409,7 @@ class Runner:
                 patchmatch_out, logs_patchmatch = self.patch_match(input_model, render_out)
                 logs_summary.update(logs_patchmatch)
 
-            if self.use_joint:
-                self.warm_start=self.iter_step>self.warm_iter-1
-            else:
-                self.warm_start=False
+            self.warm_start=self.iter_step>self.warm_iter-1
             loss, logs_loss, mask_keep_gt_normal = self.loss_neus(input_model, render_out, 
                                                                   self.sdf_network_fine, patchmatch_out,
                                                                   warm_start=self.warm_start, 
@@ -416,6 +420,19 @@ class Runner:
 
             loss.backward()
             self.optimizer.step()
+            
+            # # 打印网络梯度
+            # if self.iter_step==3:
+            #     network_list=[self.nerf_outside, self.sdf_network_fine, self.variance_network_fine, self.color_network_fine, self.semantic_network_fine]
+            #     network_name = ['nerf_netwrok', 'sdf_network', 'variance', 'color_network', 'semantic_network']
+            #     for idx in tqdm(range(len(network_list)), desc='print grad'):
+            #         with open(os.path.join(self.base_exp_dir, f'{network_name[idx]}.txt'), 'w') as f:
+            #             f.writelines(f'****network_name[idx]\n')
+            #             for name, param in network_list[idx].named_parameters():
+            #                 f.writelines(f'-->name: {name}\n')
+            #                 f.writelines(f'-->grad_requirs: {param.requires_grad}\n')
+            #                 f.writelines(f'-->grad_value: {param.grad}\n')
+            #                 f.writelines("===\n")
 
             self.iter_step += 1
 
@@ -797,11 +814,12 @@ class Runner:
                 var=render_out['variance'].mean()
                 logging.info('iter:{:8>d} loss={:.03f} lr={:.06f} var={:.04f} theta={:02f}'.format(
                     self.iter_step, loss, lr, var.mean(), theta[0]) + 
-                    f' joint start: {self.warm_start}')
+                    f' warm start: {self.warm_start}')
    
             else:
                 logging.info('iter:{:8>d} loss={:.03f} lr={:.06f} var={:.04f}'.format(
-                    self.iter_step, loss, self.optimizer.param_groups[0]['lr'], render_out['variance'].mean()))
+                    self.iter_step, loss, self.optimizer.param_groups[0]['lr'], render_out['variance'].mean()) + 
+                    f' warm start:{self.warm_start}')
             
             ic((render_out['weight_sum'] * mask).sum() / mask_sum)
             ic(self.get_alpha_inter_ratio())
@@ -1642,7 +1660,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format=FORMAT)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--conf', type=str, default='./confs/neuris_server.conf')
+    parser.add_argument('--conf', type=str, default='./confs/neuris.conf')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--server', type=str, default='local')
     parser.add_argument('--mode', type=str, default='train') #changed

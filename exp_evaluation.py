@@ -47,7 +47,7 @@ if __name__ == '__main__':
         metrics_eval_all = []
         for scene_name in lis_name_scenes:
             logging.info(f'Processing: {scene_name}')
-            path_mesh_pred = f'{dir_results_baseline}/{scene_name}/meshes/{scene_name}.ply'
+            path_mesh_pred = f'{dir_results_baseline}/{scene_name}/meshes/{scene_name}_clean_bbox.ply'
             metrics_eval =  EvalScanNet.evaluate_3D_mesh_neuris(path_mesh_pred, 
                                                          scene_name, 
                                                          dir_dataset = dir_dataset,
@@ -75,7 +75,7 @@ if __name__ == '__main__':
         metrics_eval_all = []
         for scene_name in lis_name_scenes:
             logging.info(f'Processing: {scene_name}')
-            path_mesh_pred = f'{dir_results_baseline}/{scene_name}/meshes/{scene_name}.ply'
+            path_mesh_pred = f'{dir_results_baseline}/{scene_name}/meshes/{scene_name}_clean_bbox.ply'
             metrics_eval =  EvalScanNet.evaluate_3D_mesh_TSDF(path_mesh_pred,
                                                               scene_name,
                                                               dir_dataset = '../Data/dataset/indoor',
@@ -100,7 +100,7 @@ if __name__ == '__main__':
 
         for scene_name in lis_name_scenes:
             logging.info(f'Processing: {scene_name}')
-            path_mesh_pred = f'{dir_results_baseline}/{scene_name}/meshes/{scene_name}.ply'
+            path_mesh_pred = f'{dir_results_baseline}/{scene_name}/meshes/{scene_name}_clean_bbox.ply'
 
             metric_eval = EvalScanNet.eval_chamfer(path_mesh_pred, 
                                                    scene_name, 
@@ -152,14 +152,12 @@ if __name__ == '__main__':
                     metric_train_all.append(err_gt_depth_scale)
                 elif data_mode == 'test':
                     metric_test_all.append(err_gt_depth_scale)
-            metric_train_all = np.array(metric_train_all)
-            metric_test_all = np.array(metric_test_all)
 
         str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
         path_log = f'{dir_results_baseline}/{name_baseline}_evaldepth_{args.acc}_{scale_depth}_{eval_type_baseline}_{str_date}.md'
         
         precision = 3
-        metric_eval_all = np.round(metric_train_all, decimals=precision)
+        metric_eval_all = np.round(np.array(metric_train_all), decimals=precision)
         markdown_header=f'train\n| scene_ name   |   Method|  abs_rel|  sq_rel|  rmse| rmse_log| a1| a2| a3| \n'
         markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- | ----- | ----- | ----- |\n' 
         EvalScanNet.save_evaluation_results_to_markdown(path_log, 
@@ -169,7 +167,7 @@ if __name__ == '__main__':
                                                         names_item = lis_name_scenes, 
                                                         mode = 'w')
         
-        metric_eval_all = np.round(metric_test_all, decimals=precision)
+        metric_eval_all = np.round(np.array(metric_test_all), decimals=precision)
         markdown_header=f'\ntest\n| scene_ name   |   Method|  abs_rel|  sq_rel|  rmse| rmse_log| a1| a2| a3| \n'
         markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- | ----- | ----- | ----- |\n' 
         EvalScanNet.save_evaluation_results_to_markdown(path_log, 
@@ -225,7 +223,7 @@ if __name__ == '__main__':
                                                             save_mean=False,
                                                             mode = 'a')
         
-        path_log = f'{dir_results_baseline}/{name_baseline}_evalsemantic_{data_mode}_{args.acc}_{semantic_class}_{MANHATTAN}_{str_date}_markdown.md'
+        path_log = f'{dir_results_baseline}/{name_baseline}_evalsemantic_{args.acc}_{semantic_class}_{MANHATTAN}_{str_date}_markdown.md'
         markdown_header='train\n| scene_ name   |   Method|  Acc|  M_Acc|  M_IoU| FW_IoU|\n'
         markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- |\n'
         EvalScanNet.save_evaluation_results_to_markdown(path_log, 

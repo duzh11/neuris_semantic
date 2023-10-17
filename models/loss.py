@@ -121,6 +121,10 @@ class NeuSLoss(nn.Module):
         if (self.semantic_weight>0) and (self.joint_weight>0):
             self.joint_mode = conf['joint_mode'] if 'joint_mode' in conf else 'true_se'
             logging.info('joint_mode: {}'.format(self.joint_mode))
+        
+        if (self.semantic_weight>0) and (self.sv_con_weight>0):
+            self.sv_con_mode = conf['sv_con_mode'] if 'sv_con_mode' in conf else 'num'
+            logging.info('sv_con_mode: {}'.format(self.sv_con_mode))
 
     def get_warm_up_ratio(self):
         if self.warm_up_end == 0.0:
@@ -185,22 +189,25 @@ class NeuSLoss(nn.Module):
                 'Loss/loss_bg':     background_loss
             })
         
-        # ce loss    
-        if self.semantic_class==3:
-            CrossEntropyLoss = nn.CrossEntropyLoss()
-            crossentropy_loss = lambda logit, label: CrossEntropyLoss(logit, label)
-        else:
-            CrossEntropyLoss = nn.CrossEntropyLoss(ignore_index=-1)
-            crossentropy_loss = lambda logit, label: CrossEntropyLoss(logit, label-1)
-
+        # ce_loss
         semantic_fine_loss=0.
         if self.semantic_weight>0:
             true_semantic = input_model['true_semantic']
             semantic_fine_0 = semantic_fine.reshape(-1, self.semantic_class)
             true_semantic_0 = true_semantic.reshape(-1).long()
             
+            # ce loss    
+            if self.semantic_class==3:
+                CrossEntropyLoss = nn.CrossEntropyLoss()
+                crossentropy_loss = lambda logit, label: CrossEntropyLoss(logit, label)
+            else:
+                CrossEntropyLoss = nn.CrossEntropyLoss(ignore_index=-1)
+                crossentropy_loss = lambda logit, label: CrossEntropyLoss(logit, label-1)
+
             if self.ce_mode == 'ce_loss':
                 semantic_fine_loss = crossentropy_loss(semantic_fine_0, true_semantic_0)
+            elif self.ce_mode =='nll_loss':
+                semantic_fine_loss = F.nll_loss(semantic_fine_0, true_semantic_0-1, ignore_index=-1) # todo 考虑class=3的情况
             elif self.ce_mode == 'mv_con':
                 semantic_fine_loss_0 = 0
                 N_rays = semantic_fine_0.shape[0]
@@ -219,37 +226,47 @@ class NeuSLoss(nn.Module):
         sv_con_loss=0
         if warm_start and self.semantic_weight>0 and self.sv_con_weight>0:
             grid=input_model['grid']
-            mv_similarity = input_model['mv_similarity']
+            #todo 选择render semantic还是true semantic
             semantic_score = F.softmax(semantic_fine, dim=-1)
-            
-            # todo 选择render_semantic还是true_semantic
-            semantic = semantic_score.argmax(axis=1) #0-39
+            semantic = semantic_score.argmax(axis=-1) #0-39
             # semantic = (true_semantic-1).long()
-            grid_list=torch.unique(grid)
             
-            for i in grid_list:
-                if i==0:
-                    continue #忽略void类别的semantic consistency
-                grid_mask = (grid==i)
-                semantic_mask = semantic[grid_mask.squeeze()]
-                semantic_score_mask=semantic_score[grid_mask.squeeze()]
-                mv_similarity_mask=mv_similarity[grid_mask.squeeze()]
-                #通过数量来投票
-                mode_value, mode_count = torch.mode(semantic_mask)
-                semantic_maxprob=mode_value.item()
-                #通过算相似度来投票
-                # semantic_list = torch.unique(semantic_mask)
-                # maxscore = -0.1
-                # for j in semantic_list:
-                #     semantic_j = semantic_mask==j
-                #     j_score=mv_similarity_mask[semantic_j].sum()
-                #     if j_score>maxscore:
-                #         semantic_maxprob = j
-                #         maxscore = j_score
+            uncertainty = render_out['sem_uncertainty_fine']
 
-                prob=semantic_score_mask[:,semantic_maxprob]
+            # 遍历每个grids进行投票
+            grid_list=torch.unique(grid)
+            for grid_idx in grid_list:
+                if grid_idx==0:
+                    continue #忽略void类别的grid
+                grid_mask = (grid==grid_idx)
+                
+                semantic_grid = semantic[grid_mask.squeeze()]
+                semantic_score_grid=semantic_score[grid_mask.squeeze()]  
+                uncertainty_grid = uncertainty[grid_mask.squeeze()]  
+                #通过数量来投票
+                if self.sv_con_mode == 'num':
+                    mode_value, mode_count = torch.mode(semantic_grid)
+                    semantic_maxprob = mode_value.item()
+
+                # 通过累加概率分布来投票
+                if self.sv_con_mode == 'prob':
+                    semantic_score_grid_sum = semantic_score_grid.sum(axis=0)
+                    semantic_maxprob = semantic_score_grid_sum.argmax(axis=-1)
+                
+                # 通过不确定性进行投票
+                if self.sv_con_mode == 'uncertainty':
+                    semantic_list = torch.unique(semantic_grid)
+                    maxscore = -0.1
+                    for semantic_idx in semantic_list:
+                        semantic_idx_mask = (semantic_grid==semantic_idx)
+                        semantic_idx_score = uncertainty_grid[semantic_idx_mask].sum()
+                        if semantic_idx_score > maxscore:
+                            semantic_maxprob = semantic_idx
+                            maxscore = semantic_idx_score
+
+                prob=semantic_score_grid[:,semantic_maxprob]
                 sv_con_loss += 1-prob.mean()
-            
+
             sv_con_loss=sv_con_loss/len(grid_list)
             logs_summary.update({           
                     'Loss/loss_semantic_consistency':  sv_con_loss.detach().cpu(),
