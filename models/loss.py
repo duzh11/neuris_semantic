@@ -231,7 +231,7 @@ class NeuSLoss(nn.Module):
             semantic = semantic_score.argmax(axis=-1) #0-39
             # semantic = (true_semantic-1).long()
             
-            uncertainty = render_out['sem_uncertainty_fine']
+            uncertainty = render_out['sem_uncertainty_fine'].squeeze()
 
             # 遍历每个grids进行投票
             grid_list=torch.unique(grid)

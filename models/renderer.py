@@ -385,7 +385,7 @@ class NeuSRenderer:
             'normal': normal,
             'color_fine': color,
             'semantic_fine': semantic,
-            'sem_uncertainty_fine': sem_uncertainty.squeeze(),
+            'sem_uncertainty_fine': sem_uncertainty,
             'cdf_fine': c.reshape(batch_size, n_samples),
             'sdf': sdf,
             'dists': dists,
@@ -400,7 +400,7 @@ class NeuSRenderer:
             'normal_peak': normal_peak,
             'color_peak': color_peak,
             'semantic_peak': semantic_peak,
-            'sem_uncertainty_peak': sem_uncertainty_peak.squeeze(),
+            'sem_uncertainty_peak': sem_uncertainty_peak,
             'point_peak': point_peak
         }
 
