@@ -1,5 +1,6 @@
 import cv2 as cv
 import numpy as np
+import scipy
 import random
 import matplotlib
 import os, logging, argparse, trimesh, copy
@@ -852,7 +853,6 @@ class Runner:
     
         return log_val
 
-    
     def validate_image(self, 
                         idx=-1, 
                         resolution_level=-1, 
@@ -1052,7 +1052,6 @@ class Runner:
             np.savez(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
                             semantic_fine.astype(np.uint8))
             
-            os.makedirs(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/fine'), exist_ok=True)
             vis_label = colour_map_np[(semantic_fine).astype(np.uint8)]
             ImageUtils.write_image(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         (vis_label.astype(np.uint8))[...,::-1])
@@ -1078,7 +1077,6 @@ class Runner:
                 np.savez(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
                                 semantic_peak.astype(np.uint8))
                 
-                os.makedirs(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/peak'), exist_ok=True)
                 vis_label = colour_map_np[(semantic_peak).astype(np.uint8)]
                 ImageUtils.write_image(os.path.join(self.base_exp_dir, f'semantic/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                             (vis_label.astype(np.uint8))[...,::-1])
@@ -1095,6 +1093,61 @@ class Runner:
                 os.makedirs(os.path.join(self.base_exp_dir, f'sem_uncertainty_vis/{self.mode}/peak'), exist_ok=True)
                 ImageUtils.write_image(os.path.join(self.base_exp_dir, f'sem_uncertainty_vis/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                             (sem_uncertainty_peak_vis[..., ::-1].astype(np.uint8)))
+                
+        # print girds info
+        if self.conf['dataset']['use_grid']:
+            semantic_logits = imgs_render['semantic_fine']
+            semantic_label = (semantic_logits.argmax(axis=-1))
+            semantic_maxprob_grids = np.zeros_like(semantic_label)
+            
+            semantic_score = scipy.special.softmax(semantic_logits, axis=-1)
+            logits_2_uncertainty = lambda x: np.sum(-scipy.special.log_softmax(x, axis=-1)*scipy.special.softmax(x, axis=-1), axis=-1)
+            uncertainty = logits_2_uncertainty(semantic_logits)
+
+            # compute semantic_maxprob
+            sv_con_mode = self.conf['model.loss.sv_con_mode']
+            grids_input = ImageUtils.resize_image(self.dataset.grids[idx].cpu().numpy(), 
+                                                            (semantic_logits.shape[1], semantic_logits.shape[0]), 
+                                                            interpolation=cv.INTER_NEAREST)
+            grids_list = np.unique(grids_input)
+            for grid_idx in grids_list:
+                if grid_idx==0:
+                    continue # 忽略void类别的grid
+                grid_mask = (grids_input==grid_idx)
+
+                semantic_grid = semantic_label[grid_mask]
+                semantic_score_grid=semantic_score[grid_mask]  
+                uncertainty_grid = uncertainty[grid_mask] 
+
+                if sv_con_mode == 'num':
+                    semantic_list, counts = np.unique(semantic_grid, return_counts=True)
+                    mode_index = np.argmax(counts)
+                    semantic_maxprob = semantic_list[mode_index]
+                
+                if sv_con_mode == 'prob':
+                    semantic_score_grid_sum = semantic_score_grid.sum(axis=0)
+                    semantic_maxprob = semantic_score_grid_sum.argmax(axis=-1)
+                
+                if sv_con_mode == 'uncertainty':
+                    semantic_list = np.unique(semantic_grid)
+                    maxscore = -0.1
+                    for semantic_idx in semantic_list:
+                        semantic_idx_mask = (semantic_grid==semantic_idx)
+                        semantic_idx_score = uncertainty_grid[semantic_idx_mask].sum()
+                        if semantic_idx_score > maxscore:
+                            semantic_maxprob = semantic_idx
+                            maxscore = semantic_idx_score
+                
+                semantic_maxprob_grids[grid_mask] = semantic_maxprob+1
+            
+            # print semantic_maxprob
+            os.makedirs(os.path.join(self.base_exp_dir, f'girds_info/{self.mode}/fine/'), exist_ok=True)
+            np.savez(os.path.join(self.base_exp_dir, f'girds_info/{self.mode}/fine/', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
+                            semantic_maxprob_grids.astype(np.uint8))
+            
+            vis_label_maxprob = colour_map_np[(semantic_maxprob_grids).astype(np.uint8)]
+            ImageUtils.write_image(os.path.join(self.base_exp_dir, f'girds_info/{self.mode}/fine/', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+                        (vis_label_maxprob.astype(np.uint8))[...,::-1])
 
         # (3) save images
         if save_lis_images:
@@ -1199,7 +1252,12 @@ class Runner:
                     grids = ImageUtils.resize_image(self.dataset.grids[idx].cpu().numpy(), 
                                                     (img_temp.shape[1], img_temp.shape[0]))
                     vis_grids = label2rgb(grids, img_gt.astype(np.uint8), bg_label=0, alpha=0.5, kind='overlay')
-                    lis_semantics_0 = [img_gt, vis_grids, vis_input]
+
+                    semantic_label_grids = semantic_label.copy()+1
+                    semantic_label_grids[grids_input==0] = 0
+                    vis_label_grids = colour_map_np[(semantic_label_grids).astype(np.uint8)]
+
+                    lis_semantics_0 = lis_semantics_0 + [vis_grids, vis_label_maxprob[...,::-1], vis_label_grids[...,::-1]]
 
                 if self.dataset.use_mv_similarity:
                     mv_similarity = ImageUtils.resize_image(self.dataset.mv_similarity[idx].cpu().numpy(), 
@@ -1720,7 +1778,7 @@ if __name__ == '__main__':
                                     validate_confidence=runner.use_geocheck,
                                     save_normal_render=True,
                                     save_depth_render=True,
-                                    save_semantic_render = True,
+                                    save_semantic_render=True,
                                     save_lis_images=True,
                                     lis_expdir='image_valiate',
                                     semantics_expdir='image_valiate_semantics')

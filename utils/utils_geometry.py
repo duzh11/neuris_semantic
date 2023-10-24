@@ -268,7 +268,7 @@ def read_depth_maps_np(dir):
     Return:
         arr_depths: N*W*H
     '''
-    vec_path_depths = sorted(glob.glob(f"{dir}/**.npz"))
+    vec_path_depths = sorted(glob.glob(f"{dir}/00160000_*.npz"))
 
     arr_depth_maps = []
     for i in range(len(vec_path_depths)):

@@ -47,7 +47,8 @@ for scene_name in lis_name_scenes:
 
             if (img_h is not None and img_h != instance.shape[0]) or \
                 (img_w is not None and img_w != instance.shape[1]):
-                instance = cv2.resize(instance, (img_w, img_h), interpolation=cv2.INTER_NEAREST)   
+                instance_crop = instance[16:instance.shape[0]-16, 24:instance.shape[1]-24]
+                instance = cv2.resize(instance_crop, (img_w, img_h), interpolation=cv2.INTER_NEAREST)   
             
             cv2.imwrite(os.path.join(target_instance_dir, f"{idx:04d}.png"), instance)
             instance_list.append(instance)
