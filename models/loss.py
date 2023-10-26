@@ -232,6 +232,14 @@ class NeuSLoss(nn.Module):
             # semantic = (true_semantic-1).long()
             
             uncertainty = render_out['sem_uncertainty_fine'].squeeze()
+            # uncertainty>0应该越小越好
+            if self.sv_con_mode == 'uncertainty'  or self.sv_con_mode == 'uncertainty_prob':
+                uncertainty_score = 1-uncertainty
+                uncertainty_score = uncertainty_score.clip(0, 1)
+            elif self.sv_con_mode == 'uncertainty_exp' or self.sv_con_mode == 'uncertainty_exp_prob':
+                uncertainty_score = torch.exp(-uncertainty)
+            else:
+                uncertainty_score = uncertainty.copy()
 
             # 遍历每个grids进行投票
             grid_list=torch.unique(grid)
@@ -241,8 +249,8 @@ class NeuSLoss(nn.Module):
                 grid_mask = (grid==grid_idx)
                 
                 semantic_grid = semantic[grid_mask.squeeze()]
-                semantic_score_grid=semantic_score[grid_mask.squeeze()]  
-                uncertainty_grid = uncertainty[grid_mask.squeeze()]  
+                semantic_score_grid = semantic_score[grid_mask.squeeze()]  
+                uncertainty_score_grid = uncertainty_score[grid_mask.squeeze()]  
                 #通过数量来投票
                 if self.sv_con_mode == 'num':
                     mode_value, mode_count = torch.mode(semantic_grid)
@@ -253,13 +261,20 @@ class NeuSLoss(nn.Module):
                     semantic_score_grid_sum = semantic_score_grid.sum(axis=0)
                     semantic_maxprob = semantic_score_grid_sum.argmax(axis=-1)
                 
+                if self.sv_con_mode == 'uncertainty_prob' or self.sv_con_mode == 'uncertainty_exp_prob':
+                    # 加入uncertrainty作为权重 加权平均
+                    semantic_score_grid_0 = semantic_score_grid*uncertainty_score_grid.view(-1, 1)
+                    semantic_score_grid_sum = semantic_score_grid_0.sum(axis=0)
+                    semantic_maxprob = semantic_score_grid_sum.argmax(axis=-1)
+                    # todo 是否考虑将1-prob作为一个权重，概率低说明需要多进行优化
+                
                 # 通过不确定性进行投票
-                if self.sv_con_mode == 'uncertainty':
+                if self.sv_con_mode == 'uncertainty' or self.sv_con_mode == 'uncertainty_exp':
                     semantic_list = torch.unique(semantic_grid)
                     maxscore = -0.1
                     for semantic_idx in semantic_list:
                         semantic_idx_mask = (semantic_grid==semantic_idx)
-                        semantic_idx_score = uncertainty_grid[semantic_idx_mask].sum()
+                        semantic_idx_score = uncertainty_score_grid[semantic_idx_mask].sum()
                         if semantic_idx_score > maxscore:
                             semantic_maxprob = semantic_idx
                             maxscore = semantic_idx_score

@@ -1103,9 +1103,17 @@ class Runner:
             semantic_score = scipy.special.softmax(semantic_logits, axis=-1)
             logits_2_uncertainty = lambda x: np.sum(-scipy.special.log_softmax(x, axis=-1)*scipy.special.softmax(x, axis=-1), axis=-1)
             uncertainty = logits_2_uncertainty(semantic_logits)
+            
+            sv_con_mode = self.conf['model.loss.sv_con_mode']
+            if sv_con_mode == 'uncertainty' or sv_con_mode == 'uncertainty_prob':
+                uncertainty_score = 1-uncertainty
+                uncertainty_score = uncertainty_score.clip(0, 1)
+            elif sv_con_mode == 'uncertainty_exp' or sv_con_mode == 'uncertainty_exp_prob':
+                uncertainty_score = np.exp(-uncertainty)
+            else:
+                uncertainty_score = uncertainty.copy()
 
             # compute semantic_maxprob
-            sv_con_mode = self.conf['model.loss.sv_con_mode']
             grids_input = ImageUtils.resize_image(self.dataset.grids[idx].cpu().numpy(), 
                                                             (semantic_logits.shape[1], semantic_logits.shape[0]), 
                                                             interpolation=cv.INTER_NEAREST)
@@ -1117,7 +1125,7 @@ class Runner:
 
                 semantic_grid = semantic_label[grid_mask]
                 semantic_score_grid=semantic_score[grid_mask]  
-                uncertainty_grid = uncertainty[grid_mask] 
+                uncertainty_score_grid = uncertainty_score[grid_mask] 
 
                 if sv_con_mode == 'num':
                     semantic_list, counts = np.unique(semantic_grid, return_counts=True)
@@ -1128,12 +1136,18 @@ class Runner:
                     semantic_score_grid_sum = semantic_score_grid.sum(axis=0)
                     semantic_maxprob = semantic_score_grid_sum.argmax(axis=-1)
                 
-                if sv_con_mode == 'uncertainty':
+                if sv_con_mode == 'uncertainty_prob' or sv_con_mode == 'uncertainty_exp_prob':
+                    # 加入uncertrainty作为权重 加权平均
+                    semantic_score_grid_0 = semantic_score_grid*uncertainty_score_grid.reshape(-1, 1)
+                    semantic_score_grid_sum = semantic_score_grid_0.sum(axis=0)
+                    semantic_maxprob = semantic_score_grid_sum.argmax(axis=-1)
+
+                if sv_con_mode == 'uncertainty' or sv_con_mode == 'uncertainty_exp':
                     semantic_list = np.unique(semantic_grid)
                     maxscore = -0.1
                     for semantic_idx in semantic_list:
                         semantic_idx_mask = (semantic_grid==semantic_idx)
-                        semantic_idx_score = uncertainty_grid[semantic_idx_mask].sum()
+                        semantic_idx_score = uncertainty_score_grid[semantic_idx_mask].sum()
                         if semantic_idx_score > maxscore:
                             semantic_maxprob = semantic_idx
                             maxscore = semantic_idx_score
@@ -1776,9 +1790,9 @@ if __name__ == '__main__':
                                     save_peak_value=args.save_peak_value,
                                     save_image_render=args.nvs,
                                     validate_confidence=runner.use_geocheck,
-                                    save_normal_render=True,
-                                    save_depth_render=True,
-                                    save_semantic_render=True,
+                                    save_normal_render=False,
+                                    save_depth_render=False,
+                                    save_semantic_render=False,
                                     save_lis_images=True,
                                     lis_expdir='image_valiate',
                                     semantics_expdir='image_valiate_semantics')
