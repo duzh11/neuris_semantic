@@ -263,12 +263,12 @@ def generate_transform_noise(sigma_rot_angle = 1.0, sigma_trans = 0.01):
     return noise_transform_homo
 
 # depthmap related functions
-def read_depth_maps_np(dir):
+def read_depth_maps_np(dir, iter=160000):
     '''Read depthmaps in dir with .npz format
     Return:
         arr_depths: N*W*H
     '''
-    vec_path_depths = sorted(glob.glob(f"{dir}/00160000_*.npz"))
+    vec_path_depths = sorted(glob.glob(f"{dir}/{iter:0>8d}_*.npz"))
 
     arr_depth_maps = []
     for i in range(len(vec_path_depths)):

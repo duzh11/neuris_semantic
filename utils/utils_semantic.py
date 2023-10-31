@@ -91,10 +91,11 @@ def evaluate_semantic(dir_scan,
                       acc,
                       data_mode,
                       semantic_class=40,
+                      iter=160000,
                       MANHATTAN=False):    
     # loading data
     semantic_GT_lis = sorted(glob(f'{dir_scan}/semantic/{data_mode}/semantic_GT/*.png'))
-    semantic_render_lis = sorted(glob(f'{dir_exp}/semantic/{data_mode}/{acc}/00160000_*.npz'))
+    semantic_render_lis = sorted(glob(f'{dir_exp}/semantic/{data_mode}/{acc}/{iter:0>8d}_*.npz'))
 
     semantic_GT_list=[]
     semantic_render_list=[]

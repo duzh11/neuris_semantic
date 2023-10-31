@@ -239,7 +239,7 @@ class NeuSLoss(nn.Module):
             elif self.sv_con_mode == 'uncertainty_exp' or self.sv_con_mode == 'uncertainty_exp_prob':
                 uncertainty_score = torch.exp(-uncertainty)
             else:
-                uncertainty_score = uncertainty.copy()
+                uncertainty_score = uncertainty
 
             # 遍历每个grids进行投票
             grid_list=torch.unique(grid)

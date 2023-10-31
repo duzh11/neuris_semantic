@@ -1790,9 +1790,9 @@ if __name__ == '__main__':
                                     save_peak_value=args.save_peak_value,
                                     save_image_render=args.nvs,
                                     validate_confidence=runner.use_geocheck,
-                                    save_normal_render=False,
-                                    save_depth_render=False,
-                                    save_semantic_render=False,
+                                    save_normal_render=True,
+                                    save_depth_render=True,
+                                    save_semantic_render=True,
                                     save_lis_images=True,
                                     lis_expdir='image_valiate',
                                     semantics_expdir='image_valiate_semantics')

@@ -29,10 +29,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # eval_3D_mesh_neuris， eval_3D_mesh_TSDF， eval_chamfer， eval_mesh_2D_metrices， eval_semantic
     parser.add_argument('--mode', type=str, default='eval_semantic')
-    parser.add_argument('--exp_name', type=str, default='test/test2')
+    parser.add_argument('--exp_name', type=str, default='deeplab_ce_sv/num_1')
     parser.add_argument('--dir_dataset', type=str, default='../Data/dataset/indoor')
     parser.add_argument('--dir_results_baseline', type=str, default='../exps/indoor/neus')
     parser.add_argument('--acc', type=str, default='fine')
+    parser.add_argument('--iter', type=int, default=160000, help='iter')
     parser.add_argument('--semantic_class', type=int, default=40, help='number of semantic class')
     args = parser.parse_args()
 
@@ -140,7 +141,7 @@ if __name__ == '__main__':
                                                                 dir_poses=f'{dir_scan}/pose/{data_mode}')
                 elif eval_type_baseline == 'depth':
                     dir_depth_baseline =  f'{dir_results_baseline}/{scene_name}/depth/{data_mode}/{args.acc}'
-                    pred_depths = GeoUtils.read_depth_maps_np(dir_depth_baseline)
+                    pred_depths = GeoUtils.read_depth_maps_np(dir_depth_baseline, args.iter)
                 
                 # evaluation
                 img_names = IOUtils.get_files_stem(f'{dir_scan}/depth/{data_mode}', '.png')
@@ -154,7 +155,7 @@ if __name__ == '__main__':
                     metric_test_all.append(err_gt_depth_scale)
 
         str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
-        path_log = f'{dir_results_baseline}/{name_baseline}_evaldepth_{args.acc}_{scale_depth}_{eval_type_baseline}_{str_date}.md'
+        path_log = f'{dir_results_baseline}/{name_baseline}_evaldepth_{args.acc}_{scale_depth}_{eval_type_baseline}_{args.iter}_{str_date}.md'
         
         precision = 3
         metric_eval_all = np.round(np.array(metric_train_all), decimals=precision)
@@ -195,13 +196,14 @@ if __name__ == '__main__':
                                                                                                         args.acc, 
                                                                                                         data_mode,
                                                                                                         semantic_class=semantic_class,
+                                                                                                        iter = args.iter,
                                                                                                         MANHATTAN=MANHATTAN)
                 if data_mode == 'train':
                     metric_train_all.append(metric_avg)
                 elif data_mode == 'test':
                     metric_test_all.append(metric_avg)
 
-                path_log = f'{dir_results_baseline}/{scene_name}/{name_baseline}_evalsemantic_{data_mode}_{args.acc}_{semantic_class}_{MANHATTAN}_{str_date}_markdown.md'
+                path_log = f'{dir_results_baseline}/{scene_name}/{name_baseline}_evalsemantic_{data_mode}_{args.acc}_{args.iter}_{semantic_class}_{MANHATTAN}_{str_date}_markdown.md'
                 markdown_header_0=[f' {label} |'for label in exsiting_label]
                 markdown_header_1 = '\n| -------------| ---------|'+'---------|'*len(exsiting_label)
                 markdown_header=  'IoU\n| scene_ name   |   Method|'+''.join(markdown_header_0)+markdown_header_1+'\n'
@@ -223,7 +225,7 @@ if __name__ == '__main__':
                                                             save_mean=False,
                                                             mode = 'a')
         
-        path_log = f'{dir_results_baseline}/{name_baseline}_evalsemantic_{args.acc}_{semantic_class}_{MANHATTAN}_{str_date}_markdown.md'
+        path_log = f'{dir_results_baseline}/{name_baseline}_evalsemantic_{args.acc}_{args.iter}_{semantic_class}_{MANHATTAN}_{str_date}_markdown.md'
         markdown_header='train\n| scene_ name   |   Method|  Acc|  M_Acc|  M_IoU| FW_IoU|\n'
         markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- |\n'
         EvalScanNet.save_evaluation_results_to_markdown(path_log, 
