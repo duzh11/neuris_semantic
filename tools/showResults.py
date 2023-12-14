@@ -1,3 +1,5 @@
+import sys, os
+sys.path.append(os.getcwd())
 from scipy.special import softmax
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,13 +10,13 @@ import utils.utils_correspondence as correspondence
 
 def show_results(scene_name, method_name, source_id, x, y):
     data_dir = f'../Data/dataset/indoor/{scene_name}'
-    depth_GT= cv2.imread(os.path.join(data_dir, 'depth', f'{source_id}.png'), cv2.IMREAD_UNCHANGED)[2*y, 2*x]
+    depth_GT= cv2.imread(os.path.join(data_dir, 'depth/train', f'{source_id}.png'), cv2.IMREAD_UNCHANGED)[2*y, 2*x]
     path_trans_n2w = np.loadtxt(f'{data_dir}/trans_n2w.txt')
     scale=path_trans_n2w[0, 0]
     depth_GT = depth_GT/(scale*1000)
 
-    results_dir=f'../exps/indoor/neus/{scene_name}/{method_name}/results'
-    file_name=f'00160000_{source_id}_reso2.npz'
+    results_dir=f'../exps/indoor/neus/{method_name}/{scene_name}/results_validate'
+    file_name=f'00050000_{source_id}_reso2.npz'
 
     # read results
     z_results = np.load(os.path.join(results_dir, 'mid_z_vals', file_name))['arr_0']
@@ -102,27 +104,27 @@ def main(scene_name, method_name, source_id, target_id, x, y):
 
     target_x, target_y = correspondence.find_correspondence(scene_name, source_id, target_id, 2*x, 2*y)
     target_x, target_y=target_x//2, target_y//2
-    exps_dir=f'../exps/indoor/neus/{scene_name}/{method_name}'
-    semantic_source = cv2.imread(os.path.join(exps_dir, 'semantic_render_vis', f'00160000_{source_id}_reso2.png'))
-    semantic_target = cv2.imread(os.path.join(exps_dir, 'semantic_render_vis', f'00160000_{target_id}_reso2.png'))
+    exps_dir=f'../exps/indoor/neus/{method_name}/{scene_name}'
+    semantic_source = cv2.imread(os.path.join(exps_dir, 'semantic/train/fine', f'00050000_{source_id}_reso2.png'))
+    semantic_target = cv2.imread(os.path.join(exps_dir, 'semantic/train/fine', f'00050000_{target_id}_reso2.png'))
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(semantic_source[...,::-1])
     ax[0].plot(x, y, 'ro', markersize=5)
     ax[1].imshow(semantic_target[...,::-1])
     ax[1].plot(target_x, target_y, 'ro', markersize=5)
     plt.tight_layout()
-    plt.savefig(os.path.join(exps_dir, 'results', f'{source_id}_{x}_{y}_{target_id}_{target_x}_{target_y}.png'))
+    plt.savefig(os.path.join(exps_dir, 'results_validate', f'{source_id}_{x}_{y}_{target_id}_{target_x}_{target_y}.png'))
     # plt.show()
 
     if target_x*target_y>0:
         show_results(scene_name, method_name, target_id, target_x, target_y)
 
 if __name__=='__main__':
-    scene_name = 'scene0616_00'
-    method_name_lis = ['pred_40_test2_compa2_b']
-    source_id='0130'
-    target_id='0140'
-    x, y= 284, 141 # (240,320)
+    scene_name = 'scene0050_00'
+    method_name_lis = ['SAM_ce_sv/num_celoss_lab']
+    source_id='0080'
+    target_id='0090'
+    x, y= 76, 194  #(240,320)
 
     for method_name in method_name_lis:
         main(scene_name, method_name, source_id, target_id, x, y)

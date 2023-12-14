@@ -8,13 +8,13 @@ import os
 def find_correspondence(scene_name, source_id, target_id, x, y):
     data_dir = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor/{scene_name}'
 
-    image_source = cv2.imread(os.path.join(data_dir, 'image', f'{source_id}.png'))
-    depth_source = cv2.imread(os.path.join(data_dir, 'depth', f'{source_id}.png'), cv2.IMREAD_UNCHANGED)/1000
-    image_target = cv2.imread(os.path.join(data_dir, 'image', f'{target_id}.png'))
+    image_source = cv2.imread(os.path.join(data_dir, 'image/train', f'{source_id}.png'))
+    depth_source = cv2.imread(os.path.join(data_dir, 'depth/train', f'{source_id}.png'), cv2.IMREAD_UNCHANGED)/1000
+    image_target = cv2.imread(os.path.join(data_dir, 'image/train', f'{target_id}.png'))
     intrinsic = np.loadtxt(os.path.join(data_dir, 'intrinsic_color_crop1248_resize640.txt'))
     # c2w
-    c2w_source=np.loadtxt(os.path.join(data_dir, 'pose', f'{source_id}.txt'))
-    c2w_target=np.loadtxt(os.path.join(data_dir, 'pose', f'{target_id}.txt'))
+    c2w_source=np.loadtxt(os.path.join(data_dir, 'pose/train', f'{source_id}.txt'))
+    c2w_target=np.loadtxt(os.path.join(data_dir, 'pose/train', f'{target_id}.txt'))
     # w2c
     w2c_target = np.linalg.inv(c2w_target)
     # source to target

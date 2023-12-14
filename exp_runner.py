@@ -1341,8 +1341,8 @@ class Runner:
                     save_results[key] = save_results[key].reshape([H, W, self.n_samples + self.n_importance, 1])
 
                 if True:
-                    os.makedirs(os.path.join(self.base_exp_dir, 'results', key), exist_ok=True)
-                    np.savez(os.path.join(self.base_exp_dir, 'results', key, f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'), 
+                    os.makedirs(os.path.join(self.base_exp_dir, 'results_validate', key), exist_ok=True)
+                    np.savez(os.path.join(self.base_exp_dir, 'results_validate', key, f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'), 
                         save_results[key])
 
     def compare_ncc_confidence(self, idx=-1, resolution_level=-1):
@@ -1732,10 +1732,10 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format=FORMAT)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--conf', type=str, default='./confs/neuris.conf')
+    parser.add_argument('--conf', type=str, default='confs/train/train.conf')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--server', type=str, default='local')
-    parser.add_argument('--mode', type=str, default='train') #changed
+    parser.add_argument('--mode', type=str, default='validate_results') #changed
     parser.add_argument('--model_type', type=str, default='neus')
     parser.add_argument('--threshold', type=float, default=0.0)
     parser.add_argument('--gpu', type=int, default=0)
@@ -1746,7 +1746,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_normamap_npz', action= 'store_true', default=False, help='save color&normal&depth ply' )
     parser.add_argument('--save_peak_value', action= 'store_true', default=False, help='save peak value')
     parser.add_argument('--scene_name', type=str, default='', help='Scene or scan name')
-    parser.add_argument('--is_continue', default=False, action="store_true") #加载预训练权重 changed
+    parser.add_argument('--is_continue', default=True, action="store_true") #加载预训练权重 changed
     args = parser.parse_args()
 
     torch.cuda.set_device(args.gpu)
@@ -1808,5 +1808,5 @@ if __name__ == '__main__':
         runner.validate_fields()
     
     elif args.mode == 'validate_results':
-        for idx in [39,40]:
+        for idx in range(0,10):
             runner.validate_results(idx=idx, resolution_level=2, semantic_class=runner.semantic_class)

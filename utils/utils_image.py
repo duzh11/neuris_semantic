@@ -211,7 +211,7 @@ def cluster_normals_kmeans(path_normal, n_clusters=12, thres_uncertain = -1, fol
         img_alpha = np.load(path_alpha)['arr_0']
         mask_uncertain = img_alpha > thres_uncertain
 
-    path_rgb = IOUtils.add_file_name_prefix(path_img_normal, '../image/')
+    path_rgb = IOUtils.add_file_name_prefix(path_img_normal, '../../../image/train/') # todo
     img_rgb = read_image(path_rgb)[:,:,:3]
     img_rgb = resize_image(img_rgb, target_size=(shape[1], shape[0], 3))
         # img[mask_uncertain] = 0

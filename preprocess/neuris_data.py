@@ -247,7 +247,7 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
 
     # detect planes
     if b_detect_planes == True:
-        extract_planes_from_normals(dir_neus + '/pred_normal', thres_uncertain=-1)
+        extract_planes_from_normals(dir_neus + '/normal/train/pred_normal', thres_uncertain=-1)
         segment_images_superpixels(dir_neus + '/image')
         compose_normal_img_planes(dir_neus)
         

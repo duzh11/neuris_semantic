@@ -115,9 +115,6 @@ class NeuSLoss(nn.Module):
             self.ce_mode = conf['ce_mode'] if 'ce_mode' in conf else 'ce_loss'
             logging.info('ce_mode: {}'.format(self.ce_mode))
 
-        # self.sv_con_mode = conf['sv_con_mode'] if 'sv_con_mode' in conf else 'num'
-        # logging.info('sv_con_mode: {}'.format(self.joint_mode))
-
         if (self.semantic_weight>0) and (self.joint_weight>0):
             self.joint_mode = conf['joint_mode'] if 'joint_mode' in conf else 'true_se'
             logging.info('joint_mode: {}'.format(self.joint_mode))
@@ -125,6 +122,9 @@ class NeuSLoss(nn.Module):
         if (self.semantic_weight>0) and (self.sv_con_weight>0):
             self.sv_con_mode = conf['sv_con_mode'] if 'sv_con_mode' in conf else 'num'
             logging.info('sv_con_mode: {}'.format(self.sv_con_mode))
+
+            self.sv_con_loss = conf['sv_con_loss'] if 'sv_con_loss' in conf else 'prob_mean'
+            logging.info('sv_con_loss: {}'.format(self.sv_con_loss))
 
     def get_warm_up_ratio(self):
         if self.warm_up_end == 0.0:
@@ -280,11 +280,22 @@ class NeuSLoss(nn.Module):
                             maxscore = semantic_idx_score
 
                 prob=semantic_score_grid[:,semantic_maxprob]
-                sv_con_loss += 1-prob.mean()
+                if self.sv_con_loss == 'prob_mean':
+                    sv_con_loss += 1-prob.mean()
+                elif self.sv_con_loss == 'prob':
+                    sv_con_loss += len(prob)-prob.sum()
+                elif self.sv_con_loss == 'ce_loss_mean':
+                    sv_con_loss += -torch.log(prob).mean()
+                elif self.sv_con_loss == 'ce_loss':
+                    sv_con_loss += -torch.log(prob).sum()
 
-            sv_con_loss=sv_con_loss/len(grid_list)
+            if self.sv_con_loss.endswith('mean'):
+                sv_con_loss=sv_con_loss/len(grid_list)
+            else:
+                sv_con_loss=sv_con_loss/((grid>0).sum())
+            
             logs_summary.update({           
-                    'Loss/loss_semantic_consistency':  sv_con_loss.detach().cpu(),
+                    'Loss/loss_svcon':  sv_con_loss.detach().cpu(),
                 })
 
         # joint loss
