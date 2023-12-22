@@ -20,7 +20,7 @@ def random_rgb():
     return rgb
 
 from confs.path import lis_name_scenes
-method_name = 'slic_30_10_0'
+method_name = 'felzenszwalb_100_1_50_a'
 delete_small_area = True
 for scene in lis_name_scenes:
     print(f'---process scene: {scene}---')
@@ -36,8 +36,8 @@ for scene in lis_name_scenes:
             img = cv2.imread(img_name)
             
             # segging img
-            segs = slic(img, n_segments=30, compactness=10, sigma=0)
-            # segs = felzenszwalb(img, scale=100, sigma=1, min_size=50)+1
+            # segs = slic(img, n_segments=50, compactness=10, sigma=0)
+            segs = felzenszwalb(img, scale=100, sigma=1, min_size=50)+1
 
             # delete small area
             if delete_small_area:

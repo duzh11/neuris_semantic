@@ -1732,10 +1732,10 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format=FORMAT)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--conf', type=str, default='confs/train/train.conf')
+    parser.add_argument('--conf', type=str, default='confs/neuris.conf')
     parser.add_argument('--seed', type=int, default=42, help='random seed')
     parser.add_argument('--server', type=str, default='local')
-    parser.add_argument('--mode', type=str, default='validate_results') #changed
+    parser.add_argument('--mode', type=str, default='train') 
     parser.add_argument('--model_type', type=str, default='neus')
     parser.add_argument('--threshold', type=float, default=0.0)
     parser.add_argument('--gpu', type=int, default=0)
@@ -1746,7 +1746,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_normamap_npz', action= 'store_true', default=False, help='save color&normal&depth ply' )
     parser.add_argument('--save_peak_value', action= 'store_true', default=False, help='save peak value')
     parser.add_argument('--scene_name', type=str, default='', help='Scene or scan name')
-    parser.add_argument('--is_continue', default=True, action="store_true") #加载预训练权重 changed
+    parser.add_argument('--is_continue', default=False, action="store_true") #加载预训练权重 changed
     args = parser.parse_args()
 
     torch.cuda.set_device(args.gpu)
