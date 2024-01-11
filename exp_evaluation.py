@@ -43,6 +43,7 @@ if __name__ == '__main__':
     dir_results_baseline = os.path.join(args.dir_results_baseline, exp_name)
 
     logging.info(f'-----Eval mode: {args.mode}-----')
+    data_mode_list = ['train']
     if args.mode == 'eval_3D_mesh_neuris':
         eval_threshold = 0.05
         metrics_eval_all = []
@@ -133,7 +134,7 @@ if __name__ == '__main__':
             dir_scan = f'{dir_dataset}/{scene_name}'
             path_intrin = f'{dir_scan}/intrinsic_depth.txt'
 
-            for data_mode in ['train', 'test']:
+            for data_mode in data_mode_list:
                 if eval_type_baseline == 'mesh':
                     # use rendered depth map
                     path_mesh_baseline =  f'{dir_results_baseline}/{scene_name}/meshes/{scene_name}.ply'
@@ -168,15 +169,15 @@ if __name__ == '__main__':
                                                         names_item = lis_name_scenes, 
                                                         mode = 'w')
         
-        metric_eval_all = np.round(np.array(metric_test_all), decimals=precision)
-        markdown_header=f'\ntest\n| scene_ name   |   Method|  abs_rel|  sq_rel|  rmse| rmse_log| a1| a2| a3| \n'
-        markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- | ----- | ----- | ----- |\n' 
-        EvalScanNet.save_evaluation_results_to_markdown(path_log, 
-                                                        header = markdown_header, 
-                                                        name_baseline=name_baseline,
-                                                        results = metric_eval_all, 
-                                                        names_item = lis_name_scenes, 
-                                                        mode = 'a')
+        # metric_eval_all = np.round(np.array(metric_test_all), decimals=precision)
+        # markdown_header=f'\ntest\n| scene_ name   |   Method|  abs_rel|  sq_rel|  rmse| rmse_log| a1| a2| a3| \n'
+        # markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- | ----- | ----- | ----- |\n' 
+        # EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+        #                                                 header = markdown_header, 
+        #                                                 name_baseline=name_baseline,
+        #                                                 results = metric_eval_all, 
+        #                                                 names_item = lis_name_scenes, 
+        #                                                 mode = 'a')
     
     if args.mode == 'eval_semantic':
         metric_train_all = []
@@ -187,7 +188,7 @@ if __name__ == '__main__':
         for scene_name in lis_name_scenes:
             logging.info(f'Processing {scene_name}...')
             
-            for data_mode in ['train', 'test']:
+            for data_mode in data_mode_list:
                 dir_scan = f'{dir_dataset}/{scene_name}'
                 dir_exp = f'{dir_results_baseline}/{scene_name}'
 
@@ -235,14 +236,14 @@ if __name__ == '__main__':
                                                         names_item = lis_name_scenes,  
                                                         mode = 'w')
         
-        markdown_header='\ntest\n| scene_ name   |   Method|  Acc|  M_Acc|  M_IoU| FW_IoU|\n'
-        markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- |\n'
-        EvalScanNet.save_evaluation_results_to_markdown(path_log, 
-                                                        header = markdown_header, 
-                                                        name_baseline=name_baseline,
-                                                        results = metric_test_all, 
-                                                        names_item = lis_name_scenes,  
-                                                        mode = 'a')
+        # markdown_header='\ntest\n| scene_ name   |   Method|  Acc|  M_Acc|  M_IoU| FW_IoU|\n'
+        # markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- |\n'
+        # EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+        #                                                 header = markdown_header, 
+        #                                                 name_baseline=name_baseline,
+        #                                                 results = metric_test_all, 
+        #                                                 names_item = lis_name_scenes,  
+        #                                                 mode = 'a')
         
         
 

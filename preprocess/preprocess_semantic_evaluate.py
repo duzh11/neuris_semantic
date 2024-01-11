@@ -4,6 +4,7 @@ import numpy as np
 
 from datetime import datetime
 from glob import glob
+from collections import Counter
 
 import evaluation.EvalScanNet as EvalScanNet
 import utils.utils_semantic as SemanticUtils
@@ -64,6 +65,18 @@ for semantic_type in semantic_type_lis:
                 true_labels=np.array(semantic_GT_list)
                 predicted_labels=np.array(semantic_predicted_list)  
 
+            # num of predicted/true labels
+            prob_txt = f'{dir_scan}/semantic/labels_prob.txt'
+            with open(prob_txt, 'w') as f:
+                f.write('GT Labels:\n')
+                for labels in [true_labels, predicted_labels]:
+                    labels_num = Counter(labels.flatten())
+                    labels_N = len(labels.flatten())
+                    sorted_labels_num = dict(sorted(labels_num.items(), key=lambda item: item[0]))
+                    for k, v in sorted_labels_num.items():
+                        f.write(f'labels {k}: {round(v/labels_N, 3)}\n')
+                    f.write('\n------\nPredicted Labels:\n')
+            
             metric_avg, exsiting_label, class_iou, class_accuray = SemanticUtils.compute_segmentation_metrics(true_labels=true_labels, 
                                                                                                 predicted_labels=predicted_labels, 
                                                                                                 semantic_class=semantic_class, 

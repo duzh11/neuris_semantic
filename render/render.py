@@ -7,7 +7,7 @@ target_idx= 0
 end_idx= -1
 
 for scene_name in lis_name_scenes:
-    for data_mode in ['train', 'test']:
+    for data_mode in ['train']:
         render_cmd = f'python ./render/render_mesh_open3d.py {scene_name} {method_name} {data_mode}'
         os.system(render_cmd)
 

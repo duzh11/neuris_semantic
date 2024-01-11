@@ -198,10 +198,12 @@ class Runner:
                 self.use_joint=self.conf['dataset']['use_joint']
 
                 # use grid
-                semantic_consistency_weight=self.conf['model.loss.sv_con_weight']
-                if (semantic_consistency_weight>0):
+                sv_con_weight=self.conf['model.loss.sv_con_weight']
+                sem_con_weight=self.conf['model.loss.sem_con_weight']
+                if (sv_con_weight>0 or sem_con_weight):
                     self.conf['dataset']['use_grid'] = True
-                    logging.info(f'use sv_con: loss weight={semantic_consistency_weight}')
+                    logging.info(f'use sv_con: loss weight={sv_con_weight}')
+                    logging.info(f'use sem_con: loss weight={sem_con_weight}')
                 else:
                     self.conf['dataset']['use_grid'] = False
             
@@ -331,7 +333,7 @@ class Runner:
                                                                                                                     self.batch_size, 
                                                                                                                     iter=self.iter_step,
                                                                                                                     exp_dir=self.base_exp_dir)
-        rays_o, rays_d, true_rgb, true_mask, true_semantic, grid, mv_similarity = data[:, :3], data[:, 3: 6], data[:, 6: 9], data[:, 9: 10], data[:, 10: 11], data[:,11: 12], data[:,12: 13]
+        rays_o, rays_d, true_rgb, true_mask, true_semantic, grid, semantic_score = data[:, :3], data[:, 3: 6], data[:, 6: 9], data[:, 9: 10], data[:, 10: 11], data[:,11: 12], data[:,12: 13]
         true_mask =  (true_mask > 0.5).float()
         mask = true_mask
 
@@ -369,7 +371,7 @@ class Runner:
             'true_rgb': true_rgb,
             'true_semantic': true_semantic,
             'grid': grid,
-            'mv_similarity': mv_similarity,
+            'semantic_score': semantic_score,
             'background_rgb': background_rgb,
             'pixels_x': pixels_x,  # u
             'pixels_y': pixels_y,   # v,
@@ -1273,11 +1275,12 @@ class Runner:
 
                     lis_semantics_0 = lis_semantics_0 + [vis_grids, vis_label_maxprob[...,::-1], vis_label_grids[...,::-1]]
 
-                if self.dataset.use_mv_similarity:
-                    mv_similarity = ImageUtils.resize_image(self.dataset.mv_similarity[idx].cpu().numpy(), 
+                if self.dataset.use_semantic_uncer:
+                    semantic_score = ImageUtils.resize_image(self.dataset.semantic_score[idx].cpu().numpy(), 
                                                             (lis_imgs[0].shape[1], lis_imgs[0].shape[0])) 
-                    mv_similarity_vis = colormap_func(mv_similarity)[:, :, :3]
-                    lis_semantics_0 = lis_semantics_0 + [mv_similarity_vis]
+                    semantic_score_vis = colormap_func(semantic_score)[:, :, :3]
+                    semantic_score_vis = (semantic_score_vis*255).astype(np.uint8)
+                    lis_semantics_0 = lis_semantics_0 + [semantic_score_vis]
                     
                 lis_semantics = lis_semantics_0 + lis_semantics
                 
@@ -1746,7 +1749,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_normamap_npz', action= 'store_true', default=False, help='save color&normal&depth ply' )
     parser.add_argument('--save_peak_value', action= 'store_true', default=False, help='save peak value')
     parser.add_argument('--scene_name', type=str, default='', help='Scene or scan name')
-    parser.add_argument('--is_continue', default=False, action="store_true") #加载预训练权重 changed
+    parser.add_argument('--is_continue', default=True, action="store_true") #加载预训练权重 changed
     args = parser.parse_args()
 
     torch.cuda.set_device(args.gpu)

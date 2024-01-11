@@ -170,29 +170,46 @@ class Dataset:
 
             self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
         
-        # loading multivew similarity
-        conf['use_mv_similarity'] = conf['use_mv_similarity'] and self.use_semantic
-        self.use_mv_similarity = conf['use_mv_similarity']
-        if self.use_mv_similarity:
-            logging.info(f'Use mv_similarity: Loading mv_similarity..')
-            mv_similarity_dir = f'{self.semantic_type}'
-            logging.info(f'Load mv_similarity: {mv_similarity_dir}')
-
-            mv_similarity_lis = sorted(glob(os.path.join(f'{self.data_dir}', f'mv_similarity/{self.data_mode}/{mv_similarity_dir}/*.npz')))
-            mv_similarity = np.stack([ np.load(idx)['arr_0'] for idx in mv_similarity_lis ])
-            n_similarity = len(mv_similarity)
-            logging.info(f"Read {n_similarity} mv_similarity.")
+        # loading semantic uncer
+        conf['use_semantic_uncer'] = conf['use_semantic_uncer'] and self.use_semantic
+        self.use_semantic_uncer = conf['use_semantic_uncer']
+        if self.use_semantic_uncer:
+            logging.info(f'Use semantic uncer: Loading semantic_uncer..')
+            semantic_uncer_type = conf['semantic_uncer_type'] #entropy、viewAL/entropy
+            logging.info(f'Load semantic uncer: {semantic_uncer_type}')
+            uncer_type_lis = semantic_uncer_type.split('/')
+            if len(uncer_type_lis)==1:
+                semantic_uncer_dir = f'semantic_uncertainty/{self.data_mode}/{uncer_type_lis[0]}/*.npz'
+            else:
+                semantic_uncer_dir = f'semantic_uncertainty/{self.data_mode}/{self.semantic_type}/{uncer_type_lis[0]}/{uncer_type_lis[1]}_*.npz'
+                valid_mask_dir = f'semantic_uncertainty/{self.data_mode}/{self.semantic_type}/{uncer_type_lis[0]}/valid_*.npz'
             
-            # loading mv_similarity
-            mv_similarity = np.array(mv_similarity)
-            self.mv_similarity = torch.from_numpy(mv_similarity.astype(np.float32)).cpu()
+            semantic_uncer_lis = sorted(glob(os.path.join(f'{self.data_dir}', semantic_uncer_dir)))
+            semantic_uncer = np.stack([ np.load(idx)['arr_0'] for idx in semantic_uncer_lis ])
+            n_uncer = len(semantic_uncer)
+            logging.info(f"Read {n_uncer} semantic_uncer.")
 
+            # semantic score  
+            exp_score = conf['exp_score'] if 'exp_score' in conf else True
+            if exp_score:
+                semantic_score = np.exp(-np.array(semantic_uncer))
+            else:
+                semantic_score = np.array(semantic_uncer)
+
+            # valid_mask 
+            if (len(uncer_type_lis)>1):
+                valid_mask_lis = sorted(glob(os.path.join(f'{self.data_dir}', valid_mask_dir)))
+                valid_mask = np.stack([ np.load(idx)['arr_0'] for idx in valid_mask_lis ])
+                if exp_score:
+                    semantic_score[~valid_mask] = 0.49
+        
+            self.semantic_score = torch.from_numpy(semantic_score.astype(np.float32)).cpu()
             # semantic_mask
-            self.use_mv_filter = conf['use_mv_filter'] if 'use_mv_filter' in conf else False
-            if self.use_mv_filter:
-                self.mv_confidence = conf['mv_confidence']
-                logging.info(F'!!!filtering semantics < {self.mv_confidence}')
-                semantic_mask_valid = ( mv_similarity>self.mv_confidence )
+            self.semantic_filter = conf['semantic_filter'] if 'semantic_filter' in conf else False
+            if self.semantic_filter:
+                self.filter_confidence = conf['filter_confidence']
+                logging.info(F'!!!filtering semantics < {self.filter_confidence}')
+                semantic_mask_valid = (semantic_score>self.filter_confidence )
                 semantics[~semantic_mask_valid] = 0
                 self.semantics = torch.from_numpy(semantics.astype(np.float32)).cpu()
             
@@ -560,10 +577,10 @@ class Dataset:
         grid=torch.zeros_like(mask)
         if self.use_grid:
             grid = self.grids[img_idx][(pixels_y, pixels_x)][:,None]
-        
-        mv_similarity=torch.zeros_like(mask)
-        if self.use_mv_similarity:
-            mv_similarity = self.mv_similarity[img_idx][(pixels_y, pixels_x)][:,None]
+
+        semantic_score=torch.zeros_like(mask)
+        if self.use_semantic_uncer:
+            semantic_score = self.semantic_score[img_idx][(pixels_y, pixels_x)][:,None]
 
         p = torch.stack([pixels_x, pixels_y, torch.ones_like(pixels_y)], dim=-1).float()  # (pixels_x, pixels_y, 1)
         # matul: tensor的乘法. 相机内参
@@ -585,7 +602,7 @@ class Dataset:
         if self.use_plane_offset_loss:
             subplanes_sample = self.subplanes[img_idx][(pixels_y, pixels_x)].unsqueeze(-1).cuda()
 
-        return torch.cat([rays_o.cpu(), rays_v.cpu(), color, mask, semantic, grid, mv_similarity], dim=-1).cuda(), pixels_x, pixels_y, normal_sample, planes_sample, subplanes_sample   # batch_size, 10
+        return torch.cat([rays_o.cpu(), rays_v.cpu(), color, mask, semantic, grid, semantic_score], dim=-1).cuda(), pixels_x, pixels_y, normal_sample, planes_sample, subplanes_sample   # batch_size, 10
 
     def near_far_from_sphere(self, rays_o, rays_d):
         # torch

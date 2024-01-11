@@ -14,17 +14,23 @@ device = "cuda"
 sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
 sam.to(device=device)
 mask_generator = SamAutomaticMaskGenerator(
-    model=sam)
+                model=sam,
+                points_per_side=64,
+                pred_iou_thresh=0.86,
+                stability_score_thresh=0.92,
+                crop_n_layers=1,
+                crop_n_points_downscale_factor=2,
+                min_mask_region_area=100)
 
 img_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
-scene_lis = ['scene0030_00', 'scene0084_00', 'scene0474_01', 'scene0648_01']
-img_seg = 'SAM'
+scene_lis = ['scene0378_00', 'scene0616_00']
+img_seg = 'normal_SAM_paraSSA'
 method = img_seg
 
 for scene_name in tqdm(scene_lis, desc='processing scene...'):
-    for data_mode in ['train']:
+    for data_mode in ['train', 'test']:
         # img
-        img_file = sorted(glob(os.path.join(img_dir, scene_name, 'image', data_mode, '*.png')))
+        img_file = sorted(glob(os.path.join(img_dir, scene_name, 'normal', data_mode, 'pred_normal/*.png')))
 
         seg_dir = os.path.join(img_dir, scene_name, 'grids', data_mode, method)
         vis_dir = os.path.join(img_dir, scene_name, 'grids', data_mode, method+'_vis')
@@ -53,7 +59,7 @@ for scene_name in tqdm(scene_lis, desc='processing scene...'):
             seg = np.zeros((img.shape[0], img.shape[1]))
             segs_vis = (np.zeros_like(img)).astype(np.float32)
             for idx in range(0, N_seg):  
-                seg[masks[idx]['segmentation']] = idx+1
+                seg[masks[idx]['segmentation']] = idx+1 #Notice that mask will overlap!!!
 
             seg_list = np.unique(seg)
             for seg_idx in seg_list:
