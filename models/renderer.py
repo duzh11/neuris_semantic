@@ -503,7 +503,7 @@ class NeuSRenderer:
         ret = extract_geometry(bound_min, bound_max, resolution, threshold, lambda pts: -self.sdf_network_fine.sdf(pts))
         return ret
     
-    def extract_surface_semantic(self, vertices, chunk=256):
+    def extract_surface_semantic(self, vertices, chunk=512):
         vertices_labels = []
         B = vertices.shape[0]
         for i in tqdm(range(0, B, chunk), desc='surface rendering'):
@@ -514,7 +514,12 @@ class NeuSRenderer:
         vertices_labels = np.concatenate(vertices_labels, axis=0)
         return vertices_labels
     
-    def extract_volume_semantic(self, vertices, normal=None, chunk=256):
+    def extract_volume_semantic(self, 
+                                vertices, 
+                                normal=None, 
+                                volume_near = 0.05,
+                                volume_far = 1.0,
+                                chunk=512):
         vertices_labels = []
         B = vertices.shape[0]
         for i in tqdm(range(0, B, chunk), desc='volume rendering of virtual view'):
@@ -533,8 +538,8 @@ class NeuSRenderer:
             else:
                 sign = -1
             rays_d = normal_bs*sign
-            rays_o = vertices_bs - 0.05*rays_d
-            near, far = torch.zeros(len(rays_o), 1), 1 * torch.ones(len(rays_o), 1)
+            rays_o = vertices_bs - volume_near*rays_d
+            near, far = torch.zeros(len(rays_o), 1), volume_far * torch.ones(len(rays_o), 1)
             render_out, _ = self.render(rays_o, 
                                         rays_d, 
                                         near, 

@@ -27,9 +27,9 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format=FORMAT)
     
     parser = argparse.ArgumentParser()
-    # eval_3D_mesh_neuris， eval_3D_mesh_TSDF， eval_chamfer， eval_mesh_2D_metrices， eval_semantic
-    parser.add_argument('--mode', type=str, default='eval_semantic')
-    parser.add_argument('--exp_name', type=str, default='deeplab_ce_sv/num_1')
+    # eval_3D_mesh_neuris， eval_3D_mesh_TSDF， eval_chamfer， eval_mesh_2D_metrices， eval_semantic2D, 
+    parser.add_argument('--mode', type=str, default='eval_semantic_3D')
+    parser.add_argument('--exp_name', type=str, default='test/test')
     parser.add_argument('--dir_dataset', type=str, default='../Data/dataset/indoor')
     parser.add_argument('--dir_results_baseline', type=str, default='../exps/indoor/neus')
     parser.add_argument('--acc', type=str, default='fine')
@@ -179,7 +179,7 @@ if __name__ == '__main__':
         #                                                 names_item = lis_name_scenes, 
         #                                                 mode = 'a')
     
-    if args.mode == 'eval_semantic':
+    if args.mode == 'eval_semantic_2D':
         metric_train_all = []
         metric_test_all = []
         semantic_class = args.semantic_class
@@ -192,7 +192,7 @@ if __name__ == '__main__':
                 dir_scan = f'{dir_dataset}/{scene_name}'
                 dir_exp = f'{dir_results_baseline}/{scene_name}'
 
-                metric_avg, exsiting_label, class_iou, class_accuray = SemanticUtils.evaluate_semantic(dir_scan, 
+                metric_avg, exsiting_label, class_iou, class_accuray = SemanticUtils.evaluate_semantic_2D(dir_scan, 
                                                                                                         dir_exp,
                                                                                                         args.acc, 
                                                                                                         data_mode,
@@ -204,7 +204,7 @@ if __name__ == '__main__':
                 elif data_mode == 'test':
                     metric_test_all.append(metric_avg)
 
-                path_log = f'{dir_results_baseline}/{scene_name}/{name_baseline}_evalsemantic_{data_mode}_{args.acc}_{args.iter}_{semantic_class}_{MANHATTAN}_{str_date}_markdown.md'
+                path_log = f'{dir_results_baseline}/{scene_name}/{name_baseline}_evalsemantic2D_{data_mode}_{args.acc}_{args.iter}_{semantic_class}_{MANHATTAN}_{str_date}_markdown.md'
                 markdown_header_0=[f' {label} |'for label in exsiting_label]
                 markdown_header_1 = '\n| -------------| ---------|'+'---------|'*len(exsiting_label)
                 markdown_header=  'IoU\n| scene_ name   |   Method|'+''.join(markdown_header_0)+markdown_header_1+'\n'
@@ -226,7 +226,7 @@ if __name__ == '__main__':
                                                             save_mean=False,
                                                             mode = 'a')
         
-        path_log = f'{dir_results_baseline}/{name_baseline}_evalsemantic_{args.acc}_{args.iter}_{semantic_class}_{MANHATTAN}_{str_date}_markdown.md'
+        path_log = f'{dir_results_baseline}/{name_baseline}_evalsemantic2D_{args.acc}_{args.iter}_{semantic_class}_{MANHATTAN}_{str_date}_markdown.md'
         markdown_header='train\n| scene_ name   |   Method|  Acc|  M_Acc|  M_IoU| FW_IoU|\n'
         markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- |\n'
         EvalScanNet.save_evaluation_results_to_markdown(path_log, 
@@ -246,6 +246,74 @@ if __name__ == '__main__':
         #                                                 mode = 'a')
         
         
+
+    if args.mode == 'eval_semantic_3D':
+        metrics_volume_all = []
+        metrics_surface_all = []
+        semantic_class = args.semantic_class
+        str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
+
+        for scene_name in lis_name_scenes:
+            logging.info(f'Processing {scene_name}...')
+            file_mesh_trgt = os.path.join(dir_dataset, f'{scene_name}/{scene_name}_vh_clean_2.labels.ply')
+            file_pred = os.path.join(dir_results_baseline, f'{scene_name}/meshes')
+            
+            for semantic_mode in ['volume','surface']:
+                file_mesh_pred = os.path.join(file_pred, f'{scene_name}_semantic_{semantic_mode}.ply')
+                file_semseg_pred = os.path.join(file_pred, f'{scene_name}_semantic_{semantic_mode}.npz')
+                file_mesh_pred_transfer = os.path.join(file_pred, f'{scene_name}_semantic_{semantic_mode}_transfer.ply')
+                
+                mesh_transfer, metric_avg, exsiting_label, class_iou, class_accuray = SemanticUtils.evaluate_semantic_3D(file_mesh_trgt,
+                                                                                                                        file_mesh_pred,
+                                                                                                                        file_semseg_pred,
+                                                                                                                        semantic_class=40)
+                mesh_transfer.export(file_mesh_pred_transfer)
+
+                if semantic_mode == 'volume':
+                    metrics_volume_all.append(metric_avg)
+                elif semantic_mode == 'surface':
+                    metrics_surface_all.append(metric_avg)
+
+                path_log = f'{dir_results_baseline}/{scene_name}/{name_baseline}_evalsemantic3D_{semantic_mode}_{semantic_class}_{str_date}_markdown.md'
+                markdown_header_0=[f' {label} |'for label in exsiting_label]
+                markdown_header_1 = '\n| -------------| ---------|'+'---------|'*len(exsiting_label)
+                markdown_header=  'IoU\n| scene_ name   |   Method|'+''.join(markdown_header_0)+markdown_header_1+'\n'
+                EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+                                                            header = markdown_header, 
+                                                            name_baseline=name_baseline,
+                                                            results = [class_iou], 
+                                                            names_item = [scene_name],  
+                                                            save_mean=False,
+                                                            mode = 'w')
+                
+                markdown_header = '\nAcc\n| scene_ name   |   Method|' + ''.join(markdown_header_0)+markdown_header_1+'\n'
+                EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+                                                            header = markdown_header, 
+                                                            name_baseline=name_baseline,
+                                                            results = [class_accuray], 
+                                                            names_item = [scene_name],  
+                                                            save_mean=False,
+                                                            mode = 'a')
+        
+        path_log = f'{dir_results_baseline}/{name_baseline}_evalsemantic3D_{semantic_class}_{str_date}_markdown.md'
+        markdown_header='volume\n| scene_ name   |   Method|  Acc|  M_Acc|  M_IoU| FW_IoU|\n'
+        markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- |\n'
+        EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+                                                        header = markdown_header, 
+                                                        name_baseline=name_baseline,
+                                                        results = metrics_volume_all, 
+                                                        names_item = lis_name_scenes,  
+                                                        mode = 'w')
+        
+        markdown_header='\nsurface\n| scene_ name   |   Method|  Acc|  M_Acc|  M_IoU| FW_IoU|\n'
+        markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- |\n'
+        EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+                                                        header = markdown_header, 
+                                                        name_baseline=name_baseline,
+                                                        results = metrics_surface_all, 
+                                                        names_item = lis_name_scenes,  
+                                                        mode = 'a')
+                
 
     #######-------to be modified----------
     if args.mode == 'evaluate_normal':

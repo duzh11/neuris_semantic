@@ -590,7 +590,12 @@ def clean_mesh_points_outside_frustum(path_save_clean, path_mesh,
     mesh_o3d.remove_vertices_by_mask((mask_inside_all==False) | mesh_mask_outside_all )
     write_triangle_mesh(path_save_clean, mesh_o3d)
 
-def clean_mesh_points_outside_bbox(path_clean, path_mesh, path_mesh_gt, scale_bbox = 1.0, check_existence = True):
+def clean_mesh_points_outside_bbox(path_clean, 
+                                   path_mesh, 
+                                   path_mesh_gt, 
+                                   scale_bbox = 1.0, 
+                                   check_existence = True,
+                                   vertex_attributes = None):
     if check_existence and IOUtils.checkExistence(path_clean):
         logging.info(f'The source mesh is already cleaned. [{path_clean.split("/")[-1]}]')
         return

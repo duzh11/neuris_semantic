@@ -1412,19 +1412,37 @@ class Runner:
         use_vertex_normal = True
         if seg_mesh:
             vertices_tensor = torch.FloatTensor(vertices.copy()).reshape([-1, 3]).cuda()
+            
             # !!!directly extract surface semantic
-            # surface_labels= self.renderer.extract_surface_semantic(vertices_tensor, chunk = 256) 
+            surface_labels= self.renderer.extract_surface_semantic(vertices_tensor) 
+            
             # volume rendering along virtual view
+            volume_dst = {'scene0378_00': [0.05, 1.0],
+                          'scene0435_02': [0.05, 1.0]}  
+
+            if self.scan_name in volume_dst:
+                volume_near, volume_far = volume_dst[self.scan_name]
+            else:
+                volume_near, volume_far = 0.05, 1.0
+
             if use_vertex_normal:
                 normals_tensor = torch.FloatTensor(normals.copy()).reshape([-1, 3]).cuda()
             else:
                 normals_tensor = None
-            volume_labels= self.renderer.extract_volume_semantic(vertices_tensor, normals_tensor, chunk = 128) 
+            volume_labels= self.renderer.extract_volume_semantic(vertices_tensor, 
+                                                                 normal = normals_tensor,
+                                                                 volume_near = volume_near,
+                                                                 volume_far = volume_far) 
             
             colour_map_np = utils_nyu.nyu40_colour_code
-            labels_vis = colour_map_np[(volume_labels)].astype(np.uint8)
 
-            path_mesh_semantic = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_volume_semantic.ply')
+            surface_labels_vis = colour_map_np[(surface_labels)].astype(np.uint8)
+            path_semmesh_surface = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_semantic_surface.ply')
+            path_semantic_attributes_surface = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_semantic_surface.npz')
+
+            volume_labels_vis = colour_map_np[(volume_labels)].astype(np.uint8)
+            path_semmesh_volume = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_semantic_volume.ply')
+            path_semantic_attributes_volume = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_semantic_volume.npz')
 
         path_mesh = os.path.join(self.base_exp_dir, 'meshes', f'{self.iter_step:0>8d}_reso{resolution}_{self.scan_name}.ply')
         path_mesh_gt = IOUtils.find_target_file(self.dataset.data_dir, self.conf['general.scan_name']+'_vh_clean_2_trans.ply')
@@ -1443,8 +1461,19 @@ class Runner:
         mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
         mesh.export(path_mesh)
         if seg_mesh:
-            mesh = trimesh.Trimesh(vertices=vertices, faces=faces, vertex_colors = labels_vis)
-            mesh.export(path_mesh_semantic)
+            semmesh_surface = trimesh.Trimesh(vertices=vertices, 
+                                            faces=faces, 
+                                            vertex_colors = surface_labels_vis,
+                                            process=False)
+            semmesh_surface.export(path_semmesh_surface)
+            np.savez(path_semantic_attributes_surface, surface_labels)
+
+            semmesh_volume = trimesh.Trimesh(vertices=vertices, 
+                                            faces=faces, 
+                                            vertex_colors = volume_labels_vis,
+                                            process=False)
+            semmesh_volume.export(path_semmesh_volume)
+            np.savez(path_semantic_attributes_volume, volume_labels)
             
         if path_mesh_gt:
             path_mesh_clean_bbox = IOUtils.add_file_name_suffix(path_mesh, '_clean_bbox')
@@ -1454,12 +1483,19 @@ class Runner:
                                                     scale_bbox = 1.1, 
                                                     check_existence=True)
             if seg_mesh:
-                path_mesh_semantic_clean_bbox = IOUtils.add_file_name_suffix(path_mesh_semantic, '_clean_bbox')
+                path_mesh_semantic_clean_bbox = IOUtils.add_file_name_suffix(path_semmesh_surface, '_clean_bbox')
                 GeoUtils.clean_mesh_points_outside_bbox(path_mesh_semantic_clean_bbox, 
-                                                        path_mesh_semantic, 
+                                                        path_semmesh_surface, 
                                                         path_mesh_gt, 
                                                         scale_bbox = 1.1, 
-                                                        check_existence=True)
+                                                        check_existence = True)
+                
+                path_mesh_semantic_clean_bbox = IOUtils.add_file_name_suffix(path_semmesh_volume, '_clean_bbox')
+                GeoUtils.clean_mesh_points_outside_bbox(path_mesh_semantic_clean_bbox, 
+                                                        path_semmesh_volume, 
+                                                        path_mesh_gt, 
+                                                        scale_bbox = 1.1, 
+                                                        check_existence = True)
         return path_mesh
 
     def validate_fields(self, iter_step=-1):
@@ -1749,7 +1785,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_normamap_npz', action= 'store_true', default=False, help='save color&normal&depth ply' )
     parser.add_argument('--save_peak_value', action= 'store_true', default=False, help='save peak value')
     parser.add_argument('--scene_name', type=str, default='', help='Scene or scan name')
-    parser.add_argument('--is_continue', default=True, action="store_true") #加载预训练权重 changed
+    parser.add_argument('--is_continue', default=False, action="store_true") #加载预训练权重 changed
     args = parser.parse_args()
 
     torch.cuda.set_device(args.gpu)
