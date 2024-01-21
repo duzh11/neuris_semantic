@@ -87,12 +87,10 @@ def get_manhattan_normal_loss(normal_planes):
 class NeuSLoss(nn.Module):
     def __init__(self, semantic_class=None,conf=None):
         super().__init__()
+        self.iter_step = 0
+        self.iter_end = -1
+
         self.color_weight = conf['color_weight']
-        self.semantic_weight = conf['semantic_weight']
-        self.semantic_class=semantic_class
-        self.joint_weight = conf['joint_weight']
-        self.sv_con_weight = conf['sv_con_weight']
-        self.sem_con_weight = conf['sem_con_weight']
 
         self.igr_weight = conf['igr_weight']
         self.smooth_weight = conf['smooth_weight']
@@ -100,32 +98,44 @@ class NeuSLoss(nn.Module):
 
         self.depth_weight = conf['depth_weight']
         self.normal_weight = conf['normal_weight']
+        
+        self.warm_up_start = conf['warm_up_start']
+        self.warm_up_end = conf['warm_up_end']
 
         self.normal_consistency_weight = conf['normal_consistency_weight']
         self.plane_offset_weight = conf['plane_offset_weight']
         self.manhattan_constrain_weight = conf['manhattan_constrain_weight']
         self.plane_loss_milestone = conf['plane_loss_milestone']
 
-        self.warm_up_start = conf['warm_up_start']
-        self.warm_up_end = conf['warm_up_end']
-        
-        self.iter_step = 0
-        self.iter_end = -1
+        self.plane_depth_weight = conf['plane_depth_weight']
+        if self.plane_depth_weight>0:
+            self.planedepth_loss_milestone = conf['planedepth_loss_milestone']
+            self.plane_depth_mode = conf['plane_depth_mode']
+            logging.info('planedepth start: {}, planedepth_mode: {}'.format(self.planedepth_loss_milestone, 
+                                                                            self.plane_depth_mode))
 
+        self.semantic_weight = conf['semantic_weight']
+        self.semantic_class=semantic_class
+        self.joint_weight = conf['joint_weight']
+        self.sv_con_weight = conf['sv_con_weight']
+        self.sem_con_weight = conf['sem_con_weight']
         if self.semantic_weight>0:
             self.ce_mode = conf['ce_mode'] if 'ce_mode' in conf else 'ce_loss'
             logging.info('ce_mode: {}'.format(self.ce_mode))
 
         if (self.semantic_weight>0) and (self.joint_weight>0):
+            self.joint_loss_milestone = conf['joint_loss_milestone']
             self.joint_mode = conf['joint_mode'] if 'joint_mode' in conf else 'true_se'
-            logging.info('joint_mode: {}'.format(self.joint_mode))
+            logging.info('joint start: {}, joint_mode: {}'.format(self.joint_loss_milestone, 
+                                                                  self.joint_mode))
         
         if (self.semantic_weight>0) and (self.sv_con_weight>0):
+            self.svcon_loss_milestone = conf['svcon_loss_milestone']
             self.sv_con_mode = conf['sv_con_mode'] if 'sv_con_mode' in conf else 'num'
-            logging.info('sv_con_mode: {}'.format(self.sv_con_mode))
-
             self.sv_con_loss = conf['sv_con_loss'] if 'sv_con_loss' in conf else 'prob_mean'
-            logging.info('sv_con_loss: {}'.format(self.sv_con_loss))
+            logging.info('svcon start: {}, sv_con_mode: {}, sv_con_loss: {}'.format(self.svcon_loss_milestone, 
+                                                                                    self.sv_con_mode,
+                                                                                    self.sv_con_loss) )
         
         if (self.semantic_weight>0) and (self.sem_con_weight>0):
             self.sem_con_loss = conf['sem_con_loss'] if 'sem_con_loss' in conf else 'prob_mean'
@@ -139,7 +149,7 @@ class NeuSLoss(nn.Module):
         else:
             return np.min([1.0, (self.iter_step - self.warm_up_start) / (self.warm_up_end - self.warm_up_start)])
 
-    def forward(self, input_model, render_out, sdf_network_fine, patchmatch_out = None, warm_start=False, theta=0):
+    def forward(self, input_model, render_out, sdf_network_fine, patchmatch_out = None, theta=0):
         true_rgb = input_model['true_rgb']
 
         mask, rays_o, rays_d, near, far = input_model['mask'], input_model['rays_o'], input_model['rays_d'],  \
@@ -249,7 +259,7 @@ class NeuSLoss(nn.Module):
         # sv_con loss
         sv_con_loss=0
         sem_con_loss=0
-        if warm_start and self.semantic_weight>0 and (self.sv_con_weight>0 or self.sem_con_weight>0):
+        if self.semantic_weight>0 and (self.sv_con_weight>0 or self.sem_con_weight>0) and self.iter_step > self.svcon_loss_milestone:
             grid=input_model['grid']
             #todo 选择render semantic还是true semantic
             semantic_score = F.softmax(semantic_fine, dim=-1)
@@ -358,7 +368,7 @@ class NeuSLoss(nn.Module):
                     })    
         # joint loss
         joint_loss = 0.
-        if warm_start and self.semantic_weight>0 and self.joint_weight>0:
+        if self.semantic_weight>0 and self.joint_weight>0 and self.iter_step > self.joint_loss_milestone:
             semantic_class=semantic_fine.shape[1]
             WALL_SEMANTIC_ID=1
             FLOOR_SEMANTIC_ID=2
@@ -521,7 +531,46 @@ class NeuSLoss(nn.Module):
                                     loss_normal_manhattan * self.manhattan_constrain_weight + \
                                     loss_plane_offset * self.plane_offset_weight
         
-        #
+        # planedepth_loss
+        planedepth_loss = 0 
+        if self.plane_depth_weight>0 and self.iter_step > self.planedepth_loss_milestone:
+            depthplanes_gt = input_model['depthplanes_gt']
+            num_depthplanes = int(depthplanes_gt.max().item())
+
+            depth = render_out['depth']   # detach?
+            pts = rays_o + depth * rays_d
+            normals_fine = render_out['normal']
+
+            for idx_depthplane in range(1, int(num_depthplanes)+1):
+                mask_curr_depthplane = depthplanes_gt.eq(idx_depthplane)
+                if mask_curr_depthplane.float().max() < 1.0:
+                    # this plane is not existent
+                    continue
+
+                pts_curr_depthplane = pts * mask_curr_depthplane
+                # 抽取mask，平均normal
+                num_pixels_curr_depthplane = mask_curr_depthplane.sum()
+                normals_fine_curr_depthplane = normals_fine * mask_curr_depthplane
+                normal_mean_curr_depthplane = normals_fine_curr_depthplane.sum(dim=0) / num_pixels_curr_depthplane
+                # 开始计算planedepth loss
+                
+                ## 计算每个点处的offset
+                # offset = (pts_curr_depthplane*normals_fine_curr_depthplane).sum(dim=-1,keepdim=True) # pts \cdot normals
+                if self.plane_depth_mode=='diff_offset':
+                    offset = (pts*normal_mean_curr_depthplane).sum(dim=-1,keepdim=True) # pts \cdot normals_mean
+
+                    offset_mean = (offset*mask_curr_depthplane).sum() / num_pixels_curr_depthplane
+                    diff_offset = (offset - offset_mean) * mask_curr_depthplane
+
+                    planedepth_idx_loss = F.mse_loss(diff_offset, torch.zeros_like(diff_offset), reduction='sum')
+                
+                planedepth_loss += planedepth_idx_loss
+            planedepth_loss = planedepth_loss/((depthplanes_gt>0).sum())
+            
+            logs_summary.update({
+                'Loss/loss_planedepth': planedepth_loss
+            })
+            
         loss = color_fine_loss * self.color_weight +\
                 gradient_error_loss * self.igr_weight +\
                 surf_reg_loss * self.smooth_weight +\
@@ -530,6 +579,7 @@ class NeuSLoss(nn.Module):
                 sv_con_loss * self.sv_con_weight +\
                 sem_con_loss * self.sem_con_weight +\
                 plane_loss_all +\
+                planedepth_loss * self.plane_depth_weight +\
                 background_loss * self.mask_weight +\
                 normals_fine_loss * self.normal_weight * self.get_warm_up_ratio()  + \
                 depths_fine_loss * self.depth_weight  #+ \

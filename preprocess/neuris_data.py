@@ -3,7 +3,7 @@ import os, glob
 import logging, copy, pickle
 
 import numpy as np
-from cv2 import  cv2
+import cv2
 from tqdm import tqdm
 
 from preprocess.scannet_data import ScannetData
@@ -26,17 +26,27 @@ def crop_images_neuris(dir_imgs, dir_imgs_crop, path_intrin, path_intrin_crop, c
     crop_width_half, crop_height_half = ImageUtils.crop_images(dir_imgs, dir_imgs_crop, crop_size)
     GeoUtils.modify_intrinsics_of_cropped_images(path_intrin, path_intrin_crop,  crop_width_half, crop_height_half)
     
-def extract_planes_from_normals(dir_normal, thres_uncertain = 70, folder_name_planes = 'pred_normal_planes', n_clusters = 12):
+def extract_planes_from_normals(dir_normal, 
+                                mode='train',
+                                thres_uncertain = 70, 
+                                folder_name_planes = 'pred_normal_planes', 
+                                n_clusters = 12):
     vec_path_files = sorted(glob.glob(f'{dir_normal}/**.npz'))
-    path_log = f'{dir_normal}/../log_extract_planes.txt'
+    path_log = f'{dir_normal}/../../../plane/{mode}/log_extract_planes.txt'
     f_log = open(path_log, 'w')
     for i in tqdm(range(len(vec_path_files))):
         path = vec_path_files[i]
-        msg_log = cluster_normals_kmeans(path, n_clusters= n_clusters, thres_uncertain = thres_uncertain, folder_name_planes = folder_name_planes)
+        msg_log = cluster_normals_kmeans(path, 
+                                         mode=mode,
+                                         n_clusters= n_clusters, 
+                                         thres_uncertain = thres_uncertain, 
+                                         folder_name_planes = folder_name_planes)
         f_log.write(msg_log + '\n')
     f_log.close()
 
-def segment_one_image_superpixels(path_img, folder_visual):
+def segment_one_image_superpixels(path_img, 
+                                  mode = 'train', 
+                                  folder_visual = 'image_planes'):
     # refer to: https://github.com/SJTU-ViSYS/StructDepth for more details
     MAGNITUDE_PLANE_LABEL = 1
     image, pred = extract_superpixel(path_img)
@@ -64,7 +74,7 @@ def segment_one_image_superpixels(path_img, folder_visual):
 
         
     img_labels = img_labels.reshape(*shape[:2])
-    write_image(IOUtils.add_file_name_prefix(path_img, f'../{folder_visual}/'), img_labels)
+    write_image(IOUtils.add_file_name_prefix(path_img, f'../../plane/{mode}/{folder_visual}/'), img_labels)
 
     planes_rgb = planes_rgb.reshape(shape)
     mask_planes = planes_rgb.sum(axis=-1 )>0
@@ -72,13 +82,13 @@ def segment_one_image_superpixels(path_img, folder_visual):
     curre_img_compose = copy.deepcopy(image )
     curre_img_compose[mask_planes==False] = 0
     planes_rgb_cat = np.concatenate([planes_rgb, curre_img_compose, image], axis=0)
-    write_image(IOUtils.add_file_name_prefix(path_img, f'../{folder_visual}_visual/'), planes_rgb_cat)
+    write_image(IOUtils.add_file_name_prefix(path_img, f'../../plane/{mode}/{folder_visual}_visual/'), planes_rgb_cat)
 
     msg_log = f'{prop_planes} {np.sum(prop_planes[:6]):.04f} {path_img.split("/")[-1]}'
 
     return msg_log
 
-def segment_images_superpixels(dir_images):
+def segment_images_superpixels(dir_images, mode):
     '''Segment images in directory and save segmented images in the same parent folder
     Args:
         dir_images
@@ -86,34 +96,36 @@ def segment_images_superpixels(dir_images):
         None
     '''
     vec_path_imgs = IOUtils.get_files_path(dir_images, '.png')
-    path_log = f'{dir_images}/log_seg_images.txt'
+    path_log = f'{dir_images}/../../plane/{mode}/log_seg_images.txt'
     f_log = open(path_log, 'w')
     for i in tqdm(range(len(vec_path_imgs))):
         path = vec_path_imgs[i]
-        msg_log = segment_one_image_superpixels(path, folder_visual='image_planes')
+        msg_log = segment_one_image_superpixels(path,
+                                                mode = mode, 
+                                                folder_visual='image_planes')
         f_log.write(msg_log + '\n')
     f_log.close()
 
-def compose_normal_img_planes(dir):
+def compose_normal_img_planes(dir, mode):
     MAGNITUDE_COMPOSED_PLANER_LABEL = 1
     PROPORTION_PLANES = 0.03  # 5%
 
-    dir_img_planes = f'{dir}/image_planes'
-    dir_normal_planes = f'{dir}/pred_normal_planes'
+    dir_img_planes = f'{dir}/plane/{mode}/image_planes'
+    dir_normal_planes = f'{dir}/plane/{mode}/pred_normal_planes'
     
-    dir_planes_compose = f'{dir}/pred_normal_subplanes'
-    dir_planes_compose_visual = f'{dir}/pred_normal_subplanes_visual'
+    dir_planes_compose = f'{dir}/plane/{mode}/pred_normal_subplanes'
+    dir_planes_compose_visual = f'{dir}/plane/{mode}/pred_normal_subplanes_visual'
     IOUtils.ensure_dir_existence(dir_planes_compose)
     IOUtils.ensure_dir_existence(dir_planes_compose_visual)
     
-    planes_normal_all, stem_normals = read_images(f'{dir}/pred_normal_planes')
-    planes_color_all, stem_imgs = read_images( f'{dir}/image_planes', target_img_size=planes_normal_all[0].shape[::-1], interpolation=cv2.INTER_NEAREST)
-    imgs_rgb,_ = read_images(f'{dir}/image', target_img_size=planes_normal_all[0].shape[::-1])
+    planes_normal_all, stem_normals = read_images(dir_normal_planes)
+    planes_color_all, stem_imgs = read_images(dir_img_planes, target_img_size=planes_normal_all[0].shape[::-1], interpolation=cv2.INTER_NEAREST)
+    imgs_rgb,_ = read_images(f'{dir}/image/{mode}', target_img_size=planes_normal_all[0].shape[::-1])
 
     # 0. all planes
     planes_compose_all = []
     planes_compose_rgb_all = []
-    f_log = open(f'{dir}/log_num_subplanes.txt', 'w')
+    f_log = open(f'{dir}/plane/{mode}/log_num_subplanes.txt', 'w')
     for i in tqdm(range(len(planes_color_all))):
         curr_planes_normal = planes_normal_all[i]
         curr_planes_color = planes_color_all[i]
@@ -246,10 +258,19 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
             predict_normal(dir_neus, mode, normal_method)
 
     # detect planes
-    if b_detect_planes == True:
-        extract_planes_from_normals(dir_neus + '/normal/train/pred_normal', thres_uncertain=-1)
-        segment_images_superpixels(dir_neus + '/image')
-        compose_normal_img_planes(dir_neus)
+    if b_detect_planes == True: 
+        for mode in ['train', 'test']:
+            dir_plane = dir_neus + f'/plane/{mode}'
+            os.makedirs(dir_plane, exist_ok=True)
+            # 先使用kmeans算法从normals中预测平面
+            extract_planes_from_normals(dir_neus + f'/normal/{mode}/pred_normal', 
+                                        mode=mode,
+                                        thres_uncertain=-1)
+            # 再使用superpixels算法对img进行分割
+            segment_images_superpixels(dir_neus + f'/image/{mode}', 
+                                       mode=mode)
+            # 最后将二者分割结果合并，在normal预测平面中抽取spp分割结果作为subplane
+            compose_normal_img_planes(dir_neus, mode=mode)
         
 # privivate data
 def prepare_neuris_data_from_private_data(dir_neus, size_img = (6016, 4016),

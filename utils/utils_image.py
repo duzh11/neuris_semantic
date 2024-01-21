@@ -188,7 +188,11 @@ def get_planes_from_normalmap(dir_pred, thres_uncertain = 0):
         write_image(f'{dir_mask_labels_rgb}/{stem}{ext}', img) 
         write_image(f'{dir_mask_labels}/{stem}{ext}', imgs_lables) 
 
-def cluster_normals_kmeans(path_normal, n_clusters=12, thres_uncertain = -1, folder_name_planes = 'pred_normal_planes'):
+def cluster_normals_kmeans(path_normal, 
+                           mode='train',
+                           n_clusters=12, 
+                           thres_uncertain = -1, 
+                           folder_name_planes = 'pred_normal_planes'):
     '''Use k-means to cluster normals of images.
     Extract the maximum 6 planes, where the second largest 3 planes will remove the uncertain pixels by thres_uncertain
     '''
@@ -211,7 +215,7 @@ def cluster_normals_kmeans(path_normal, n_clusters=12, thres_uncertain = -1, fol
         img_alpha = np.load(path_alpha)['arr_0']
         mask_uncertain = img_alpha > thres_uncertain
 
-    path_rgb = IOUtils.add_file_name_prefix(path_img_normal, '../../../image/train/') # todo
+    path_rgb = IOUtils.add_file_name_prefix(path_img_normal, f'../../../image/{mode}/') # todo
     img_rgb = read_image(path_rgb)[:,:,:3]
     img_rgb = resize_image(img_rgb, target_size=(shape[1], shape[0], 3))
         # img[mask_uncertain] = 0
@@ -228,7 +232,7 @@ def cluster_normals_kmeans(path_normal, n_clusters=12, thres_uncertain = -1, fol
     count_values = np.bincount(pred)
     max5 = np.argpartition(count_values,-num_max_planes)[-num_max_planes:]
     prop_planes = np.sort(count_values[max5] / num_pixels_img)[::-1]
-    # logging.info(f'Proportion of planes: {prop_planes}; Proportion of the 3 largest planes: {np.sum(prop_planes[:3]):.04f}; Image name: {path_img_normal.split("/")[-1]}')
+    logging.info(f'Proportion of planes: {prop_planes}; Proportion of the 3 largest planes: {np.sum(prop_planes[:3]):.04f}; Image name: {path_img_normal.split("/")[-1]}')
     centers_max5 = centers[max5]
     sorted_idx_max5 = np.argsort(count_values[max5] / num_pixels_img)
     sorted_max5 = max5[sorted_idx_max5][::-1]
@@ -311,7 +315,9 @@ def cluster_normals_kmeans(path_normal, n_clusters=12, thres_uncertain = -1, fol
 
         # save current plane
         if img_rgb is not None:
-            path_planes_visual_compose = IOUtils.add_file_name_prefix(path_img_normal, f"../{folder_name_planes}_visual_compose/{i+1}/",check_exist=True)
+            path_planes_visual_compose = IOUtils.add_file_name_prefix(path_img_normal, 
+                                                                      f"../../../plane/{mode}/{folder_name_planes}_visual_compose/{i+1}/",
+                                                                      check_exist=True)
             mask_non_plane = (curr_plane < 1).reshape(shape[:2])
             img_compose = copy.deepcopy(img_rgb)
             img_compose[mask_non_plane] = 0
@@ -331,7 +337,8 @@ def cluster_normals_kmeans(path_normal, n_clusters=12, thres_uncertain = -1, fol
         #         curr_channel = (pred==sorted_max5[2])
         
     img_labels = img_labels.reshape(*shape[:2])
-    path_labels = IOUtils.add_file_name_prefix(path_img_normal, f"../{folder_name_planes}/")
+    path_labels = IOUtils.add_file_name_prefix(path_img_normal, 
+                                               f"../../../plane/{mode}/{folder_name_planes}/")
     write_image(path_labels, img_labels)
     msg_log = f'{path_img_normal.split("/")[-1]}: {prop_planes} {np.sum(prop_planes[:3]):.04f} {1.0 - (img_labels==0).sum() / num_pixels_img : .04f}. Angle differences (degrees): {angles_diff}'
     logging.info(msg_log)
@@ -339,7 +346,8 @@ def cluster_normals_kmeans(path_normal, n_clusters=12, thres_uncertain = -1, fol
     # planes_rgb = np.stack(planes_rgb, axis=-1).astype(np.float32)*255
     # visualization
     planes_rgb = planes_rgb.reshape(shape)
-    path_planes_visual = IOUtils.add_file_name_prefix(path_img_normal, f"../{folder_name_planes}_visual/", check_exist=True)
+    path_planes_visual = IOUtils.add_file_name_prefix(path_img_normal, 
+                                                      f"../../../plane/{mode}/{folder_name_planes}_visual/", check_exist=True)
     planes_rgb = cv2.cvtColor(planes_rgb.astype(np.uint8), cv2.COLOR_BGR2RGB)
     
     mask_planes = planes_rgb.sum(axis=-1)>0
@@ -367,8 +375,8 @@ def cluster_normals_kmeans(path_normal, n_clusters=12, thres_uncertain = -1, fol
         # remove the influence of uncertainty pixels on small planes
         img_normal_error[mask_uncertain] = 0
     
-    path_planes_visual_error = IOUtils.add_file_name_prefix(path_img_normal, f"../{folder_name_planes}_visual_error/", check_exist=True)
-    path_planes_visual_error2 = IOUtils.add_file_name_suffix(path_planes_visual_error, "_jet")
+    # path_planes_visual_error = IOUtils.add_file_name_prefix(path_img_normal, f"../{folder_name_planes}_visual_error/", check_exist=True)
+    # path_planes_visual_error2 = IOUtils.add_file_name_suffix(path_planes_visual_error, "_jet")
     
     img_normal_error_cmap =  convert_gray_to_cmap(img_normal_error.clip(0, MAX_ANGLE_ERROR))
     # img_normal_error_cmap = convert_color_BRG2RGB(img_normal_error_cmap)

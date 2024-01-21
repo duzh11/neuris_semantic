@@ -127,7 +127,7 @@ class SDFNetwork(nn.Module):
     def gradient(self, x):
         x.requires_grad_(True)
         y = self.sdf(x)
-        d_output = torch.ones_like(y, requires_grad=False, device=y.device)
+        d_output = torch.ones_like(y, requires_grad=False, device=y.device) # https://blog.csdn.net/waitingwinter/article/details/105774720
         gradients = torch.autograd.grad(
             outputs=y,
             inputs=x,

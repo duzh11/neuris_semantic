@@ -179,10 +179,6 @@ class Runner:
             self.semantic_class=40
             self.use_joint = False
             if self.use_semantic:
-                # train parameters
-                self.warm_iter=self.conf['train.warm_iter'] 
-                logging.info(f'warm iter = {self.warm_iter}')
-
                 # semantic network parameters
                 self.semantic_class=self.conf['dataset']['semantic_class']
                 self.conf['model']['semantic_network']['d_out']=self.semantic_class
@@ -217,6 +213,21 @@ class Runner:
             self.use_geocheck=use_geocheck
             logging.info(f'use normal: {self.use_normal}, normal_weight: {normal_weight}, use geocheck: {self.use_geocheck}')
 
+            ### plane  parameters
+            loss_conf = self.conf['model.loss']
+            normal_con_weight = loss_conf['normal_consistency_weight'] if 'normal_consistency_weight' in loss_conf else 0
+            plane_offset_weight = loss_conf['plane_offset_weight'] if 'plane_offset_weight' in loss_conf else 0
+            plane_depth_weight = loss_conf['plane_depth_weight'] if 'plane_depth_weight' in loss_conf else 0
+            self.conf['dataset']['use_planes'] = True if normal_con_weight > 0 else False
+            self.conf['dataset']['use_plane_offset_loss'] = True if plane_offset_weight > 0 else False
+            self.conf['dataset']['use_plane_depth_loss'] = True if plane_depth_weight > 0 else False
+            if normal_con_weight>0:
+                logging.info(f'use normal con: loss weight={normal_con_weight}')
+            if plane_offset_weight>0:
+                logging.info(f'use plane offset: loss weight={plane_offset_weight}')
+            if plane_depth_weight>0:
+                logging.info(f'use plane depth: loss weight={plane_depth_weight}')
+
             self.use_indoor_data = True
             logging.info(f"Ray sample range: {self.sample_range_indoor}")
         elif self.dataset_type == 'dtu':
@@ -228,9 +239,6 @@ class Runner:
             logging.info(f"DTU scan ID: {self.scan_id}")
         else:
             raise NotImplementedError
-        
-        self.conf['dataset']['use_planes'] = True if self.conf['model.loss.normal_consistency_weight'] > 0 else False
-        self.conf['dataset']['use_plane_offset_loss'] = True if self.conf['model.loss.plane_offset_weight'] > 0 else False
 
         self.conf['dataset']['data_dir']  = os.path.join(self.conf['general.data_dir'] , self.dataset_type, self.scan_name)
         self.dataset = Dataset(self.conf['dataset'])
@@ -329,11 +337,15 @@ class Runner:
         
         idx_img = image_perm[self.iter_step % self.dataset.n_images]
         self.curr_img_idx = idx_img
-        data, pixels_x, pixels_y,  normal_sample, planes_sample, subplanes_sample = self.dataset.random_get_rays_at(idx_img, 
-                                                                                                                    self.batch_size, 
-                                                                                                                    iter=self.iter_step,
-                                                                                                                    exp_dir=self.base_exp_dir)
-        rays_o, rays_d, true_rgb, true_mask, true_semantic, grid, semantic_score = data[:, :3], data[:, 3: 6], data[:, 6: 9], data[:, 9: 10], data[:, 10: 11], data[:,11: 12], data[:,12: 13]
+        data, pixels_x, pixels_y, normal_sample, planes_sample, subplanes_sample, depthplanes_sample = self.dataset.random_get_rays_at(idx_img, 
+                                                                                                                                        self.batch_size, 
+                                                                                                                                        iter=self.iter_step,
+                                                                                                                                        exp_dir=self.base_exp_dir)
+        rays_o, rays_d, true_rgb, true_mask = data[:, :3], data[:, 3: 6], data[:, 6: 9], data[:, 9: 10]
+        true_semantic = data[:, 10: 11]
+        grid = data[:,11: 12]
+        semantic_score = data[:,12: 13]
+
         true_mask =  (true_mask > 0.5).float()
         mask = true_mask
 
@@ -345,6 +357,10 @@ class Runner:
 
         if self.conf['model.loss.plane_offset_weight'] > 0:
             input_model['subplanes_gt'] = subplanes_sample
+
+        plane_depth_weight = self.conf['model.loss.plane_depth_weight'] if 'plane_depth_weight' in self.conf['model.loss'] else 0
+        if plane_depth_weight > 0:
+            input_model['depthplanes_gt'] = depthplanes_sample
 
         near, far, logs_input = self.get_near_far(rays_o, rays_d)
         
@@ -412,10 +428,8 @@ class Runner:
                 patchmatch_out, logs_patchmatch = self.patch_match(input_model, render_out)
                 logs_summary.update(logs_patchmatch)
 
-            self.warm_start=self.iter_step>self.warm_iter-1
             loss, logs_loss, mask_keep_gt_normal = self.loss_neus(input_model, render_out, 
                                                                   self.sdf_network_fine, patchmatch_out,
-                                                                  warm_start=self.warm_start, 
                                                                   theta=self.theta)
             logs_summary.update(logs_loss)
 
@@ -424,7 +438,7 @@ class Runner:
             loss.backward()
             self.optimizer.step()
             
-            # # 打印网络梯度
+            # # 打印网络梯度，为了查看每次训练是否随机
             # if self.iter_step==3:
             #     network_list=[self.nerf_outside, self.sdf_network_fine, self.variance_network_fine, self.color_network_fine, self.semantic_network_fine]
             #     network_name = ['nerf_netwrok', 'sdf_network', 'variance', 'color_network', 'semantic_network']
@@ -816,13 +830,11 @@ class Runner:
                 lr=self.optimizer.param_groups[0]['lr']
                 var=render_out['variance'].mean()
                 logging.info('iter:{:8>d} loss={:.03f} lr={:.06f} var={:.04f} theta={:02f}'.format(
-                    self.iter_step, loss, lr, var.mean(), theta[0]) + 
-                    f' warm start: {self.warm_start}')
+                    self.iter_step, loss, lr, var.mean(), theta[0]))
    
             else:
                 logging.info('iter:{:8>d} loss={:.03f} lr={:.06f} var={:.04f}'.format(
-                    self.iter_step, loss, self.optimizer.param_groups[0]['lr'], render_out['variance'].mean()) + 
-                    f' warm start:{self.warm_start}')
+                    self.iter_step, loss, self.optimizer.param_groups[0]['lr'], render_out['variance'].mean()))
             
             ic((render_out['weight_sum'] * mask).sum() / mask_sum)
             ic(self.get_alpha_inter_ratio())
@@ -1097,7 +1109,7 @@ class Runner:
                             (sem_uncertainty_peak_vis[..., ::-1].astype(np.uint8)))
                 
         # print girds info
-        if self.conf['dataset']['use_grid']:
+        if self.use_semantic and self.conf['dataset']['use_grid']:
             semantic_logits = imgs_render['semantic_fine']
             semantic_label = (semantic_logits.argmax(axis=-1))
             semantic_maxprob_grids = np.zeros_like(semantic_label)

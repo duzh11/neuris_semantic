@@ -302,11 +302,14 @@ class NeuSRenderer:
                 sampled_semantic_0 = sampled_semantic
 
         # stop semantic grad to weights
-        if self.stop_ce_grad:
-            weights_new=weights.detach()
-            semantic = (sampled_semantic_0 * weights_new[:, :, None]).sum(dim=1)
+        if semantic_network:
+            if self.stop_ce_grad:
+                weights_new=weights.detach()
+                semantic = (sampled_semantic_0 * weights_new[:, :, None]).sum(dim=1)
+            else:
+                semantic = (sampled_semantic_0 * weights[:, :, None]).sum(dim=1)     
         else:
-            semantic = (sampled_semantic_0 * weights[:, :, None]).sum(dim=1)        
+            semantic = (sampled_semantic * weights[:, :, None]).sum(dim=1)    
         
         # softmax策略
         if semantic_network:

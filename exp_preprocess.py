@@ -11,8 +11,7 @@ import utils.utils_image  as ImageUtils
 import utils.utils_io as IOUtils
 import utils.utils_normal as NormalUtils
 
-# from confs.path import lis_name_scenes
-lis_name_scenes = ['scene0378_00']
+from confs.path import lis_name_scenes
 np.random.seed(42)
 
 if __name__ == '__main__':

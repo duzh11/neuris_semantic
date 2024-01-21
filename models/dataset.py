@@ -72,6 +72,7 @@ class Dataset:
 
         self.use_planes = conf['use_planes']
         self.use_plane_offset_loss = conf['use_plane_offset_loss']
+        self.use_plane_depth_loss = conf['use_plane_depth_loss']
  
         path_cam = os.path.join(self.data_dir, f'./cameras_sphere_{self.data_mode}.npz')  # cameras_sphere, cameras_linear_init
         camera_dict = np.load(path_cam)
@@ -258,7 +259,7 @@ class Dataset:
             logging.info(f'Use planes: Loading planes...')  
 
             planes_np = []
-            planes_lis = sorted(glob(f'{self.data_dir}/pred_normal_planes/*.png'))
+            planes_lis = sorted(glob(f'{self.data_dir}/plane/{self.data_mode}/pred_normal_planes/*.png'))
             assert len(planes_lis) == self.n_images
             for i in range(self.n_images):
                 path = planes_lis[i]
@@ -277,13 +278,22 @@ class Dataset:
         if self.use_plane_offset_loss:
             logging.info(f'Use planes: Loading subplanes...')  
 
-            subplanes_np, stem_subplanes = read_images(f'{self.data_dir}/pred_normal_subplanes', 
+            subplanes_np, stem_subplanes = read_images(f'{self.data_dir}/plane/{self.data_mode}/pred_normal_subplanes', 
                                                             target_img_size=(w_img, h_img), 
                                                             interpolation=cv.INTER_NEAREST, 
                                                             img_ext='.png')
             # subplanes_np = subplanes_np // 40
             assert subplanes_np.max() <= 20 
             self.subplanes = torch.from_numpy(subplanes_np.astype(np.uint8)).cpu()
+
+        if self.use_plane_depth_loss:
+            logging.info(f'Use plane_depth: Loading planes of depth...')  
+            
+            depthplanes, stem_depthplane = read_images(f'{self.data_dir}/plane/{self.data_mode}/GT_semseg', 
+                                                            target_img_size=(w_img, h_img), 
+                                                            interpolation=cv.INTER_NEAREST, 
+                                                            img_ext='.png')
+            self.depthplanes = torch.from_numpy(depthplanes.astype(np.uint8)).cpu()
 
         self.intrinsics_all = torch.stack(self.intrinsics_all).to(self.device)  # n, 4, 4
         self.intrinsics_all_inv = torch.inverse(self.intrinsics_all) # n, 4, 4
@@ -601,8 +611,13 @@ class Dataset:
         subplanes_sample = None
         if self.use_plane_offset_loss:
             subplanes_sample = self.subplanes[img_idx][(pixels_y, pixels_x)].unsqueeze(-1).cuda()
+        
+        depthplanes_sample = None
+        if self.use_plane_depth_loss:
+            depthplanes_sample = self.depthplanes[img_idx][(pixels_y, pixels_x)].unsqueeze(-1).cuda()
 
-        return torch.cat([rays_o.cpu(), rays_v.cpu(), color, mask, semantic, grid, semantic_score], dim=-1).cuda(), pixels_x, pixels_y, normal_sample, planes_sample, subplanes_sample   # batch_size, 10
+        return_data = torch.cat([rays_o.cpu(), rays_v.cpu(), color, mask, semantic, grid, semantic_score], dim=-1).cuda()
+        return return_data, pixels_x, pixels_y, normal_sample, planes_sample, subplanes_sample, depthplanes_sample   # batch_size, _
 
     def near_far_from_sphere(self, rays_o, rays_d):
         # torch
