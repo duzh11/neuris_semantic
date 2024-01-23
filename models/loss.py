@@ -521,11 +521,19 @@ class NeuSLoss(nn.Module):
             assert num_pixels_on_planes >= MIN_PIXELS_PLANE                   
             normal_consistency_loss = normal_consistency_loss.sum() / (num_pixels_on_planes+1e-6)
             loss_plane_offset = loss_plane_offset.sum() / (num_pixels_on_subplanes+1e-6)
+            logs_summary.update({
+                'Loss/loss_planecon': normal_consistency_loss,
+                'Loss/loss_planeoffset': loss_plane_offset
+            })            
             
             # (3) normal manhattan loss
             loss_normal_manhattan = 0
             if self.manhattan_constrain_weight > 0:
                 loss_normal_manhattan = get_manhattan_normal_loss(dominant_normal_planes)
+                logs_summary.update({
+                    'Loss/loss_planemanhattan': loss_normal_manhattan
+                })
+
 
             plane_loss_all = normal_consistency_loss * self.normal_consistency_weight  + \
                                     loss_normal_manhattan * self.manhattan_constrain_weight + \

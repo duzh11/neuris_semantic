@@ -21,8 +21,8 @@ def random_rgb():
     rgb[2] = random.randint(1, 255)
     return rgb
 
-# from confs.path import lis_name_scenes
-lis_name_scenes = ['scene0474_01']
+from confs.path import lis_name_scenes
+
 WALL_ID = 1
 FLOOR_ID = 2
 for scene in lis_name_scenes:
