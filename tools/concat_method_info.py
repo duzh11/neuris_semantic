@@ -10,15 +10,14 @@ import utils.utils_image as ImageUtils
 colour_map_np = NyuUtils.nyu40_colour_code
 
 from confs.path import lis_name_scenes
-method_name_lis = ['SAM_ce_sv/num_celoss', 'SAM_ce_sv/semProb', 'SAM_ce_sv/semkldiv',\
-                   'SAM_ce_sv/num_celoss_semProb', 'SAM_ce_sv/num_celoss_semkldiv']
+method_name_lis = ['SAM_ce_sv/vANvAprob_celoss', 'SAM_ce_sv/vANvAscore_celoss']
                    
 
 data_mode = 'train'
 iter = '00160000'
 H , W = 240, 320
 
-contrast_exps_dir = f'../exps/indoor/neus/SAM_ce_sv/concat/sv_sem_conloss'
+contrast_exps_dir = f'../exps/indoor/neus/SAM_ce_sv/concat/viewAL_svcon'
 os.makedirs(contrast_exps_dir, exist_ok=True)
 with open(os.path.join(contrast_exps_dir, f'method_name_lis.txt'), 'w') as f:
     f.writelines(method_name_lis)
@@ -45,9 +44,4 @@ for scene_name in tqdm(lis_name_scenes, desc='processing scene...'):
         
         lis_img = np.stack(lis_img, axis=0)
         ImageUtils.write_image_lis(os.path.join(lis_exps_dir, os.path.basename(grids_info_list[idx])[9:]), lis_img, cat_mode='vertical')
-
-
-
-
-            
 

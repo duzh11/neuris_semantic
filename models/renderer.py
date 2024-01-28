@@ -232,6 +232,7 @@ class NeuSRenderer:
         
         #semantic-network
         sampled_semantic=torch.zeros([batch_size, n_samples, semantic_class])
+        sampled_label = torch.zeros([batch_size, n_samples])
         if semantic_network:
             # stop semantic gradients to geometry feature
             if self.stop_ce_grad:
@@ -239,6 +240,7 @@ class NeuSRenderer:
                 sampled_semantic = semantic_network(pts, feature_vector_new).reshape(batch_size, n_samples, semantic_class) 
             else:
                 sampled_semantic = semantic_network(pts, feature_vector).reshape(batch_size, n_samples, semantic_class) 
+            sampled_label = sampled_semantic.argmax(axis=-1)
                 
         # variance-network
         inv_variance = variance_network(torch.zeros([1, 3]))[:, :1].clip(1e-6, 1e6)
@@ -388,11 +390,13 @@ class NeuSRenderer:
             'normal': normal,
             'color_fine': color,
             'semantic_fine': semantic,
+            'sampled_label': sampled_label,
             'sem_uncertainty_fine': sem_uncertainty,
             'cdf_fine': c.reshape(batch_size, n_samples),
             'sdf': sdf,
             'dists': dists,
             'mid_z_vals': mid_z_vals,
+            'relax_inside_sphere': relax_inside_sphere,
             'gradients': gradients.reshape(batch_size, n_samples, 3),
             'gradient_error_fine': gradient_error,
             'weights': weights,

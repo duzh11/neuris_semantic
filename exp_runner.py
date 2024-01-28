@@ -1033,7 +1033,34 @@ class Runner:
                 normal_pred=((((normal_peak/norm_pred) + 1) * 0.5).clip(0,1) * 255)
                 ImageUtils.write_image(os.path.join(self.base_exp_dir, f'normal/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
                         (normal_pred.astype(np.uint8))[...,::-1])
+        
+        save_planeoffset_render = (save_depth_render and save_normal_render)
+        if save_planeoffset_render:
+            pts_world = torch.vstack(rays_o).cpu().numpy() +  torch.vstack(rays_d).cpu().numpy() * depth_fine.reshape(-1,1)
+            planeoffset_fine = (pts_world*normal_fine.reshape(-1,3)).sum(axis=-1) # pts \cdot normals_mean
+            planeoffset_fine = (-planeoffset_fine).reshape([H, W])
+            os.makedirs(os.path.join(self.base_exp_dir, f'planeoffset/{self.mode}/fine'), exist_ok=True)
+            np.savez(os.path.join(self.base_exp_dir, f'planeoffset/{self.mode}/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
+                                    planeoffset_fine)
+            
+            planeoffset_fine_map = cv.convertScaleAbs(planeoffset_fine*25)
+            planeoffset_fine_map_jet = cv.applyColorMap(planeoffset_fine_map, cv.COLORMAP_JET)
+            ImageUtils.write_image(os.path.join(self.base_exp_dir, f'planeoffset/{self.mode}/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+                                    planeoffset_fine_map_jet)
+
+            if save_peak_value:  
+                pts_world_peak = torch.vstack(rays_o).cpu().numpy() +  torch.vstack(rays_d).cpu().numpy() * depth_peak.reshape(-1,1)
+                planeoffset_peak = (pts_world_peak*normal_peak.reshape(-1,3)).sum(axis=-1) # pts \cdot normals_mean
+                planeoffset_peak = (-planeoffset_peak).reshape([H, W])
+                os.makedirs(os.path.join(self.base_exp_dir, f'planeoffset/{self.mode}/peak'), exist_ok=True)
+                np.savez(os.path.join(self.base_exp_dir, f'planeoffset/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.npz'),
+                                        planeoffset_peak)
                 
+                planeoffset_peak_map = cv.convertScaleAbs(planeoffset_peak*25)
+                planeoffset_peak_map_jet = cv.applyColorMap(planeoffset_peak_map, cv.COLORMAP_JET)
+                ImageUtils.write_image(os.path.join(self.base_exp_dir, f'planeoffset/{self.mode}/peak', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
+                                        planeoffset_peak_map_jet)
+
         if save_image_render:
             os.makedirs(os.path.join(self.base_exp_dir, f'img/{self.mode}/fine'), exist_ok=True)
             ImageUtils.write_image(os.path.join(self.base_exp_dir, f'img/{self.mode}/fine', f'{self.iter_step:08d}_{self.dataset.vec_stem_files[idx]}_reso{resolution_level}.png'), 
@@ -1146,17 +1173,17 @@ class Runner:
                     mode_index = np.argmax(counts)
                     semantic_maxprob = semantic_list[mode_index]
                 
-                if sv_con_mode == 'prob':
+                elif sv_con_mode == 'prob':
                     semantic_score_grid_sum = semantic_score_grid.sum(axis=0)
                     semantic_maxprob = semantic_score_grid_sum.argmax(axis=-1)
                 
-                if sv_con_mode == 'uncertainty_prob' or sv_con_mode == 'uncertainty_exp_prob':
+                elif sv_con_mode == 'uncertainty_prob' or sv_con_mode == 'uncertainty_exp_prob':
                     # 加入uncertrainty作为权重 加权平均
                     semantic_score_grid_0 = semantic_score_grid*uncertainty_score_grid.reshape(-1, 1)
                     semantic_score_grid_sum = semantic_score_grid_0.sum(axis=0)
                     semantic_maxprob = semantic_score_grid_sum.argmax(axis=-1)
 
-                if sv_con_mode == 'uncertainty' or sv_con_mode == 'uncertainty_exp':
+                elif sv_con_mode == 'uncertainty' or sv_con_mode == 'uncertainty_exp':
                     semantic_list = np.unique(semantic_grid)
                     maxscore = -0.1
                     for semantic_idx in semantic_list:
@@ -1166,6 +1193,31 @@ class Runner:
                             semantic_maxprob = semantic_idx
                             maxscore = semantic_idx_score
                 
+                elif sv_con_mode == 'score_prob':
+                    score_input = ImageUtils.resize_image(self.dataset.semantic_score[idx].cpu().numpy(),
+                                                            (semantic_logits.shape[1], semantic_logits.shape[0]), 
+                                                            interpolation=cv.INTER_NEAREST)
+                    score_input_grid = score_input[grid_mask.squeeze()] 
+                    
+                    semantic_score_grid_0 = semantic_score_grid*score_input_grid.reshape(-1, 1)
+                    semantic_score_grid_sum = semantic_score_grid_0.sum(axis=0)
+                    semantic_maxprob = semantic_score_grid_sum.argmax(axis=-1)
+
+                elif sv_con_mode == 'score':
+                    score_input = ImageUtils.resize_image(self.dataset.semantic_score[idx].cpu().numpy(),
+                                                            (semantic_logits.shape[1], semantic_logits.shape[0]), 
+                                                            interpolation=cv.INTER_NEAREST)
+                    score_input_grid = score_input[grid_mask.squeeze()]
+                    
+                    semantic_list = np.unique(semantic_grid)
+                    maxscore = -0.1
+                    for semantic_idx in semantic_list:
+                        semantic_idx_mask = (semantic_grid==semantic_idx)
+                        semantic_idx_score = score_input_grid[semantic_idx_mask].sum()
+                        if semantic_idx_score > maxscore:
+                            semantic_maxprob = semantic_idx
+                            maxscore = semantic_idx_score
+
                 semantic_maxprob_grids[grid_mask] = semantic_maxprob+1
             
             # print semantic_maxprob
@@ -1760,7 +1812,7 @@ class Runner:
         else:
             logging.info('Initialize all accum data to ones.')
 
-def setup_seed(seed):
+def setup_seed(seed, server):
     logging.info(f'random seed :{seed}')
 
     np.random.seed(seed)
@@ -1772,7 +1824,10 @@ def setup_seed(seed):
 
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
-    torch.use_deterministic_algorithms(True)
+    if server=='server3':
+        torch.use_deterministic_algorithms(False)
+    else:
+        torch.use_deterministic_algorithms(True)
 
     os.environ['PYTHONHASHSEED'] = str(seed)
     os.environ['CUBLAS_WORKSPACE_CONFIG']=':4096:8'
@@ -1801,7 +1856,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     torch.cuda.set_device(args.gpu)
-    setup_seed(args.seed)
+    setup_seed(args.seed, args.server)
 
     mode = args.mode if args.mode == 'test' else 'train'
     runner = Runner(args.conf, 

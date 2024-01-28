@@ -93,6 +93,11 @@ class NeuSLoss(nn.Module):
         self.color_weight = conf['color_weight']
 
         self.igr_weight = conf['igr_weight']
+        if self.igr_weight>0:
+            self.igr_mode = conf['igr_mode'] if 'igr_mode' in conf else 'weight_cons'
+            logging.info('IGR loss weight: {}, mode: {}'.format(self.igr_weight,
+                                                                self.igr_mode))
+
         self.smooth_weight = conf['smooth_weight']
         self.mask_weight = conf['mask_weight']
 
@@ -108,6 +113,7 @@ class NeuSLoss(nn.Module):
         self.plane_loss_milestone = conf['plane_loss_milestone']
 
         self.plane_depth_weight = conf['plane_depth_weight']
+        self.planedepth_loss_milestone = 0
         if self.plane_depth_weight>0:
             self.planedepth_loss_milestone = conf['planedepth_loss_milestone']
             self.plane_depth_mode = conf['plane_depth_mode']
@@ -148,6 +154,13 @@ class NeuSLoss(nn.Module):
             return 0.0
         else:
             return np.min([1.0, (self.iter_step - self.warm_up_start) / (self.warm_up_end - self.warm_up_start)])
+    
+    def get_decay_ratio(self, start):
+        end = 100000
+        if self.iter_step>start:
+            return np.max([0.5, (end-self.iter_step) / (end-start)])
+        else:
+            return 0.0
 
     def forward(self, input_model, render_out, sdf_network_fine, patchmatch_out = None, theta=0):
         true_rgb = input_model['true_rgb']
@@ -161,6 +174,7 @@ class NeuSLoss(nn.Module):
         semantic_fine = render_out['semantic_fine']
         variance = render_out['variance']
         cdf_fine = render_out['cdf_fine']
+        
         gradient_error_fine = render_out['gradient_error_fine']
         weight_max = render_out['weight_max']
         weight_sum = render_out['weight_sum']
@@ -248,9 +262,9 @@ class NeuSLoss(nn.Module):
                     CrossEntropyLoss = nn.CrossEntropyLoss(reduction='none', ignore_index=-1)
                     crossentropy_loss = lambda logit, label: CrossEntropyLoss(logit, label-1)
 
-                semantic_score = input_model['semantic_score']
+                score_input = input_model['semantic_score']
                 semantic_fine_loss_0 = crossentropy_loss(semantic_fine_0, true_semantic_0)
-                semantic_fine_loss = torch.sum(semantic_score.squeeze()*semantic_fine_loss_0)/(semantic_score.sum() + 1e-6)
+                semantic_fine_loss = torch.sum(score_input.squeeze()*semantic_fine_loss_0)/(score_input.sum() + 1e-6)
 
             logs_summary.update({           
                 'Loss/loss_semantic':  semantic_fine_loss.detach().cpu(),
@@ -266,13 +280,15 @@ class NeuSLoss(nn.Module):
             semantic = semantic_score.argmax(axis=-1) #0-39
             
             uncertainty = render_out['sem_uncertainty_fine'].squeeze()
+            if self.sv_con_mode == 'score' or self.sv_con_mode == 'score_prob':
+                score_input = input_model['semantic_score'].squeeze()
             # uncertainty>0应该越小越好
             if self.sv_con_weight>0:
                 if self.sv_con_mode == 'uncertainty'  or self.sv_con_mode == 'uncertainty_prob':
                     uncertainty_score = 1-uncertainty
                     uncertainty_score = uncertainty_score.clip(0, 1)
                 elif self.sv_con_mode == 'uncertainty_exp' or self.sv_con_mode == 'uncertainty_exp_prob':
-                    uncertainty_score = torch.exp(-uncertainty)
+                    uncertainty_score = torch.exp(-uncertainty) 
                 else:
                     uncertainty_score = uncertainty
             
@@ -308,11 +324,11 @@ class NeuSLoss(nn.Module):
                         semantic_maxprob = mode_value.item()
 
                     # 2.通过累加概率分布来投票
-                    if self.sv_con_mode == 'prob':
+                    elif self.sv_con_mode == 'prob':
                         semantic_score_grid_sum = semantic_score_grid.sum(axis=0)
                         semantic_maxprob = semantic_score_grid_sum.argmax(axis=-1)
 
-                    if self.sv_con_mode == 'uncertainty_prob' or self.sv_con_mode == 'uncertainty_exp_prob':
+                    elif self.sv_con_mode == 'uncertainty_prob' or self.sv_con_mode == 'uncertainty_exp_prob':
                         # 加入uncertrainty作为权重 加权平均
                         semantic_score_grid_0 = semantic_score_grid*uncertainty_score_grid.view(-1, 1)
                         semantic_score_grid_sum = semantic_score_grid_0.sum(axis=0)
@@ -320,7 +336,7 @@ class NeuSLoss(nn.Module):
                         # todo 是否考虑将1-prob作为一个权重，概率低说明需要多进行优化
                     
                     # 3.通过不确定性进行投票
-                    if self.sv_con_mode == 'uncertainty' or self.sv_con_mode == 'uncertainty_exp':
+                    elif self.sv_con_mode == 'uncertainty' or self.sv_con_mode == 'uncertainty_exp':
                         semantic_list = torch.unique(semantic_grid)
                         maxscore = -0.1
                         for semantic_idx in semantic_list:
@@ -330,8 +346,25 @@ class NeuSLoss(nn.Module):
                                 semantic_maxprob = semantic_idx
                                 maxscore = semantic_idx_score
                     
+                    # 4. 通过输入的semantic_score来投票
+                    elif self.sv_con_mode == 'score_prob':
+                        score_input_grid = score_input[grid_mask.squeeze()] 
+                        semantic_score_grid_0 = semantic_score_grid*score_input_grid.view(-1, 1)
+                        semantic_score_grid_sum = semantic_score_grid_0.sum(axis=0)
+                        semantic_maxprob = semantic_score_grid_sum.argmax(axis=-1)
+                    elif self.sv_con_mode == 'score':   
+                        score_input_grid = score_input[grid_mask.squeeze()] 
+                        semantic_list = torch.unique(semantic_grid)
+                        maxscore = -0.1
+                        for semantic_idx in semantic_list:
+                            semantic_idx_mask = (semantic_grid==semantic_idx)
+                            semantic_idx_score = score_input_grid[semantic_idx_mask].sum()
+                            if semantic_idx_score > maxscore:
+                                semantic_maxprob = semantic_idx
+                                maxscore = semantic_idx_score
+
                     # sv-con loss
-                    prob=semantic_score_grid[:,semantic_maxprob]
+                    prob=semantic_score_grid[:, semantic_maxprob.detach()]
                     if self.sv_con_loss == 'prob_mean':
                         sv_con_loss += 1-prob.mean()
                     elif self.sv_con_loss == 'prob':
@@ -425,7 +458,21 @@ class NeuSLoss(nn.Module):
         # Eikonal loss
         gradient_error_loss = 0
         if self.igr_weight > 0:
-            gradient_error_loss = gradient_error_fine
+            if self.igr_mode == 'weight_cons':
+                gradient_error_loss = gradient_error_fine
+            elif self.igr_mode == 'weight_sem' and self.semantic_weight>0:
+                sampled_label = render_out['sampled_label'].detach()
+                gradients = render_out['gradients']
+                relax_inside_sphere = render_out['relax_inside_sphere']
+                
+                sampled_wall_mask, sampled_floor_mask = sampled_label==0, sampled_label==1
+                gradient_error = (torch.linalg.norm(gradients, ord=2, dim=-1) - 1.0) ** 2
+                gradient_error = (relax_inside_sphere * gradient_error) / (relax_inside_sphere.sum() + 1e-5)
+                gradient_error_loss = gradient_error.sum() + \
+                                    2*gradient_error[sampled_wall_mask].sum()+ \
+                                    2*gradient_error[sampled_floor_mask].sum()
+            else:
+                gradient_error_loss = gradient_error_fine
             logs_summary.update({           
                 'Loss/loss_eik':    gradient_error_loss.detach().cpu(),
             })            
@@ -549,7 +596,7 @@ class NeuSLoss(nn.Module):
             pts = rays_o + depth * rays_d
             normals_fine = render_out['normal']
 
-            for idx_depthplane in range(1, int(num_depthplanes)+1):
+            for idx_depthplane in range(2, int(num_depthplanes)+1):
                 mask_curr_depthplane = depthplanes_gt.eq(idx_depthplane)
                 if mask_curr_depthplane.float().max() < 1.0:
                     # this plane is not existent
@@ -561,24 +608,33 @@ class NeuSLoss(nn.Module):
                 normals_fine_curr_depthplane = normals_fine * mask_curr_depthplane
                 normal_mean_curr_depthplane = normals_fine_curr_depthplane.sum(dim=0) / num_pixels_curr_depthplane
                 # 开始计算planedepth loss
-                
-                ## 计算每个点处的offset
-                # offset = (pts_curr_depthplane*normals_fine_curr_depthplane).sum(dim=-1,keepdim=True) # pts \cdot normals
                 if self.plane_depth_mode=='diff_offset':
-                    offset = (pts*normal_mean_curr_depthplane).sum(dim=-1,keepdim=True) # pts \cdot normals_mean
+                    ## 计算每个点处的offset
+                    # offset = (- pts_curr_depthplane*normals_fine_curr_depthplane).sum(dim=-1,keepdim=True) # pts \cdot normals
+                    offset = (- pts_curr_depthplane*normal_mean_curr_depthplane).sum(dim=-1,keepdim=True) # pts \cdot normals_mean
 
                     offset_mean = (offset*mask_curr_depthplane).sum() / num_pixels_curr_depthplane
                     diff_offset = (offset - offset_mean) * mask_curr_depthplane
 
                     planedepth_idx_loss = F.mse_loss(diff_offset, torch.zeros_like(diff_offset), reduction='sum')
                 
+                elif self.plane_depth_mode=='con_offset':
+                    offset = (- pts_curr_depthplane*normals_fine_curr_depthplane).sum(dim=-1,keepdim=True) # pts \cdot normals
+                    offset_curr_depthplane = offset[mask_curr_depthplane]
+                    if len(offset_curr_depthplane)<2:
+                        continue
+                    con_offset = offset_curr_depthplane[:-1] - offset_curr_depthplane[1:]
+                    
+                    planedepth_idx_loss = F.mse_loss(con_offset, torch.zeros_like(con_offset), reduction='sum')
+
                 planedepth_loss += planedepth_idx_loss
-            planedepth_loss = planedepth_loss/((depthplanes_gt>0).sum())
+
+            planedepth_loss = planedepth_loss/((depthplanes_gt>1).sum()+1e-6)
             
             logs_summary.update({
                 'Loss/loss_planedepth': planedepth_loss
             })
-            
+    
         loss = color_fine_loss * self.color_weight +\
                 gradient_error_loss * self.igr_weight +\
                 surf_reg_loss * self.smooth_weight +\
@@ -587,7 +643,7 @@ class NeuSLoss(nn.Module):
                 sv_con_loss * self.sv_con_weight +\
                 sem_con_loss * self.sem_con_weight +\
                 plane_loss_all +\
-                planedepth_loss * self.plane_depth_weight +\
+                planedepth_loss * self.plane_depth_weight * self.get_decay_ratio(start = self.planedepth_loss_milestone) +\
                 background_loss * self.mask_weight +\
                 normals_fine_loss * self.normal_weight * self.get_warm_up_ratio()  + \
                 depths_fine_loss * self.depth_weight  #+ \

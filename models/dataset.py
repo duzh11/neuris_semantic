@@ -561,7 +561,7 @@ class Dataset:
         rays_v = torch.matmul(self.pose_all[img_idx, None, :3, :3], rays_v[:, :, None]).squeeze()  # batch_size, 3
         rays_o = self.pose_all[img_idx, None, :3, 3].expand(rays_v.shape) # batch_size, 3
         return torch.cat([rays_o.cpu(), rays_v.cpu(), color, mask[:, :1]], dim=-1).cuda()    # batch_size, 10
-        
+
     def random_get_rays_at(self, img_idx, batch_size, pose = None, iter=-1, exp_dir=''):
         
         pose_cur = self.get_pose(img_idx, pose)
@@ -569,6 +569,9 @@ class Dataset:
         pixels_x = torch.randint(low=0, high=self.W, size=[batch_size]) 
         pixels_y = torch.randint(low=0, high=self.H, size=[batch_size])
         
+        img_idx_cpu = img_idx.cpu()
+        pixels_x_cpu = pixels_x.cpu()
+        pixels_y_cpu = pixels_y.cpu()
         # 考虑随机性，检查是否一致
         pixels_dir = os.path.join(exp_dir,'pixels')
         os.makedirs(pixels_dir, exist_ok=True)
@@ -578,19 +581,19 @@ class Dataset:
                 f.writelines(f'pixels_x: {pixels_x}\n\n')
                 f.writelines(f'pixels_y: {pixels_y}\n\n')
 
-        color = self.images[img_idx][(pixels_y, pixels_x)]    # batch_size, 3
-        mask = self.masks[img_idx][(pixels_y, pixels_x)][:,None]     # batch_size, 1
+        color = self.images[img_idx_cpu][(pixels_y_cpu, pixels_x_cpu)]    # batch_size, 3
+        mask = self.masks[img_idx_cpu][(pixels_y_cpu, pixels_x_cpu)][:,None]     # batch_size, 1
         semantic=torch.zeros_like(mask)
         if self.use_semantic:
-            semantic = self.semantics[img_idx][(pixels_y, pixels_x)][:,None]
+            semantic = self.semantics[img_idx_cpu][(pixels_y_cpu, pixels_x_cpu)][:,None]
         
         grid=torch.zeros_like(mask)
         if self.use_grid:
-            grid = self.grids[img_idx][(pixels_y, pixels_x)][:,None]
+            grid = self.grids[img_idx_cpu][(pixels_y_cpu, pixels_x_cpu)][:,None]
 
         semantic_score=torch.zeros_like(mask)
         if self.use_semantic_uncer:
-            semantic_score = self.semantic_score[img_idx][(pixels_y, pixels_x)][:,None]
+            semantic_score = self.semantic_score[img_idx_cpu][(pixels_y_cpu, pixels_x_cpu)][:,None]
 
         p = torch.stack([pixels_x, pixels_y, torch.ones_like(pixels_y)], dim=-1).float()  # (pixels_x, pixels_y, 1)
         # matul: tensor的乘法. 相机内参
@@ -602,19 +605,19 @@ class Dataset:
         
         normal_sample = None
         if self.use_normal:
-            normal_sample = self.normals[img_idx][(pixels_y, pixels_x)].cuda()
+            normal_sample = self.normals[img_idx_cpu][(pixels_y_cpu, pixels_x_cpu)].cuda()
 
         planes_sample = None
         if self.use_planes:
-            planes_sample = self.planes[img_idx][(pixels_y, pixels_x)].unsqueeze(-1).cuda()
+            planes_sample = self.planes[img_idx_cpu][(pixels_y_cpu, pixels_x_cpu)].unsqueeze(-1).cuda()
         
         subplanes_sample = None
         if self.use_plane_offset_loss:
-            subplanes_sample = self.subplanes[img_idx][(pixels_y, pixels_x)].unsqueeze(-1).cuda()
+            subplanes_sample = self.subplanes[img_idx_cpu][(pixels_y_cpu, pixels_x_cpu)].unsqueeze(-1).cuda()
         
         depthplanes_sample = None
         if self.use_plane_depth_loss:
-            depthplanes_sample = self.depthplanes[img_idx][(pixels_y, pixels_x)].unsqueeze(-1).cuda()
+            depthplanes_sample = self.depthplanes[img_idx_cpu][(pixels_y_cpu, pixels_x_cpu)].unsqueeze(-1).cuda()
 
         return_data = torch.cat([rays_o.cpu(), rays_v.cpu(), color, mask, semantic, grid, semantic_score], dim=-1).cuda()
         return return_data, pixels_x, pixels_y, normal_sample, planes_sample, subplanes_sample, depthplanes_sample   # batch_size, _

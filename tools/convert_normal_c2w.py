@@ -11,9 +11,9 @@ import models.dataset as dataset
 import utils.utils_image as ImageUtils
 
 data_root = '../Data/dataset/indoor'
-scene_list = ['scene0435_02', 'scene0616_00']
+from confs.path import lis_name_scenes
 
-for scene in scene_list:
+for scene in lis_name_scenes:
     for data_mode in ['train', 'test']:
         data_dir = os.path.join(data_root, scene)
         normal_dir = os.path.join(data_dir, f'normal/{data_mode}/pred_normal/*.png') 
