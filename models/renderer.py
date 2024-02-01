@@ -391,6 +391,7 @@ class NeuSRenderer:
             'color_fine': color,
             'semantic_fine': semantic,
             'sampled_label': sampled_label,
+            'sampled_semantic': sampled_semantic,
             'sem_uncertainty_fine': sem_uncertainty,
             'cdf_fine': c.reshape(batch_size, n_samples),
             'sdf': sdf,
