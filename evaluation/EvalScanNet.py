@@ -204,7 +204,7 @@ def evaluate_geometry_neucon(file_pred,
     precision = np.mean((dist2 < threshold).astype('float'))
     recal = np.mean((dist1 < threshold).astype('float'))
     fscore = 2 * precision * recal / (precision + recal)
-    chamfer=np.mean(dist1**2)+np.mean(dist2**2)
+    chamfer= np.mean(dist1**2)+np.mean(dist2**2)
     metrics = {'dist1': np.mean(dist2),  # pred->gt
                'dist2': np.mean(dist1),  # gt -> pred
                'prec': precision,
@@ -219,7 +219,7 @@ def evaluate_geometry_neucon(file_pred,
 
 def error_mesh(file_trgt,
                file_pred,
-               error_bound=0.01):
+               error_bound=0.02):
     mesh_trgt = GeoUtils.read_triangle_mesh(file_trgt)
     verts_trgt = np.asarray(mesh_trgt.vertices)
     triangles_trgt = np.asarray(mesh_trgt.triangles)
@@ -351,13 +351,19 @@ def evaluate_3D_mesh_TSDF(path_mesh_pred,
     
     error_mesh(path_mesh_gt_TSDF, path_mesh_pred_TSDF)
     metrices_eval=[]
+    # for thredhold_i in eval_threshold:
+    #     metrices = evaluate_geometry_neucon(path_mesh_pred_TSDF, 
+    #                                         path_mesh_gt_TSDF, 
+    #                                         threshold=thredhold_i, 
+    #                                         down_sample=.02)
+    #     metrices_eval.append(metrices[-2])
+    # metrices_eval.append(metrices[-1])
     for thredhold_i in eval_threshold:
         metrices = evaluate_geometry_neucon(path_mesh_pred_TSDF, 
                                             path_mesh_gt_TSDF, 
                                             threshold=thredhold_i, 
                                             down_sample=.02)
-        metrices_eval.append(metrices[-2])
-    metrices_eval.append(metrices[-1])
+    metrices_eval = metrices
 
     return metrices_eval
 

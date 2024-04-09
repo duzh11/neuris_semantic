@@ -155,10 +155,12 @@ class NeuSLoss(nn.Module):
         else:
             return np.min([1.0, (self.iter_step - self.warm_up_start) / (self.warm_up_end - self.warm_up_start)])
     
-    def get_decay_ratio(self, start):
-        end = 100000
+    def get_decay_ratio(self, 
+                        start = 0, 
+                        end = 100000,
+                        minweight = 0.0):
         if self.iter_step>start:
-            return np.max([0.5, (end-self.iter_step) / (end-start)])
+            return np.max([minweight, (end-self.iter_step) / (end-start)])
         else:
             return 0.0
 
@@ -333,6 +335,7 @@ class NeuSLoss(nn.Module):
                         semantic_score_grid_0 = semantic_score_grid*uncertainty_score_grid.view(-1, 1)
                         semantic_score_grid_sum = semantic_score_grid_0.sum(axis=0)
                         semantic_maxprob = semantic_score_grid_sum.argmax(axis=-1)
+                        # todo 是否考虑将1-prob作为一个权重，概率低说明需要多进行优化
                     
                     # 3.通过不确定性进行投票
                     elif self.sv_con_mode == 'uncertainty' or self.sv_con_mode == 'uncertainty_exp':
@@ -456,63 +459,70 @@ class NeuSLoss(nn.Module):
 
         # Eikonal loss
         gradient_error_loss = 0
-        WALL_ID, FLOOR_ID = 0, 1
-        CEILING_ID = 21
         if self.igr_weight > 0:
+            WALL_SEMANTIC_ID, FLOOR_SEMANTIC_ID, CEILING_SEMANTIC_ID = 0, 1, 21
+            # cons weight
+            # wall_weight, floor_weight, ceiling_weight = 2, 2, 2
+            # decay weight 1
+            wall_weight, floor_weight, ceiling_weight = 2 * self.get_decay_ratio(start = 1e4, end = 160000, minweight = 0.2), \
+                                                        2 * self.get_decay_ratio(start = 1e4, end = 160000, minweight = 0.2), \
+                                                        2 * self.get_decay_ratio(start = 1e4, end = 160000, minweight = 0.2)
+            
             if self.igr_mode == 'weight_cons':
                 gradient_error_loss = gradient_error_fine
-            
-            # 按照区域
             elif self.igr_mode == 'weight_sem' and self.semantic_weight>0:
                 gradients = render_out['gradients']
                 relax_inside_sphere = render_out['relax_inside_sphere']
-                
                 gradient_error = (torch.linalg.norm(gradients, ord=2, dim=-1) - 1.0) ** 2
                 gradient_error = (relax_inside_sphere * gradient_error) / (relax_inside_sphere.sum() + 1e-5)
                 
-                # obtaing mask
-                sampled_label = render_out['sampled_label'].detach() #todo 是否需要detach
-                sampled_wall_mask  = sampled_label==WALL_ID
-                sampled_floor_mask = sampled_label==FLOOR_ID
-                # obtaing loss
-                igr_weight_wall, igr_weight_ceiling, igr_weight_floor = 2, 2, 2
-                gradient_error_loss = gradient_error.sum() + \
-                                    igr_weight_wall*gradient_error[sampled_wall_mask].sum()+ \
-                                    igr_weight_floor*gradient_error[sampled_floor_mask].sum()
+                sampled_label = render_out['sampled_label'].detach()
+                
+                sampled_wall_mask = sampled_label==WALL_SEMANTIC_ID
+                sampled_floor_mask = sampled_label==FLOOR_SEMANTIC_ID
+                sampled_ceiling_mask = sampled_label==CEILING_SEMANTIC_ID
+
+                if self.iter_step<1e4:
+                    gradient_error_loss = gradient_error.sum() +\
+                                        2 * gradient_error[sampled_wall_mask].sum() +\
+                                        2 * gradient_error[sampled_floor_mask].sum() +\
+                                        2 * gradient_error[sampled_ceiling_mask].sum()
+                else:
+                    gradient_error_loss = gradient_error.sum() +\
+                                        wall_weight * gradient_error[sampled_wall_mask].sum() +\
+                                        floor_weight * gradient_error[sampled_floor_mask].sum() +\
+                                        ceiling_weight * gradient_error[sampled_ceiling_mask].sum()
             
-            # 按照概率叠加
-            elif self.igr_mode == 'weight_prob' and self.semantic_weight>0:
+            elif self.igr_mode == 'weight_label' and self.semantic_weight>0:
                 gradients = render_out['gradients']
                 relax_inside_sphere = render_out['relax_inside_sphere']
-                
                 gradient_error = (torch.linalg.norm(gradients, ord=2, dim=-1) - 1.0) ** 2
                 gradient_error = (relax_inside_sphere * gradient_error) / (relax_inside_sphere.sum() + 1e-5)
-                # obtaing mask
-                sampled_label = render_out['sampled_label'] #todo 是否需要detach
-                sampled_wall_mask  = sampled_label==WALL_ID
-                sampled_floor_mask = sampled_label==FLOOR_ID
-                # obtaing semantic score
-                sampled_semantic = render_out['sampled_semantic']
-                sampled_prob = F.softmax(sampled_semantic, dim=-1)
-                sampled_wall_score, sampled_floor_score,  sampled_ceiling_score = sampled_prob[...,WALL_ID], \
-                                                                                sampled_prob[...,FLOOR_ID], \
-                                                                                sampled_prob[..., CEILING_ID]
-                # obtaing loss
-                igr_weight_wall, igr_weight_ceiling, igr_weight_floor = 2, 2, 2
-                gradient_score_wall = gradient_error * sampled_wall_score
-                gradient_score_floor = gradient_error * sampled_floor_score
-                gradient_score_ceiling = gradient_error * sampled_ceiling_score
-                ### a
-                gradient_error_loss = gradient_error.sum() + \
-                                    igr_weight_wall*gradient_score_wall[sampled_wall_mask].sum()+ \
-                                    igr_weight_floor*gradient_score_floor[sampled_floor_mask].sum()
-                ### b
-                # gradient_error_loss = gradient_error.sum() + \
-                #                     igr_weight_wall*sampled_wall_score*gradient_error+ \
-                #                     igr_weight_floor*sampled_floor_score*gradient_error
+
+                sampled_label = render_out['sampled_label']
+                sampled_prob = render_out['sampled_prob']
+
+                wall_prob, floor_prob, ceiling_prob = sampled_prob[..., WALL_SEMANTIC_ID] ,\
+                                                      sampled_prob[..., FLOOR_SEMANTIC_ID],\
+                                                      sampled_prob[..., CEILING_SEMANTIC_ID]
+                sampled_wall_mask = sampled_label==WALL_SEMANTIC_ID
+                sampled_floor_mask = sampled_label==FLOOR_SEMANTIC_ID
+                sampled_ceiling_mask = sampled_label==CEILING_SEMANTIC_ID
+
+                if self.iter_step<1e4:
+                    gradient_error_loss = gradient_error.sum() +\
+                                        2 * gradient_error[sampled_wall_mask].sum() +\
+                                        2 * gradient_error[sampled_floor_mask].sum() +\
+                                        2 * gradient_error[sampled_ceiling_mask].sum()
+                else:
+                    gradient_error_loss = gradient_error.sum() +\
+                                        wall_weight * (wall_prob*gradient_error)[sampled_wall_mask].sum() +\
+                                        floor_weight * (floor_prob*gradient_error)[sampled_floor_mask].sum() +\
+                                        ceiling_weight * (ceiling_prob*gradient_error)[sampled_ceiling_mask].sum()
 
             else:
                 gradient_error_loss = gradient_error_fine
+            
             logs_summary.update({           
                 'Loss/loss_eik':    gradient_error_loss.detach().cpu(),
             })            
@@ -683,7 +693,7 @@ class NeuSLoss(nn.Module):
                 sv_con_loss * self.sv_con_weight +\
                 sem_con_loss * self.sem_con_weight +\
                 plane_loss_all +\
-                planedepth_loss * self.plane_depth_weight * self.get_decay_ratio(start = self.planedepth_loss_milestone) +\
+                planedepth_loss * self.plane_depth_weight +\
                 background_loss * self.mask_weight +\
                 normals_fine_loss * self.normal_weight * self.get_warm_up_ratio()  + \
                 depths_fine_loss * self.depth_weight  #+ \

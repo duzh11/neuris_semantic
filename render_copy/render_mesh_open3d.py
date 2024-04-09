@@ -4,7 +4,7 @@ import os
 from glob import glob
 import json
 import sys
-
+import shutil
 
 def read_file(file):
     data = open(file)
@@ -38,7 +38,7 @@ def render_scan(scan, data_mode, mesh, out_path):
     H, W = 480, 640
 
     # create tmp camera pose file for open3d
-    camera_config = Path("render/video_poses")
+    camera_config = Path("render_copy/video_poses")
     camera_config.mkdir(exist_ok=True, parents=True)
 
     for image_id in range(n_images):
@@ -48,15 +48,15 @@ def render_scan(scan, data_mode, mesh, out_path):
 
         K = intrinsics.copy()
      
-        tmp_json = json.load(open('render/c1.json'))
+        tmp_json = json.load(open('render_copy/c1.json'))
         tmp_json["extrinsic"] = w2c.T.reshape(-1).tolist()
         
         tmp_json["intrinsic"]["intrinsic_matrix"] = K[:3,:3].T.reshape(-1).tolist()
         tmp_json["intrinsic"]["height"] = H 
         tmp_json["intrinsic"]["width"] = W 
-        json.dump(tmp_json, open('render/video_poses/tmp%d.json'%(image_id), 'w'), indent=4)
+        json.dump(tmp_json, open('render_copy/video_poses/tmp%d.json'%(image_id), 'w'), indent=4)
     
-    cmd = f"python ./render/render_trajectory_open3d.py {mesh} \"{out_path}\" {camera_config} \{n_images}"
+    cmd = f"python ./render_copy/render_trajectory_open3d.py {mesh} \"{out_path}\" {camera_config} \{n_images}"
     os.system(cmd)
 
 scan = sys.argv[1]
@@ -64,10 +64,18 @@ method_name = sys.argv[2]
 data_mode = sys.argv[3]
 
 data_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
-exps_dir = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/exps/indoor/neus/{method_name}/{scan}'
-mesh_path = f'{exps_dir}/meshes/{scan}_semantic_surface_clean_bbox.ply'
+# exps_dir = f'/home/du/Proj/3Dv_Reconstruction/Manhattan_sdf/exp/result/manhattan_sdf/{method_name}_{scan[-7:-3]}'
+# mesh_path = f'{exps_dir}/50.ply'
+# if os.path.exists(mesh_path):
+#     print(f"{mesh_path}")
+# else:
+#     mesh_path = f'{exps_dir}/49.ply'
+#     print(f"{mesh_path}")
 
-out_path = f'{exps_dir}/rendering/semmesh/{data_mode}'
+exps_dir = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor/{scan}'
+mesh_path = f'{exps_dir}/{scan}_vh_clean_2.ply'
+    
+out_path = f'{exps_dir}/rendering/colormesh'
 Path(out_path).mkdir(exist_ok=True, parents=True)
 
 render_scan(scan, data_mode, mesh_path, out_path)

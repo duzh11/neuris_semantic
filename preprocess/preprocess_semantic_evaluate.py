@@ -11,10 +11,10 @@ import utils.utils_semantic as SemanticUtils
 
 from confs.path import lis_name_scenes
 semantic_type_lis = ['deeplab']
-data_mode_lis = ['train', 'test']
+data_mode_lis = ['train']
 
 dir_dataset = '../Data/dataset/indoor'
-semantic_class = 40
+semantic_class = 3
 MANHATTAN=False
 str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
 for semantic_type in semantic_type_lis:
@@ -46,14 +46,13 @@ for semantic_type in semantic_type_lis:
                 semantic_GT_copy = semantic_GT.copy()
                 semantic_predicted_copy = semantic_predicted.copy()
                 # 遵循Manhattan-sdf的语义merge策略
-                if MANHATTAN:
-                    if semantic_class==3:
-                        label_mapping_nyu=SemanticUtils.mapping_nyu3(manhattan=MANHATTAN)
-                    if semantic_class==40:
-                        label_mapping_nyu=SemanticUtils.mapping_nyu40(manhattan=MANHATTAN)
-                    for scan_id, nyu_id in label_mapping_nyu.items():
-                        semantic_GT_copy[semantic_GT==scan_id] = nyu_id
-                        semantic_predicted_copy[semantic_predicted==scan_id] = nyu_id
+                if semantic_class==3:
+                    label_mapping_nyu=SemanticUtils.mapping_nyu3(manhattan=MANHATTAN)
+                if semantic_class==40:
+                    label_mapping_nyu=SemanticUtils.mapping_nyu40(manhattan=MANHATTAN)
+                for scan_id, nyu_id in label_mapping_nyu.items():
+                    semantic_GT_copy[semantic_GT==scan_id] = nyu_id
+                    semantic_predicted_copy[semantic_predicted==scan_id] = nyu_id
                 
                 semantic_GT_list.append(np.array(semantic_GT_copy))
                 semantic_predicted_list.append(semantic_predicted_copy)
@@ -78,9 +77,9 @@ for semantic_type in semantic_type_lis:
                     f.write('\n------\nPredicted Labels:\n')
             
             metric_avg, exsiting_label, class_iou, class_accuray = SemanticUtils.compute_segmentation_metrics(true_labels=true_labels, 
-                                                                                                predicted_labels=predicted_labels, 
-                                                                                                semantic_class=semantic_class, 
-                                                                                                ignore_label=255)
+                                                                                        predicted_labels=predicted_labels, 
+                                                                                        semantic_class=semantic_class, 
+                                                                                        ignore_label=255)
             if data_mode == 'train':
                 metric_train_all.append(metric_avg)
             elif data_mode == 'test':

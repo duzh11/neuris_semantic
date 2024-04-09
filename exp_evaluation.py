@@ -28,8 +28,8 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
     # eval_3D_mesh_neuris， eval_3D_mesh_TSDF， eval_chamfer， eval_mesh_2D_metrices， eval_semantic2D, 
-    parser.add_argument('--mode', type=str, default='eval_semantic_3D')
-    parser.add_argument('--exp_name', type=str, default='test/test')
+    parser.add_argument('--mode', type=str, default='eval_3D_mesh_TSDF')
+    parser.add_argument('--exp_name', type=str, default='deeplab_ce/ce_stop_a')
     parser.add_argument('--dir_dataset', type=str, default='../Data/dataset/indoor')
     parser.add_argument('--dir_results_baseline', type=str, default='../exps/indoor/neus')
     parser.add_argument('--acc', type=str, default='fine')
@@ -72,7 +72,7 @@ if __name__ == '__main__':
                                                         mode = 'w')  
 
     if args.mode == 'eval_3D_mesh_TSDF':
-        eval_threshold_lis = [0.03,0.05,0.07]
+        eval_threshold_lis = [0.05]
         
         metrics_eval_all = []
         for scene_name in lis_name_scenes:
@@ -89,14 +89,17 @@ if __name__ == '__main__':
         str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
         path_log = f'{dir_results_baseline}/{name_baseline}_eval3Dmesh_TSDF_{str_date}.md'
         
-        markdown_header='Eval mesh\n| scene_name   |    Method| F-score$_{0.03}$| F-score$_{0.05}$| F-score$_{0.07}$| Chamfer|\n'
-        markdown_header=markdown_header+'| -------------| ---------| ------- | ------- | ------- | ------- |\n'
-        EvalScanNet.save_evaluation_results_to_markdown(path_log, 
-                                                        header = markdown_header, 
-                                                        name_baseline=name_baseline,
-                                                        results = metrics_eval_all, 
-                                                        names_item = lis_name_scenes, 
-                                                        mode = 'w')
+        markdown_header=f'| scene_name   |    Method|    Accu.|    Comp.|    Prec.|   Recall|  F-score|  Chamfer\n'
+        markdown_header=markdown_header+'| -------------| ---------| ------- | ------- | ------- | ------- | ------- | ------- |\n'
+        # markdown_header='Eval mesh\n| scene_name   |    Method| F-score$_{0.03}$| F-score$_{0.05}$| F-score$_{0.07}$| Chamfer|\n'
+        # markdown_header=markdown_header+'| -------------| ---------| ------- | ------- | ------- | ------- |\n'
+        # EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+        #                                                 header = markdown_header, 
+        #                                                 name_baseline=name_baseline,
+        #                                                 results = metrics_eval_all, 
+        #                                                 names_item = lis_name_scenes, 
+        #                                                 mode = 'w')    
+    
     if args.mode == 'eval_chamfer':
         metrics_eval_all = []
 
@@ -266,7 +269,7 @@ if __name__ == '__main__':
                 mesh_transfer, metric_avg, exsiting_label, class_iou, class_accuray = SemanticUtils.evaluate_semantic_3D(file_mesh_trgt,
                                                                                                                         file_mesh_pred,
                                                                                                                         file_semseg_pred,
-                                                                                                                        semantic_class=40)
+                                                                                                                        semantic_class=semantic_class)
                 mesh_transfer.export(file_mesh_pred_transfer)
 
                 if semantic_mode == 'volume':

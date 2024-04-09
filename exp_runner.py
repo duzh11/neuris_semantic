@@ -124,8 +124,8 @@ class Runner:
             self.conf['general']['data_dir']='/home/home/raid/zhenhua2023/3Dv_Reconstruction/NeuRIS/Data/dataset'
         elif self.server=='autodl':
             self.conf['general']['server']=self.server
-            self.conf['general']['exp_dir']='/root/autodl-tmp/3Dv_Reconstruction/NeuRIS/exps'
-            self.conf['general']['data_dir']='/root/autodl-fs/3Dv_Reconstruction/NeuRIS/Data/dataset'   
+            self.conf['general']['exp_dir']='/root/autodl-tmp/Proj/3Dv_Reconstruction/NeuRIS/exps'
+            self.conf['general']['data_dir']='/root/autodl-tmp/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset'   
         else:
             self.conf['general']['server']=self.server
             self.conf['general']['exp_dir']='../exps'
@@ -1562,12 +1562,41 @@ class Runner:
                                                         check_existence = True)
         return path_mesh
 
+    def validate_segmesh_from_mesh(self, path_from_mesh=None):
+        if path_from_mesh is None:
+            path_from_mesh = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_clean_bbox_TSDF.ply')
+        
+        from_mesh = trimesh.load(path_from_mesh, process=False)
+        vertices = from_mesh.vertices
+
+        path_trans_n2w = f"{self.conf['dataset']['data_dir']}/trans_n2w.txt"
+        scale_mat = self.dataset.scale_mats_np[0]
+        if IOUtils.checkExistence(path_trans_n2w):
+            scale_mat = np.loadtxt(path_trans_n2w)
+        vertices_trans = (vertices.copy()-scale_mat[:3, 3][None]) / scale_mat[0, 0]
+
+        # Extract surface semantic
+        vertices_tensor = torch.FloatTensor(vertices_trans).reshape([-1, 3]).cuda()
+        surface_labels= self.renderer.extract_surface_semantic(vertices_tensor) 
+        path_semantic_tomesh = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_semantic_surface_TSDF.npz')
+        np.savez(path_semantic_tomesh, surface_labels)
+        
+        colour_map_np = utils_nyu.nyu40_colour_code
+        surface_labels_vis = colour_map_np[(surface_labels)].astype(np.uint8)
+
+        path_to_mesh = IOUtils.add_file_name_suffix(path_from_mesh, '_sem')
+        to_mesh = trimesh.Trimesh(vertices=vertices, 
+                                faces=from_mesh.faces, 
+                                vertex_colors = surface_labels_vis,
+                                process=False)
+        to_mesh.export(path_to_mesh)
+
     def validate_fields(self, iter_step=-1):
         if iter_step < 0:
             iter_step = self.iter_step
         bound_min = torch.tensor(self.dataset.bbox_min, dtype=torch.float32)
         bound_max = torch.tensor(self.dataset.bbox_max, dtype=torch.float32)
-        sdf = extract_fields(bound_min, bound_max, 128, lambda pts: self.sdf_network_fine.sdf(pts)[:, 0])
+        sdf = extract_fields(bound_min, bound_max, 512, lambda pts: self.sdf_network_fine.sdf(pts)[:, 0])
         os.makedirs(os.path.join(self.base_exp_dir, 'fields'), exist_ok=True)
         np.save(os.path.join(self.base_exp_dir, 'fields', '{:0>8d}_sdf.npy'.format(iter_step)), sdf)
 
@@ -1885,6 +1914,11 @@ if __name__ == '__main__':
             runner.validate_mesh_nerf(world_space=True, resolution=args.mc_reso, threshold=thres)
             logging.info(f"[Validate mesh] Consumed time (MC resolution: {args.mc_reso}； Threshold: {thres}): {IOUtils.get_consumed_time(t1):.02f}(s)")
     
+    elif args.mode == 'sem_from_mesh':
+        if runner.model_type == 'neus':
+            t1= datetime.now()
+            runner.validate_segmesh_from_mesh()
+
     elif args.mode == 'validate_image':
         if runner.model_type == 'neus':
             for idx in tqdm(range(0, runner.dataset.n_images, 1), desc = f'validating {mode} output...'):

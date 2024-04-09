@@ -38,10 +38,10 @@ if __name__ == '__main__':
             dir_neus = f'{dir_root_neus}/{scene_name}'
             os.makedirs(dir_neus,exist_ok=True)
             neuris_data.prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=10, 
-                                                b_sample = True, 
-                                                b_generate_neus_data = True,
-                                                b_pred_normal = True, 
-                                                b_detect_planes = False) 
+                                                b_sample = False, 
+                                                b_generate_neus_data = False,
+                                                b_pred_normal = False, 
+                                                b_detect_planes = True) 
     
     if dataset_type == 'private':
         # example of processing iPhone video

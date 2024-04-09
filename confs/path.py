@@ -23,14 +23,21 @@ names_scenes_manhattansdf_remove = ['scene0050', 'scene0084',
                                 'scene0580', 'scene0616']
 lis_name_scenes_remove = names_scenes_neuris_remove + names_scenes_manhattansdf_remove
 
-
 # lis_name_scenes = ['scene0378_00', 'scene0435_02', 'scene0050_00', 'scene0084_00']
 # lis_name_scenes = ['scene0030_00', 'scene0474_01', 'scene0616_00', 'scene0648_00']
 # lis_name_scenes = ['scene0015_00', 'scene0025_00', 'scene0169_00', 'scene0414_00']
 
-lis_name_scenes = ['scene0025_00']
+lis_name_scenes = ['scene0378_00', 'scene0435_02', 'scene0050_00', 'scene0084_00']
+lis_name_scenes += ['scene0616_00', 'scene0426_00']
+lis_name_scenes += ['scene0025_00', 'scene0169_00']
+
+# lis_name_scenes = ['scene0580_00', 'scene0426_00']
+# lis_name_scenes = ['scene0084_00', 'scene0616_00']
+# lis_name_scenes = ['scene0015_00', 'scene0030_00', 'scene0414_00', 'scene0474_01']
+
+# lis_name_scenes = ['scene0378_00', 'scene0435_02']
 # lis_name_scenes += ['scene0050_00','scene0616_00'] # 简单
 # lis_name_scenes += ['scene0084_00', 'scene0648_00', 'scene0474_01', 'scene0030_00'] # 难
 
-# lis_name_scenes = ['scene0025_00', 'scene0015_00', 'scene0169_00', 'scene0414_00', \
-#                    'scene0426_00', 'scene0580_00']
+
+    

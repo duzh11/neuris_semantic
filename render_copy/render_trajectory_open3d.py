@@ -8,7 +8,7 @@ ply_file = sys.argv[1]
 # out_path = 'render/rendering/'
 # Path(out_path).mkdir(exist_ok=True, parents=True)
 
-camera_config = "render/video_poses"
+camera_config = "render_copy/video_poses"
 
 ply = o3d.io.read_triangle_mesh(ply_file)
 ply.compute_vertex_normals()
@@ -48,9 +48,8 @@ def move_forward(vis):
 
     return False
 
-
 vis.add_geometry(ply)
-vis.get_render_option().load_from_json('./render/render_semmesh.json')
+vis.get_render_option().load_from_json('./render_copy/render_semmesh.json')
 
 vis.register_animation_callback(move_forward)
 vis.run()

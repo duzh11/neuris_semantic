@@ -10,15 +10,6 @@ from glob import glob
 from sklearn.metrics import confusion_matrix
 import utils.utils_nyu as utils_nyu
 
-label = np.array(["wall", "floor", "cabinet", "bed", "chair",
-        "sofa", "table", "door", "window", "book", 
-        "picture", "counter", "blinds", "desk", "shelves",
-        "curtain", "dresser", "pillow", "mirror", "floor",
-        "clothes", "ceiling", "books", "fridge", "tv",
-        "paper", "towel", "shower curtain", "box", "white board",
-        "person", "night stand", "toilet", "sink", "lamp",
-        "bath tub", "bag", "other struct", "other furntr", "other prop"])
-
 def mapping_nyu3(manhattan=False):
     mapping = {}
     for i in range(41):
@@ -70,6 +61,18 @@ def compute_segmentation_metrics(true_labels, predicted_labels, semantic_class, 
     missing_class_mask = np.isnan(norm_conf_mat.sum(1)) # missing class will have NaN at corresponding class
     exsiting_class_mask = ~ missing_class_mask
 
+    if semantic_class==3:
+        label=np.array(["object", "wall", "floor"])
+    elif semantic_class==40:
+        label = np.array(["wall", "floor", "cabinet", "bed", "chair",
+                "sofa", "table", "door", "window", "book", 
+                "picture", "counter", "blinds", "desk", "shelves",
+                "curtain", "dresser", "pillow", "mirror", "floor",
+                "clothes", "ceiling", "books", "fridge", "tv",
+                "paper", "towel", "shower curtain", "box", "white board",
+                "person", "night stand", "toilet", "sink", "lamp",
+                "bath tub", "bag", "other struct", "other furntr", "other prop"])
+        
     exsiting_label = label[exsiting_class_mask]
     # ACC
     average_accuracy = np.mean(np.diagonal(norm_conf_mat)[exsiting_class_mask]) #平均精度
@@ -116,16 +119,15 @@ def evaluate_semantic_2D(dir_scan,
         
         semantic_GT_copy = semantic_GT.copy()
         semantic_render_copy = semantic_render.copy()
-        # 遵循Manhattan-sdf的语义merge策略
-        if MANHATTAN:
-            if semantic_class==3:
-                label_mapping_nyu=mapping_nyu3(manhattan=MANHATTAN)
-            if semantic_class==40:
-                label_mapping_nyu=mapping_nyu40(manhattan=MANHATTAN)
-            for scan_id, nyu_id in label_mapping_nyu.items():
-                semantic_GT_copy[semantic_GT==scan_id] = nyu_id
-                semantic_render_copy[semantic_render==scan_id] = nyu_id
-        
+        # merge语义
+        if semantic_class==3:
+            label_mapping_nyu=mapping_nyu3(manhattan=MANHATTAN)
+        if semantic_class==40:
+            label_mapping_nyu=mapping_nyu40(manhattan=MANHATTAN)
+        for scan_id, nyu_id in label_mapping_nyu.items():
+            semantic_GT_copy[semantic_GT==scan_id] = nyu_id
+            semantic_render_copy[semantic_render==scan_id] = nyu_id
+            
         semantic_GT_list.append(np.array(semantic_GT_copy))
         semantic_render_list.append(semantic_render_copy)
 
@@ -194,11 +196,11 @@ def read_label(fn, is_gt=False):
     w = w.astype(np.uint8)
     return w
 
-
 def evaluate_semantic_3D(file_mesh_trgt,
                          file_mesh_pred,
                          file_semseg_pred,
-                         semantic_class=40):
+                         semantic_class=40,
+                         MANHATTAN=False):
     mesh_trgt = trimesh.load(file_mesh_trgt, process=False)
     mesh_pred = trimesh.load(file_mesh_pred, process=False)
     semseg_pred = np.load(file_semseg_pred)['arr_0']
@@ -215,12 +217,25 @@ def evaluate_semantic_3D(file_mesh_trgt,
     pred_ids = semseg_pred_trasnfer
     gt_ids = read_label(file_mesh_trgt)
 
+    # merge语义
+    semantic_GT = np.array(gt_ids)
+    semantic_render = np.array(pred_ids)
+    semantic_GT_copy, semantic_render_copy = semantic_GT.copy(), semantic_render.copy()
+
+    if semantic_class==3:
+        label_mapping_nyu=mapping_nyu3(manhattan=MANHATTAN)
+    if semantic_class==40:
+        label_mapping_nyu=mapping_nyu40(manhattan=MANHATTAN)
+    for scan_id, nyu_id in label_mapping_nyu.items():
+        semantic_GT_copy[semantic_GT==scan_id] = nyu_id
+        semantic_render_copy[semantic_render==scan_id] = nyu_id
+
     if semantic_class>3:
-        true_labels=np.array(gt_ids)-1
-        predicted_labels=np.array(pred_ids)-1
+        true_labels=semantic_GT_copy-1
+        predicted_labels=semantic_render_copy-1
     else:
-        true_labels=np.array(gt_ids)
-        predicted_labels=np.array(pred_ids)  
+        true_labels=semantic_GT_copy
+        predicted_labels=semantic_render_copy  
 
     metric_avg, exsiting_label, class_iou, class_accuray = compute_segmentation_metrics(true_labels=true_labels, 
                                                                                         predicted_labels=predicted_labels, 
