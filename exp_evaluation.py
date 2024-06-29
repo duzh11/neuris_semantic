@@ -19,6 +19,7 @@ from confs.path import lis_name_scenes
 MANHATTAN=False
 
 cv2.destroyAllWindows
+str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
 if __name__ == '__main__':
     np.set_printoptions(precision=3)
     np.set_printoptions(suppress=True)
@@ -28,8 +29,8 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
     # eval_3D_mesh_neuris， eval_3D_mesh_TSDF， eval_chamfer， eval_mesh_2D_metrices， eval_semantic2D, 
-    parser.add_argument('--mode', type=str, default='eval_3D_mesh_TSDF')
-    parser.add_argument('--exp_name', type=str, default='deeplab_ce/ce_stop_a')
+    parser.add_argument('--mode', type=str, default='evaluate_nvs')
+    parser.add_argument('--exp_name', type=str, default='deeplab_ce/ce_final')
     parser.add_argument('--dir_dataset', type=str, default='../Data/dataset/indoor')
     parser.add_argument('--dir_results_baseline', type=str, default='../exps/indoor/neus')
     parser.add_argument('--acc', type=str, default='fine')
@@ -59,7 +60,6 @@ if __name__ == '__main__':
     
             metrics_eval_all.append(metrics_eval)
         metrics_eval_all = np.array(metrics_eval_all)
-        str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
         path_log = f'{dir_results_baseline}/{name_baseline}_eval3Dmesh_neuris_thres{eval_threshold}_{str_date}.md'
         
         markdown_header=f'| scene_name   |    Method|    Accu.|    Comp.|    Prec.|   Recall|  F-score|  Chamfer\n'
@@ -86,19 +86,18 @@ if __name__ == '__main__':
             metrics_eval_all.append(metrics_eval)
         metrics_eval_all = np.array(metrics_eval_all)
 
-        str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
         path_log = f'{dir_results_baseline}/{name_baseline}_eval3Dmesh_TSDF_{str_date}.md'
         
         markdown_header=f'| scene_name   |    Method|    Accu.|    Comp.|    Prec.|   Recall|  F-score|  Chamfer\n'
         markdown_header=markdown_header+'| -------------| ---------| ------- | ------- | ------- | ------- | ------- | ------- |\n'
         # markdown_header='Eval mesh\n| scene_name   |    Method| F-score$_{0.03}$| F-score$_{0.05}$| F-score$_{0.07}$| Chamfer|\n'
         # markdown_header=markdown_header+'| -------------| ---------| ------- | ------- | ------- | ------- |\n'
-        # EvalScanNet.save_evaluation_results_to_markdown(path_log, 
-        #                                                 header = markdown_header, 
-        #                                                 name_baseline=name_baseline,
-        #                                                 results = metrics_eval_all, 
-        #                                                 names_item = lis_name_scenes, 
-        #                                                 mode = 'w')    
+        EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+                                                        header = markdown_header, 
+                                                        name_baseline=name_baseline,
+                                                        results = metrics_eval_all, 
+                                                        names_item = lis_name_scenes, 
+                                                        mode = 'w')    
     
     if args.mode == 'eval_chamfer':
         metrics_eval_all = []
@@ -113,7 +112,6 @@ if __name__ == '__main__':
                                                    MANHATTAN=MANHATTAN)
             metrics_eval_all.append(metric_eval)
 
-        str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")  
         path_log = f'{dir_results_baseline}/{name_baseline}_evalchamfer_{str_date}.md'
 
         markdown_header='Eval mesh\n| scene_name   |    Method| CD| Wall| Floor| Other|\n'
@@ -158,7 +156,6 @@ if __name__ == '__main__':
                 elif data_mode == 'test':
                     metric_test_all.append(err_gt_depth_scale)
 
-        str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
         path_log = f'{dir_results_baseline}/{name_baseline}_evaldepth_{args.acc}_{scale_depth}_{eval_type_baseline}_{args.iter}_{str_date}.md'
         
         precision = 3
@@ -186,7 +183,6 @@ if __name__ == '__main__':
         metric_train_all = []
         metric_test_all = []
         semantic_class = args.semantic_class
-        str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
         for scene_name in lis_name_scenes:
             logging.info(f'Processing {scene_name}...')
@@ -254,7 +250,6 @@ if __name__ == '__main__':
         metrics_volume_all = []
         metrics_surface_all = []
         semantic_class = args.semantic_class
-        str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
         for scene_name in lis_name_scenes:
             logging.info(f'Processing {scene_name}...')
@@ -318,112 +313,104 @@ if __name__ == '__main__':
                                                         mode = 'a')
                 
 
-    #######-------to be modified----------
     if args.mode == 'evaluate_normal':
         # compute normal errors
-        exp_name = 'exp_neuris'
-        name_normal_folder = 'normal_render'
-        
-        dir_root_dataset = './dataset/indoor'
-        dir_root_normal_gt = '../TiltedImageSurfaceNormal/datasets/scannet-frames'
+        dir_root_normal_gt = '/home/du/Proj/2Dv_DL/FrameNet/src/data'
 
-        err_neus_all, err_pred_all = [], []
-        num_imgs_eval_all = 0
+        err_neus_train_all, err_pred_train_all, num_imgs_eval_train_all = [], [], 0
+        err_neus_test_all, err_pred_test_all, num_imgs_eval_test_all = [], [], 0
+        metric_neus_scene_all, metric_pred_scene_all = [], []
         
         for scene_name in lis_name_scenes:
-            # scene_name = 'scene0085_00'
-            print(f'Process: {scene_name}')
-           
-            dir_normal_neus = f'./exps/indoor/neus/{scene_name}/{exp_name}/{name_normal_folder}'
-            
-            dir_normal_pred = f'{dir_root_dataset}/{scene_name}/pred_normal' 
-            dir_poses = f'{dir_root_dataset}/{scene_name}/pose' 
-            dir_normal_gt = f'{dir_root_normal_gt}/{scene_name}'
-            error_neus, error_pred, num_imgs_eval = NormalUtils.evauate_normal(dir_normal_neus, dir_normal_pred, dir_normal_gt, dir_poses)
-            err_neus_all.append(error_neus)
-            err_pred_all.append(error_pred)
-            
-            num_imgs_eval_all += num_imgs_eval
+            logging.info(f'Evaluating Normal: {scene_name}')
+            dir_scan = f'{dir_dataset}/{scene_name}'
+            dir_exp = f'{dir_results_baseline}/{scene_name}'
 
-        error_neus_all = np.concatenate(err_neus_all).reshape(-1)
-        err_pred_all = np.concatenate(err_pred_all).reshape(-1)
-        metrics_neus = NormalUtils.compute_normal_errors_metrics(error_neus_all)
-        metrics_pred = NormalUtils.compute_normal_errors_metrics(err_pred_all)
-        NormalUtils.log_normal_errors(metrics_neus, first_line='metrics_neus fianl')
-        NormalUtils.log_normal_errors(metrics_pred, first_line='metrics_pred final')
-        print(f'Total evaluation images: {num_imgs_eval_all}')
+            for data_mode in data_mode_list:
+                dir_normal_exp = f'{dir_exp}/normal/{data_mode}/fine'
+                dir_normal_pred = f'{dir_scan}/normal/{data_mode}/pred_normal' 
+                dir_poses = f'{dir_scan}/pose/{data_mode}' 
+                dir_normal_gt = f'{dir_root_normal_gt}/{scene_name}/scannet-frames/{scene_name}'
+
+                error_neus, error_pred, num_imgs_eval, metrics_neus_lis, metrics_pred_lis \
+                                = NormalUtils.evauate_normal(dir_normal_exp, dir_normal_pred, dir_normal_gt, dir_poses)
+                
+                metric_neus_scene_all.append(metrics_neus_lis)
+                metric_pred_scene_all.append(metrics_pred_lis)
+                if data_mode == 'train':
+                    err_neus_train_all.append(error_neus)
+                    err_pred_train_all.append(error_pred)
+                    num_imgs_eval_train_all += num_imgs_eval
+                elif data_mode == 'test':
+                    err_neus_test_all.append(error_neus)
+                    err_pred_test_all.append(error_pred)
+                    num_imgs_eval_test_all += num_imgs_eval
+        
+        # compute metrics for all scenes
+        error_neus_train_all = np.concatenate(err_neus_train_all).reshape(-1)
+        error_pred_train_all = np.concatenate(err_pred_train_all).reshape(-1)
+        metrics_neus_train, metrics_neu_train_Lis = NormalUtils.compute_normal_errors_metrics(error_neus_train_all)
+        metrics_pred_train, metrics_pred_train_lis = NormalUtils.compute_normal_errors_metrics(error_pred_train_all)
+
+        NormalUtils.log_normal_errors(metrics_neus_train, first_line='metrics_neus fianl')
+        NormalUtils.log_normal_errors(metrics_pred_train, first_line='metrics_pred final')
+        print(f'Total evaluation images: {num_imgs_eval_train_all}')
+        # Save evaluation results to markdown
+        metric_neus_scene_all.append(metrics_neu_train_Lis)
+        metric_pred_scene_all.append(metrics_pred_train_lis)
+
+        names_item = lis_name_scenes+['all']
+        path_log = f'{dir_results_baseline}/{name_baseline}_evalNormal_{args.iter}_{str_date}_markdown.md'
+        markdown_header='----train-----\n\nNeus\n| scene_name   |   Method|  mean|  median|  rmse|  a1|  a2|  a3|  a4|  a5|\n'
+        markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- |\n'
+        EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+                                                        header = markdown_header, 
+                                                        name_baseline=name_baseline,
+                                                        results = metric_neus_scene_all, 
+                                                        names_item = names_item, 
+                                                        save_mean = False, 
+                                                        mode = 'w')
+        
+        markdown_header='\n\nPred\n| scene_name   |   Method|  mean|  median|  rmse|  a1|  a2|  a3|  a4|  a5|\n'
+        markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- | ----- | ----- | ----- | ----- |\n'
+        EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+                                                        header = markdown_header, 
+                                                        name_baseline=name_baseline,
+                                                        results = metric_pred_scene_all, 
+                                                        names_item = names_item, 
+                                                        save_mean = False, 
+                                                        mode = 'a')
 
     if args.mode == 'evaluate_nvs':
-           # compute normal errors
-        name_img_folder = 'image_render'
-        sample_interval = 1
 
-        exp_name_nerf = 'exp_nerf'
-        exp_name_neuris = 'exp_neuris'
-        exp_name_neus  = 'exp_neus'
+        metric_train_all = []
+        metric_test_all = []
 
-        evals_nvs_all ={
-            'nerf': exp_name_nerf,
-            'neus': exp_name_neus,
-            'neuris': exp_name_neuris
-        }
-        psnr_all_methods = {}
-        psnr_imgs = []
-        psnr_imgs_stem = []
-        np.set_printoptions(precision=3)
-        for key in evals_nvs_all:
-            exp_name = evals_nvs_all[key]
-            model_type = 'nerf' if key == 'nerf' else 'neus'
-
-            print(f"Start to eval: {key}. {exp_name}")
-            err_neus_all, err_pred_all = [], []
-            num_imgs_eval_all = 0
+        for scene_name in lis_name_scenes:
+            logging.info(f'Evaluating NVS: {scene_name}')
+            dir_scan = f'{dir_dataset}/{scene_name}'
+            dir_exp = f'{dir_results_baseline}/{scene_name}'
             
-            psnr_scenes_all = []
-            psnr_mean_all = []
-            for scene_name in lis_name_scenes:
-                # scene_name = 'scene0085_00'
-                scene_name = scene_name + '_nvs'
-                print(f'Process: {scene_name}')
-                
-                dir_img_gt = f'./dataset/indoor/{scene_name}/image'
-                dir_img_neus = f'./exps/indoor/{model_type}/{scene_name}/{exp_name}/{name_img_folder}'
-                psnr_scene, vec_stem_eval = ImageUtils.eval_imgs_psnr(dir_img_neus, dir_img_gt, sample_interval)
-                print(f'PSNR: {scene_name} {psnr_scene.mean()}  {psnr_scene.shape}')
-                psnr_scenes_all.append(psnr_scene)
-                psnr_imgs.append(psnr_scene)
-                psnr_imgs_stem.append(vec_stem_eval)
-                psnr_mean_all.append(psnr_scene.mean())
-                # input("anything to continue")
-            
-            psnr_scenes_all = np.concatenate(psnr_scenes_all)
-            psnr_mean_all = np.array(psnr_mean_all)
-            print(f'\n\n Mean of scnes: {psnr_mean_all.mean()}. PSNR of all scenes: {psnr_mean_all} \n mean of images:{psnr_scenes_all.mean()} image numbers: {len(psnr_scenes_all)} ')
+            for data_mode in data_mode_list:
+                dir_img_gt = f'{dir_scan}/image/{data_mode}'
+                dir_img_exp = f'{dir_exp}/img/{data_mode}/fine'
+                psnr_scene, ssim_scene, lpips_scene, vec_stem_eval = ImageUtils.eval_NVS(dir_img_exp, dir_img_gt)
+                logging.info(f'NVS: {scene_name} {psnr_scene.mean()} {ssim_scene.mean()} \
+                             {psnr_scene.shape[0]}')
 
-            psnr_all_methods[key] = (psnr_scenes_all.mean(), psnr_mean_all.mean(),  psnr_mean_all)
+                if data_mode == 'train':
+                    metric_train_all.append([psnr_scene.mean(), ssim_scene.mean(), lpips_scene.mean()])
+                elif data_mode == 'test':
+                    metric_train_all.append([psnr_scene.mean(), ssim_scene.mean(), lpips_scene.mean()])
+
+        path_log = f'{dir_results_baseline}/{name_baseline}_evalNVS_{args.iter}_{str_date}_markdown.md'
+        markdown_header='train\n| scene_ name   |   Method|  PSNR|  SSIM|  LPIPS|\n'
+        markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- |\n'
+        EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+                                                        header = markdown_header, 
+                                                        name_baseline=name_baseline,
+                                                        results = metric_train_all, 
+                                                        names_item = lis_name_scenes,  
+                                                        mode = 'w')
         
-        # psnr_imgs = vec_stem_eval + psnr_imgs
-        path_log_temp = f'./exps/indoor/evaluation/nvs/evaluation_temp_{lis_name_scenes[0]}.txt'
-        flog_temp = open(path_log_temp, 'w')
-        for i in range(len(vec_stem_eval)):
-            try:
-                flog_temp.write(f'{psnr_imgs_stem[0][i][9:13]}  {psnr_imgs_stem[1][i][9:13]}  {psnr_imgs_stem[2][i][9:13]}: {psnr_imgs[0][i]:.1f}:  {psnr_imgs[1][i]:.1f}  {psnr_imgs[2][i]:.1f}\n')
-            except Exception:
-                print(f'Error: skip {vec_stem_eval[i]}')
-                continue
-        flog_temp.close()
-        input('Continue?')
-
-        print(f'Finish NVS evaluation')
-        # print eval information
-        path_log = f'./exps/indoor/evaluation/nvs/evaluation.txt'
-        flog_nvs = open(path_log, 'a')
-        flog_nvs.write(f'sample interval: {sample_interval}. Scenes number: {len(lis_name_scenes)}. Scene names: {lis_name_scenes}\n\n')
-        flog_nvs.write(f'Mean_img  mean_scenes  scenes-> \n')
-        for key in psnr_all_methods:
-            print(f'[{key}] Mean of all images: {psnr_all_methods[key][0]}. Mean of scenes: {psnr_all_methods[key][1]} \n Scenes: {psnr_all_methods[key][2]}\n')
-            flog_nvs.write(f'{key:10s} {psnr_all_methods[key][0]:.03f} {psnr_all_methods[key][1]:.03f}. {psnr_all_methods[key][2]}.\n')
-        flog_nvs.write(f'Images number: {len(psnr_scenes_all)}\n')
-        flog_nvs.close()
-    
-    print('Done')
+        

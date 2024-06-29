@@ -40,6 +40,7 @@ def get_angular_error(normals_source, normals_target, mask = None, clip_angle_er
         mask_keep_gt_normal = angles < clip_angle_error
         # num_clip = mask_keep_gt_normal.sum()
     angular_error = F.l1_loss(angles*mask*mask_keep_gt_normal, torch.zeros_like(angles), reduction='sum') / (mask*mask_keep_gt_normal+1e-6).sum()
+    # angular_error = F.mse_loss(angles*mask*mask_keep_gt_normal, torch.zeros_like(angles), reduction='sum') / (mask*mask_keep_gt_normal+1e-6).sum()
     return angular_error, mask_keep_gt_normal
 
 # evaluation

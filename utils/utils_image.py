@@ -720,12 +720,78 @@ def write_image_lis(path_img_cat, lis_imgs, use_cmap = False, interval_img = 20,
         img_cat = cv2.cvtColor(img_cat.astype(np.uint8), cv2.COLOR_BGR2RGB)
     cv2.imwrite(path_img_cat, img_cat)
 
+def compute_ssim(img0, img1, max_val,
+             filter_size=11,
+             filter_sigma=1.5,
+             k1=0.01,
+             k2=0.03,
+             return_map=False):
+    # Modified from https://github.com/google/mipnerf/blob/16e73dfdb52044dcceb47cda5243a686391a6e0f/internal/math.py#L58
+    assert len(img0.shape) == 3
+    assert img0.shape[-1] == 3
+    assert img0.shape == img1.shape
 
-def calculate_psnr_nerf(path_img_src, path_img_gt, mask = None):
+    # Construct a 1D Gaussian blur filter.
+    hw = filter_size // 2
+    shift = (2 * hw - filter_size + 1) / 2
+    f_i = ((np.arange(filter_size) - hw + shift) / filter_sigma)**2
+    filt = np.exp(-0.5 * f_i)
+    filt /= np.sum(filt)
+
+    # Blur in x and y (faster than the 2D convolution).
+    def convolve2d(z, f):
+        import scipy.signal
+
+        return scipy.signal.convolve2d(z, f, mode='valid')
+
+    filt_fn = lambda z: np.stack([
+        convolve2d(convolve2d(z[...,i], filt[:, None]), filt[None, :])
+        for i in range(z.shape[-1])], -1)
+    mu0 = filt_fn(img0)
+    mu1 = filt_fn(img1)
+    mu00 = mu0 * mu0
+    mu11 = mu1 * mu1
+    mu01 = mu0 * mu1
+    sigma00 = filt_fn(img0**2) - mu00
+    sigma11 = filt_fn(img1**2) - mu11
+    sigma01 = filt_fn(img0 * img1) - mu01
+
+    # Clip the variances and covariances to valid values.
+    # Variance must be non-negative:
+    sigma00 = np.maximum(0., sigma00)
+    sigma11 = np.maximum(0., sigma11)
+    sigma01 = np.sign(sigma01) * np.minimum(
+        np.sqrt(sigma00 * sigma11), np.abs(sigma01))
+    c1 = (k1 * max_val)**2
+    c2 = (k2 * max_val)**2
+    numer = (2 * mu01 + c1) * (2 * sigma01 + c2)
+    denom = (mu00 + mu11 + c1) * (sigma00 + sigma11 + c2)
+    ssim_map = numer / denom
+    ssim = np.mean(ssim_map)
+    return ssim_map if return_map else ssim
+
+__LPIPS__ = {}
+def init_lpips(net_name, device):
+    assert net_name in ['alex', 'vgg']
+    import lpips
+    print(f'init_lpips: lpips_{net_name}')
+    return lpips.LPIPS(net=net_name, version='0.1').eval().to(device)
+
+def compute_lpips(np_gt, np_im, net_name, device):
+    if net_name not in __LPIPS__:
+        __LPIPS__[net_name] = init_lpips(net_name, device)
+    gt = torch.from_numpy(np_gt).permute([2, 0, 1]).contiguous().to(device)
+    im = torch.from_numpy(np_im).permute([2, 0, 1]).contiguous().to(device)
+    return __LPIPS__[net_name](gt, im, normalize=True).item()
+
+def compute_NVS(path_img_src, path_img_gt, mask = None):
+    
     img_src = read_image(path_img_src) / 255.0 #[:480]
     img_gt = read_image(path_img_gt) / 255.0
-    # print(img_gt.shape)
-    
+    if img_src.shape[0] != img_gt.shape[0]:
+        target_size = (img_src.shape[1], img_src.shape[0], 3)
+        img_gt = read_image(path_img_gt, target_size) / 255.0
+
     img_src = torch.from_numpy(img_src)
     img_gt = torch.from_numpy(img_gt)
     
@@ -735,19 +801,28 @@ def calculate_psnr_nerf(path_img_src, path_img_gt, mask = None):
     err = img2mse(img_src, img_gt)
     # print(f'Error shape: {err.shape} {err}')
     psnr = mse2psnr(err)
-    return float(psnr)
+
+    ssim = compute_ssim(img_src, img_gt, 1)
+
+    lpips = compute_lpips(img_gt.float().numpy(), img_src.float().numpy(), 'vgg','cuda')
+
+    return float(psnr), float(ssim), float(lpips)
     
     
-def eval_imgs_psnr(dir_img_src, dir_img_gt, sample_interval):
+def eval_NVS(dir_img_src, dir_img_gt, sample_interval=1):
     vec_stems_imgs = IOUtils.get_files_stem(dir_img_src, '.png')   
     psnr_all = []
+    ssim_all = []
+    lpips_all = []
     for i in tqdm(range(0, len(vec_stems_imgs), sample_interval)):
         stem_img = vec_stems_imgs[i]
         path_img_src = f'{dir_img_src}/{stem_img}.png'  
         path_img_gt   = f'{dir_img_gt}/{stem_img[9:13]}.png' 
         # print(path_img_src, path_img_gt)
-        psnr = calculate_psnr_nerf(path_img_src, path_img_gt)
+        psnr, ssim, lpips = compute_NVS(path_img_src, path_img_gt)
         # print(f'PSNR: {psnr} {stem_img}')
         psnr_all.append(psnr)
-    return np.array(psnr_all), vec_stems_imgs
+        ssim_all.append(ssim)
+        lpips_all.append(lpips)
+    return np.array(psnr_all), np.array(ssim_all), np.array(lpips_all), vec_stems_imgs
         

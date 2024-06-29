@@ -14,7 +14,7 @@ semantic_type_lis = ['deeplab']
 data_mode_lis = ['train']
 
 dir_dataset = '../Data/dataset/indoor'
-semantic_class = 3
+semantic_class = 40
 MANHATTAN=False
 str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
 for semantic_type in semantic_type_lis:
@@ -117,14 +117,14 @@ for semantic_type in semantic_type_lis:
                                                     names_item = lis_name_scenes,  
                                                     mode = 'w')
     
-    markdown_header='\nTest\n| scene_ name   |   Method|  Acc|  M_Acc|  M_IoU| FW_IoU|\n'
-    markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- |\n'
-    EvalScanNet.save_evaluation_results_to_markdown(path_log, 
-                                                    header = markdown_header, 
-                                                    name_baseline=semantic_type,
-                                                    results = metric_test_all, 
-                                                    names_item = lis_name_scenes,  
-                                                    mode = 'a')
+    # markdown_header='\nTest\n| scene_ name   |   Method|  Acc|  M_Acc|  M_IoU| FW_IoU|\n'
+    # markdown_header=markdown_header+'| -------------| ---------| ----- | ----- | ----- | ----- |\n'
+    # EvalScanNet.save_evaluation_results_to_markdown(path_log, 
+    #                                                 header = markdown_header, 
+    #                                                 name_baseline=semantic_type,
+    #                                                 results = metric_test_all, 
+    #                                                 names_item = lis_name_scenes,  
+    #                                                 mode = 'a')
     
 
             

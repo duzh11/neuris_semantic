@@ -42,7 +42,7 @@ if __name__ == '__main__':
                                                 b_generate_neus_data = False,
                                                 b_pred_normal = False, 
                                                 b_detect_planes = True) 
-    
+            
     if dataset_type == 'private':
         # example of processing iPhone video
         # put a video under folder tmp_sfm_mvs or put your images under tmp_sfm_mvs/images
