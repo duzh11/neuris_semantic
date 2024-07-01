@@ -13,24 +13,17 @@ device = "cuda"
 
 sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
 sam.to(device=device)
-mask_generator = SamAutomaticMaskGenerator(
-                model=sam,
-                points_per_side=64,
-                pred_iou_thresh=0.86,
-                stability_score_thresh=0.92,
-                crop_n_layers=1,
-                crop_n_points_downscale_factor=2,
-                min_mask_region_area=100)
+mask_generator = SamAutomaticMaskGenerator(model=sam)
 
 img_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
-scene_lis = ['scene0378_00', 'scene0616_00']
-img_seg = 'normal_SAM_paraSSA'
+scene_lis = ['8b5caf3398', 'b20a261fdf']
+img_seg = 'SAM'
 method = img_seg
 
 for scene_name in tqdm(scene_lis, desc='processing scene...'):
     for data_mode in ['train', 'test']:
         # img
-        img_file = sorted(glob(os.path.join(img_dir, scene_name, 'normal', data_mode, 'pred_normal/*.png')))
+        img_file = sorted(glob(os.path.join(img_dir, scene_name, 'image', data_mode, '*.png')))
 
         seg_dir = os.path.join(img_dir, scene_name, 'grids', data_mode, method)
         vis_dir = os.path.join(img_dir, scene_name, 'grids', data_mode, method+'_vis')

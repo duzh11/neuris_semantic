@@ -1,5 +1,4 @@
 sleep 0
 echo "Train Start!!!"
 
-python ./exp_runner.py --mode train --conf ./confs/train/SPP_igrlabel.conf --server lab --gpu 0 --scene_name scene0616_00
-python ./exp_runner.py --mode train --conf ./confs/train/ce_igrlabel.conf --server lab --gpu 0 --scene_name scene0616_00
+python ./exp_runner.py --mode train --conf ./confs/train/train_1.conf --server server2 --gpu 3 --scene_name 8b5caf3398

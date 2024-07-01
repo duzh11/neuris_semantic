@@ -4,9 +4,12 @@ import logging, copy, pickle
 
 import numpy as np
 import cv2
+import json
+import open3d as o3d
 from tqdm import tqdm
 
 from preprocess.scannet_data import ScannetData
+from preprocess.scannetpp_data import ScannetppData
 from utils.utils_geometry import read_cam_matrix, resize_cam_intrin
 from utils.utils_image import cluster_normals_kmeans, find_labels_max_clusters, remove_small_isolated_areas
 from utils.utils_io import add_file_name_suffix, checkExistence
@@ -271,7 +274,68 @@ def prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=6,
                                        mode=mode)
             # 最后将二者分割结果合并，在normal预测平面中抽取spp分割结果作为subplane
             compose_normal_img_planes(dir_neus, mode=mode)
-        
+
+# scannetpp     
+def prepare_neuris_data_from_scannetpp(dir_scan, dir_neus, scene_name, 
+                                     camera_device='dslr',
+                                     b_sample = False,
+                                     b_generate_neus_data = False, compute_normal=False,
+                                     b_pred_normal = False, normal_method='snu'):
+    '''Sample iamges (1752,1168)
+    '''
+    dataset = ScannetppData(dir_scan, dir_neus, scene_name, 
+                            camera_device=camera_device)
+    dir_scan_data = dataset.dir_scan_data
+    dir_scan_pth = dataset.dir_scan_pth
+    
+    # undistorted intrinsics
+    undistorted_transforms = json.load(open(f'{dir_scan_data}/nerfstudio/transforms_undistorted.json'))
+    H, W = int(undistorted_transforms["h"]), int(undistorted_transforms["w"])
+    fx, fy = float(undistorted_transforms["fl_x"]), float(undistorted_transforms["fl_y"])
+    cx, cy = float(undistorted_transforms["cx"]), float(undistorted_transforms["cy"])
+    intrin = np.array(
+            [
+                [fx, 0, cx, 0],
+                [0, fy, cy, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1]
+            ]
+        )
+    
+    # crop and resize intrinsics
+    origin_size = (1752, 1168)
+    cropped_size = (1536, 1152)
+    resize_size = (640, 480)
+    reso_level = 2.4
+    path_intrin_color_crop_resize = f'{dir_neus}/intrinsic_color_crop1536_resize640.txt'
+    
+    if not IOUtils.checkExistence(path_intrin_color_crop_resize):
+        crop_width_half = (origin_size[0]-cropped_size[0]) // 2
+        crop_height_half =(origin_size[1]-cropped_size[1]) // 2
+
+        intrin[0,2] -= crop_width_half
+        intrin[1,2] -= crop_height_half                                                                                     
+        intrin_resize = resize_cam_intrin(intrin, reso_level)
+        np.savetxt(path_intrin_color_crop_resize, intrin_resize, fmt = '%f')
+        np.savetxt(f'{dir_neus}/intrinsic_depth.txt', intrin_resize, fmt = '%f')
+    else:
+        intrin_resize = np.loadtxt(path_intrin_color_crop_resize)
+
+    if b_sample:
+        train_test_split = json.load(open(f'{dir_scan_data}/train_test_lists.json'))
+        ScannetppData.select_data(dir_neus, dir_scan_data, dir_scan_pth, train_test_split,
+                    cropped_size = (1536, 1152),
+                    resize_size = (640, 480) )
+    
+    if b_generate_neus_data:
+        dataset.generate_neus_data(intrin_resize, compute_normal=compute_normal)
+
+    if b_pred_normal:
+        for mode in ['train', 'test']:
+            predict_normal(dir_neus, mode, normal_method)
+    
+    return None
+
 # privivate data
 def prepare_neuris_data_from_private_data(dir_neus, size_img = (6016, 4016),
                                             b_generate_neus_data = True,
@@ -291,7 +355,6 @@ def prepare_neuris_data_from_private_data(dir_neus, size_img = (6016, 4016),
     
     if b_pred_normal:
         predict_normal(dir_neus, normal_method)
-
         
     # detect planes
     if b_detect_planes == True:

@@ -1509,7 +1509,8 @@ class Runner:
             path_semantic_attributes_volume = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}_semantic_volume.npz')
 
         path_mesh = os.path.join(self.base_exp_dir, 'meshes', f'{self.iter_step:0>8d}_reso{resolution}_{self.scan_name}.ply')
-        path_mesh_gt = IOUtils.find_target_file(self.dataset.data_dir, self.conf['general.scan_name']+'_vh_clean_2_trans.ply')
+        # path_mesh_gt = IOUtils.find_target_file(self.dataset.data_dir, self.conf['general.scan_name']+'_vh_clean_2_trans.ply') # scannet
+        path_mesh_gt = IOUtils.find_target_file(self.dataset.data_dir, 'mesh_trans.ply') # scannetpp
 
         if world_space:
             path_trans_n2w = f"{self.conf['dataset']['data_dir']}/trans_n2w.txt"
@@ -1519,7 +1520,8 @@ class Runner:
             vertices = vertices * scale_mat[0, 0] + scale_mat[:3, 3][None]
             
             path_mesh = os.path.join(self.base_exp_dir, 'meshes', f'{self.scan_name}.ply')
-            path_mesh_gt = IOUtils.find_target_file(self.dataset.data_dir, self.conf['general.scan_name']+'_vh_clean_2.ply')
+            # path_mesh_gt = IOUtils.find_target_file(self.dataset.data_dir, self.conf['general.scan_name']+'_vh_clean_2.ply') # scannet
+            path_mesh_gt = IOUtils.find_target_file(self.dataset.data_dir, 'mesh.ply') # scannetpp
         logging.info(f'[path_of_mesh]: {path_mesh_gt}')
         
         mesh = trimesh.Trimesh(vertices=vertices, faces=faces)

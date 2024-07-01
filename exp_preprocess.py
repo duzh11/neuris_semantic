@@ -42,7 +42,21 @@ if __name__ == '__main__':
                                                 b_generate_neus_data = False,
                                                 b_pred_normal = False, 
                                                 b_detect_planes = True) 
-            
+    if dataset_type == 'scannepp':
+        dir_root_scannetpp = '/home/du/Proj/Dataset/ScanNetpp/scans'
+        dir_root_neus = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
+
+        for scene_name in lis_name_scenes:
+            logging.info(f'***process scene: {scene_name}**\n\n')
+            dir_scan = dir_root_scannetpp
+            dir_neus = f'{dir_root_neus}/{scene_name}'
+            os.makedirs(dir_neus,exist_ok=True)
+            neuris_data.prepare_neuris_data_from_scannetpp(dir_scan, dir_neus, scene_name,
+                                                            camera_device='dslr',
+                                                            b_sample = True,
+                                                            b_generate_neus_data = True, compute_normal = True, 
+                                                            b_pred_normal = True) 
+
     if dataset_type == 'private':
         # example of processing iPhone video
         # put a video under folder tmp_sfm_mvs or put your images under tmp_sfm_mvs/images
