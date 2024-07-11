@@ -24,12 +24,14 @@ names_scenes_manhattansdf_remove = ['scene0050', 'scene0084',
 lis_name_scenes_remove = names_scenes_neuris_remove + names_scenes_manhattansdf_remove
 
 # scannet
+lis_name_scenes = ['scene0050_00']
 # lis_name_scenes = ['scene0378_00', 'scene0435_02']
 # lis_name_scenes = ['scene0378_00', 'scene0435_02', 'scene0050_00', 'scene0084_00']
 # lis_name_scenes += ['scene0616_00', 'scene0426_00']
 # lis_name_scenes += ['scene0025_00', 'scene0169_00']
 
 # scannetpp
-lis_name_scenes = ['8b5caf3398', 'b20a261fdf']
+# '8b5caf3398', 'b20a261fdf', '0d2ee665be', '3f15a9266d
+# lis_name_scenes = ['0d2ee665be', 'b20a261fdf']
 
     

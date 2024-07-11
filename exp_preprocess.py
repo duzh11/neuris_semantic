@@ -40,9 +40,9 @@ if __name__ == '__main__':
             neuris_data.prepare_neuris_data_from_scannet(dir_scan, dir_neus, sample_interval=10, 
                                                 b_sample = False, 
                                                 b_generate_neus_data = False,
-                                                b_pred_normal = False, 
+                                                b_pred_normal = True, 
                                                 b_detect_planes = True) 
-    if dataset_type == 'scannepp':
+    if dataset_type == 'scannetpp':
         dir_root_scannetpp = '/home/du/Proj/Dataset/ScanNetpp/scans'
         dir_root_neus = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
 

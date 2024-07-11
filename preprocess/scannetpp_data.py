@@ -21,7 +21,7 @@ class ScannetppData:
     
         self.dir_scan_data = f'{dir_scan}/data/{scene_name}/{camera_device}'
         self.mesh_path = f'{dir_scan}/data/{scene_name}/scans'
-        self.dir_scan_pth = f'{dir_scan}/semantics_NYU40/pth/{scene_name}.pth'
+        self.dir_scan_pth = f'{dir_scan}/semantics-nyu40/pth/{scene_name}.pth'
         self.dir_neus = dir_neus
 
         # distorted intrinsics, colmap pose, point cloud
@@ -43,7 +43,7 @@ class ScannetppData:
         # Save camera pose
         poses_w2c_dict = {image.name: image.world_to_camera for image_id, image in images.items()}
 
-        train_test_split = json.load(open(f'{self.dir_scan_data}/train_test_lists.json'))
+        train_test_split = json.load(open(f'{dir_neus}/train_test_lists.json'))
         train_split, test_split = sorted(train_test_split['train']), sorted(train_test_split['test'])
         self.poses_w2c_train = np.array([poses_w2c_dict[img_name] for img_name in train_split])
         self.poses_w2c_test =  np.array([poses_w2c_dict[img_name] for img_name in test_split])
@@ -115,7 +115,7 @@ class ScannetppData:
             cv2.imwrite(path_target+f"{(img_idx):04d}.png", depth_vis_jet)
 
             # Semantic
-            path_src = f'{dir_scan_data}/undistorted_semantics/' + img_name.split('.')[0] + '.png'
+            path_src = f'{dir_scan_data}/undistorted_semantics-nyu40/' + img_name.split('.')[0] + '.png'
             semantic = cv2.imread(path_src, cv2.IMREAD_UNCHANGED)
             semantic_crop = semantic[crop_height_half: H-crop_height_half, crop_width_half: W-crop_width_half]
             semantic_resize = cv2.resize(semantic_crop, resize_size, interpolation=cv2.INTER_NEAREST)

@@ -19,14 +19,6 @@ echo "Evaluation Start!!!"
 # echo "Rendering vedio"
 # python ./render/render.py xx/xxxx
 
-python exp_evaluation.py --mode eval_3D_mesh_TSDF --exp_name Mose_review/semantic-neus
-python exp_evaluation.py --mode eval_semantic_2D --exp_name Mose_review/semantic-neus
-python exp_evaluation.py --mode eval_semantic_3D --exp_name Mose_review/semantic-neus
-python exp_evaluation.py --mode evaluate_normal --exp_name Mose_review/semantic-neus
-python exp_evaluation.py --mode evaluate_nvs --exp_name Mose_review/semantic-neus
-
-python exp_evaluation.py --mode eval_3D_mesh_TSDF --exp_name Mose_review/semantic-neus-s
-python exp_evaluation.py --mode eval_semantic_2D --exp_name Mose_review/semantic-neus-s
-python exp_evaluation.py --mode eval_semantic_3D --exp_name Mose_review/semantic-neus-s
-python exp_evaluation.py --mode evaluate_normal --exp_name Mose_review/semantic-neus-s
-python exp_evaluation.py --mode evaluate_nvs --exp_name Mose_review/semantic-neus-s
+# deeplab_igrsem/SAMsvcon_igrlabel_weightdecayg_final
+# deeplab_ce/ce_stop_final
+python exp_evaluation.py --mode eval_3D_mesh_TSDF --exp_name deeplab_ce/ce_stop_final

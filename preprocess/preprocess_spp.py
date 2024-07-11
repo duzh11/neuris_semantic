@@ -20,7 +20,7 @@ def random_rgb():
     return rgb
 
 # from confs.path import lis_name_scenes
-lis_name_scenes = ['scene0426_00', 'scene0025_00', 'scene0169_00']
+lis_name_scenes = ['scene0015_00']
 method_name = 'felzenszwalb_100_1_50_a'
 delete_small_area = True
 for scene in lis_name_scenes:

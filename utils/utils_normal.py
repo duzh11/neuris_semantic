@@ -87,19 +87,26 @@ def evauate_normal(dir_normal_exp, dir_normal_pred, dir_normal_gt, dir_poses, in
         stem = Path(vec_path_normal_exp[i]).stem[9:13] # 0000
         idx_img = int(stem)
         
-        # 2. load GT normal       
+        # 2. load GT normal     
+        # todo: scannetpp  
         path_normal_gt = f'{dir_normal_gt}/frame-{idx_img:06d}-normal.png'
         path_normal_mask_gt = f'{dir_normal_gt}/frame-{idx_img:06d}-orient.png'
+        # path_normal_gt = f'{dir_normal_gt}/{stem}.npz'
+        # path_normal_mask_gt = f'{dir_normal_gt}/{stem}_mask.npz'
         if not IOUtils.checkExistence(path_normal_gt): # or stem in ['0300', '0330']
-            continue
-        
+                continue
+
         # print(path_normal_exp)
+        # todo: scannetpp  
         normal_gt_cam = Image.open(path_normal_gt).convert("RGB").resize(size=(input_width, input_height), 
                                                                 resample=Image.NEAREST)
         normal_gt_cam = ((np.array(normal_gt_cam).astype(np.float32) / 255.0) * 2.0) - 1.0
         # visualize normals in camera coordinate ('in' direction)
         path_normal_gt_cam = IOUtils.add_file_name_suffix(path_normal_gt, '_in_camera')
         visualiza_normal(path_normal_gt_cam, -normal_gt_cam) 
+        # normal_gt_cam = -np.load(path_normal_gt)['normal']
+        # if normal_gt_cam.shape[0] != input_height:
+        #     normal_gt_cam = cv2.resize(normal_gt_cam, target_img_size, interpolation=cv2.INTER_NEAREST)
 
         # 1. load neus and predicted normal
         path_normal_exp = vec_path_normal_exp[i] # f'{dir_normal_exp}/00160000_{i:04d}_reso1.npz'
@@ -135,6 +142,7 @@ def evauate_normal(dir_normal_exp, dir_normal_pred, dir_normal_gt, dir_poses, in
         ImageUtils.write_image_lis(f'{dir_normal_exp_eval}/{stem}.png', [cv2.resize(img_rgb , target_img_size, interpolation=cv2.INTER_NEAREST), \
                                                                          img_visual_pred, img_visual_exp, img_visual_gt], color_space='RGB')
         
+        # todo: scannetpp  
         mask_gt = Image.open(path_normal_mask_gt).convert("RGB").resize(size=(input_width, input_height),  resample=Image.NEAREST)           
         mask_gt = np.array(mask_gt) 
         mask_gt = np.logical_not(
@@ -143,6 +151,11 @@ def evauate_normal(dir_normal_exp, dir_normal_pred, dir_normal_gt, dir_poses, in
                         mask_gt[:, :, 0] == 127, mask_gt[:, :, 1] == 127),
                     mask_gt[:, :, 2] == 127))
         norm_valid_mask = mask_gt[:, :, np.newaxis]
+        # mask_gt = np.load(path_normal_mask_gt)['mask']
+        # if mask_gt.shape[0] != input_height:
+        #     mask_gt = cv2.resize(mask_gt.astype(int), target_img_size, interpolation=cv2.INTER_NEAREST)
+        # norm_valid_mask = mask_gt.astype(bool)[:, :, np.newaxis]
+
         ratio = norm_valid_mask.sum() /norm_valid_mask.size
         # cv2.imwrite('./test.png',norm_valid_mask.astype(np.float)*255 )
         ratio_all.append(ratio)

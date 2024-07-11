@@ -283,11 +283,23 @@ def prepare_neuris_data_from_scannetpp(dir_scan, dir_neus, scene_name,
                                      b_pred_normal = False, normal_method='snu'):
     '''Sample iamges (1752,1168)
     '''
+    dir_scan_data = f'{dir_scan}/data/{scene_name}/{camera_device}'
+    
+    train_test_split = json.load(open(f'{dir_scan_data}/train_test_lists.json'))
+    if scene_name == '3f15a9266d':
+        train_test_split['train'] = sorted(train_test_split['train'])[0 : -1 : 2]
+        train_test_split['test'] = sorted(train_test_split['test'])[0 : -1 : 2]
+        with open(f'{dir_neus}/train_test_lists.json', 'w') as f:
+            json.dump(train_test_split, f)
+    else:
+        train_split = train_test_split['train']
+        import shutil
+        shutil.copyfile(f'{dir_scan_data}/train_test_lists.json', f'{dir_neus}/train_test_lists.json')
+
     dataset = ScannetppData(dir_scan, dir_neus, scene_name, 
                             camera_device=camera_device)
-    dir_scan_data = dataset.dir_scan_data
     dir_scan_pth = dataset.dir_scan_pth
-    
+     
     # undistorted intrinsics
     undistorted_transforms = json.load(open(f'{dir_scan_data}/nerfstudio/transforms_undistorted.json'))
     H, W = int(undistorted_transforms["h"]), int(undistorted_transforms["w"])
@@ -322,7 +334,6 @@ def prepare_neuris_data_from_scannetpp(dir_scan, dir_neus, scene_name,
         intrin_resize = np.loadtxt(path_intrin_color_crop_resize)
 
     if b_sample:
-        train_test_split = json.load(open(f'{dir_scan_data}/train_test_lists.json'))
         ScannetppData.select_data(dir_neus, dir_scan_data, dir_scan_pth, train_test_split,
                     cropped_size = (1536, 1152),
                     resize_size = (640, 480) )

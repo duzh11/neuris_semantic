@@ -16,7 +16,7 @@ sam.to(device=device)
 mask_generator = SamAutomaticMaskGenerator(model=sam)
 
 img_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
-scene_lis = ['8b5caf3398', 'b20a261fdf']
+scene_lis = ['scene0378_00']
 img_seg = 'SAM'
 method = img_seg
 

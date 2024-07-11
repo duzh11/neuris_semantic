@@ -253,7 +253,9 @@ if __name__ == '__main__':
 
         for scene_name in lis_name_scenes:
             logging.info(f'Processing {scene_name}...')
+            # todo: scannetpp
             file_mesh_trgt = os.path.join(dir_dataset, f'{scene_name}/{scene_name}_vh_clean_2.labels.ply')
+            # file_mesh_trgt = os.path.join(dir_dataset, f'{scene_name}/mesh_sem.ply')
             file_pred = os.path.join(dir_results_baseline, f'{scene_name}/meshes')
             
             for semantic_mode in ['volume','surface']:
@@ -330,7 +332,9 @@ if __name__ == '__main__':
                 dir_normal_exp = f'{dir_exp}/normal/{data_mode}/fine'
                 dir_normal_pred = f'{dir_scan}/normal/{data_mode}/pred_normal' 
                 dir_poses = f'{dir_scan}/pose/{data_mode}' 
+                # todo: scannetpp
                 dir_normal_gt = f'{dir_root_normal_gt}/{scene_name}/scannet-frames/{scene_name}'
+                # dir_normal_gt = f'{dir_scan}/normal/{data_mode}/normal_from_depth_cam' 
 
                 error_neus, error_pred, num_imgs_eval, metrics_neus_lis, metrics_pred_lis \
                                 = NormalUtils.evauate_normal(dir_normal_exp, dir_normal_pred, dir_normal_gt, dir_poses)

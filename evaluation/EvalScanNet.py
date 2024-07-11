@@ -328,7 +328,10 @@ def evaluate_3D_mesh_TSDF(path_mesh_pred,
     target_img_size = (640, 480)
 
     # 1.construct TSDF of GT mesh
+    # todo: scannetpp
     path_mesh_gt = f'{dir_dataset}/{scene_name}/{scene_name}_vh_clean_2.ply'
+    # path_mesh_gt = f'{dir_dataset}/{scene_name}/mesh.ply'
+    
     path_mesh_gt_TSDF = IOUtils.add_file_name_suffix(path_mesh_gt, '_TSDF')
     logging.info(f'Constructing TSDF of GT mesh: {path_mesh_gt}')
     TSDFUtils.construct_TSDF(path_mesh_gt,
@@ -339,7 +342,6 @@ def evaluate_3D_mesh_TSDF(path_mesh_pred,
                         check_existence=check_existence)
     
     # 2.construct TSDF of predicted mesh
-    path_mesh_pred = path_mesh_pred
     path_mesh_pred_TSDF = IOUtils.add_file_name_suffix(path_mesh_pred, '_TSDF')
     logging.info(f'Constructing TSDF of predicted mesh: {path_mesh_pred}')
     TSDFUtils.construct_TSDF(path_mesh_pred,
@@ -349,7 +351,7 @@ def evaluate_3D_mesh_TSDF(path_mesh_pred,
                     target_img_size=target_img_size,
                     check_existence=check_existence)
     
-    error_mesh(path_mesh_gt_TSDF, path_mesh_pred_TSDF)
+    error_mesh(path_mesh_gt, path_mesh_pred, error_bound=0.009)
     metrices_eval=[]
     # for thredhold_i in eval_threshold:
     #     metrices = evaluate_geometry_neucon(path_mesh_pred_TSDF, 
@@ -427,7 +429,9 @@ def eval_chamfer(path_mesh_pred,
     target_img_size = (640, 480)
 
     # read points
+    # todo: scannetpp
     path_mesh_gt = f'{dir_dataset}/{scene_name}/{scene_name}_vh_clean_2.labels.ply'
+    # path_mesh_gt = f'{dir_dataset}/{scene_name}/mesh.ply'
     
     path_mesh_pred_TSDF = IOUtils.add_file_name_suffix(path_mesh_pred, '_TSDF')
     logging.info(f'Constructing TSDF of predicted mesh: {path_mesh_pred}')
