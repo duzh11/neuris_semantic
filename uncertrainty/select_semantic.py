@@ -10,7 +10,7 @@ colour_map_np = NyuUtils.nyu40_colour_code
 # from confs.path import lis_name_scenes
 lis_name_scenes=['scene0378_00','scene0435_02'] 
 
-Data_dir = '../Data/dataset/indoor'
+Data_dir = './Data/dataset/indoor'
 for scene_name in lis_name_scenes:
     for data_mode in ['train', 'test']:
         img_dir = os.path.join(Data_dir, scene_name, f'image/{data_mode}')

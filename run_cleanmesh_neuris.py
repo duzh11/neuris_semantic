@@ -14,7 +14,7 @@ method_name_lis += ['Mask2Formera_ce/ce',  'Mask2Formera_ce/ce_stop', \
                    'Mask2Formera_svSAM/num_celossewight_0.3', 'Mask2Formera_svSPP/num_celossewight_0.3', \
                    'Mask2Formera_igrsem/SPPsvconweight0.3_igrlabel', 'Mask2Formera_igrsem/SAMsvconweight0.3_igrlabel']
 
-exp_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/exps/indoor/neus'
+exp_dir = '/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/exps/indoor/neus'
 
 for method_name in method_name_lis:
     for scene in lis_name_scenes:

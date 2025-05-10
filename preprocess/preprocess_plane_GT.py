@@ -28,7 +28,7 @@ FLOOR_ID = 2
 for scene in lis_name_scenes:
     print(f'---process scene: {scene}---')
     for mode in ['train', 'test']:
-        data_dir=f'../Data/dataset/indoor/{scene}'
+        data_dir=f'./Data/dataset/indoor/{scene}'
         img_file_lis = sorted(glob(os.path.join(data_dir, f'image/{mode}/*.png')))
         instance_file_lis = sorted(glob(os.path.join(data_dir, f'grids/{mode}/instance/*.png')))
         semantic_file_lis = sorted(glob(os.path.join(data_dir, f'semantic/{mode}/semantic_GT/*.png')))

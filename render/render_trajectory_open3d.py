@@ -4,7 +4,7 @@ import open3d as o3d
 
 ply_file = sys.argv[1]
 # scan = 'scene0050_00'
-# ply_file = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/exps/indoor/neus/{scan}/neuris_test4/meshes/{scan}.ply'
+# ply_file = f'/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/exps/indoor/neus/{scan}/neuris_test4/meshes/{scan}.ply'
 # out_path = 'render/rendering/'
 # Path(out_path).mkdir(exist_ok=True, parents=True)
 

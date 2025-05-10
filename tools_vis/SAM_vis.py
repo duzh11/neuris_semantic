@@ -15,7 +15,7 @@ import utils.utils_io as IOUtils
 
 scene_name = 'scene0050_00'
 pic = '2630.png' 
-img_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
+img_dir = '/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/Data/dataset/indoor'
 img_file = os.path.join(img_dir, scene_name, 'image', 'train', pic)
 
 img = cv2.imread(img_file)

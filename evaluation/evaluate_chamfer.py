@@ -123,7 +123,7 @@ if __name__=='__main__':
     for exp_name in lis_exp_name:
         logging.info(f'compute chamfer of method: {exp_name}')
         name_baseline=f'{exp_name}_refuse'
-        dir_results_baseline='../exps/evaluation'
+        dir_results_baseline='./exps/evaluation'
         evaluate_chamfer(exp_name,lis_name_scenes,
                          name_baseline,
                          dir_results_baseline)

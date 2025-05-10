@@ -67,7 +67,7 @@ def fuse_semantic(mask,
     return semantic_fuse
 
 img_h,img_w=480,640
-data_root='../Data/dataset/indoor'
+data_root='./Data/dataset/indoor'
 colour_map_np = utils_nyu.nyu40_colour_code
 for scene_name in scene_list:
     logging.info(f'scene: {scene_name}')

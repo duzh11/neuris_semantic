@@ -26,7 +26,7 @@ delete_small_area = True
 for scene in lis_name_scenes:
     print(f'---process scene: {scene}---')
     for mode in ['train', 'test']:
-        data_dir=f'../Data/dataset/indoor/{scene}'
+        data_dir=f'./Data/dataset/indoor/{scene}'
         img_lis = sorted(glob(os.path.join(data_dir, f'image/{mode}/*.png')))
         seg_dir=os.path.join(data_dir, f'grids/{mode}', method_name)
         vis_dir=os.path.join(data_dir, f'grids/{mode}', f'{method_name}_vis')

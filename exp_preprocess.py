@@ -30,7 +30,7 @@ if __name__ == '__main__':
     
     if dataset_type == 'scannet':
         dir_root_scannet = '/home/du/Proj/Dataset/ScanNet/scans'
-        dir_root_neus = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
+        dir_root_neus = '/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/Data/dataset/indoor'
 
         for scene_name in lis_name_scenes:
             logging.info(f'***process scene: {scene_name}**\n\n')
@@ -44,7 +44,7 @@ if __name__ == '__main__':
                                                 b_detect_planes = True) 
     if dataset_type == 'scannetpp':
         dir_root_scannetpp = '/home/du/Proj/Dataset/ScanNetpp/scans'
-        dir_root_neus = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
+        dir_root_neus = '/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/Data/dataset/indoor'
 
         for scene_name in lis_name_scenes:
             logging.info(f'***process scene: {scene_name}**\n\n')

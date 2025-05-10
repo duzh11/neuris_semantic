@@ -13,7 +13,7 @@ from confs.path import lis_name_scenes
 semantic_type_lis = ['deeplab']
 data_mode_lis = ['train']
 
-dir_dataset = '../Data/dataset/indoor'
+dir_dataset = './Data/dataset/indoor'
 semantic_class = 40
 MANHATTAN=False
 str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")

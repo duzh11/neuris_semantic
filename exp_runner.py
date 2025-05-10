@@ -113,7 +113,7 @@ class Runner:
         self.nvs = self.conf.get_bool('train.nvs', default=False)
         self.save_normamap_npz = self.conf['train.save_normamap_npz']
         
-        # base_exp_dir='../exps/indoor/neus/scene0625_00/exp_scene0625_00
+        # base_exp_dir='./exps/indoor/neus/scene0625_00/exp_scene0625_00
         if self.server=='server1':
             self.conf['general']['server']=self.server
             self.conf['general']['exp_dir']='/raid/duzhenhua/3Dv_Reconstruction/NeuRIS/exps'
@@ -128,8 +128,8 @@ class Runner:
             self.conf['general']['data_dir']='/root/autodl-tmp/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset'   
         else:
             self.conf['general']['server']=self.server
-            self.conf['general']['exp_dir']='../exps'
-            self.conf['general']['data_dir']='../Data/dataset'   
+            self.conf['general']['exp_dir']='./exps'
+            self.conf['general']['data_dir']='./Data/dataset'   
         logging.info(f'Run on {self.server}')
 
         self.base_exp_dir = os.path.join(self.conf['general.exp_dir'], self.dataset_type, self.model_type, str(self.exp_name), self.scan_name)

@@ -12,7 +12,7 @@ target_idx= int(sys.argv[4])
 end_idx= int(sys.argv[5])
 
 H , W = 240, 320
-exps_dir = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/exps/indoor/neus/{method_name}/{scan}'
+exps_dir = f'/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/exps/indoor/neus/{method_name}/{scan}'
 
 out_path = f'{exps_dir}/rendering/vedio'
 Path(out_path).mkdir(exist_ok=True, parents=True)

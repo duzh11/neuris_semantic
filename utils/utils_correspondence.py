@@ -6,7 +6,7 @@ import os
 
 
 def find_correspondence(scene_name, source_id, target_id, x, y):
-    data_dir = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor/{scene_name}'
+    data_dir = f'/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/Data/dataset/indoor/{scene_name}'
 
     image_source = cv2.imread(os.path.join(data_dir, 'image/train', f'{source_id}.png'))
     depth_source = cv2.imread(os.path.join(data_dir, 'depth/train', f'{source_id}.png'), cv2.IMREAD_UNCHANGED)/1000

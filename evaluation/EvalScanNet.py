@@ -247,7 +247,7 @@ def error_mesh(file_trgt,
 
 def evaluate_3D_mesh_neuris(path_mesh_pred, 
                      scene_name, 
-                     dir_dataset = '../Data/dataset/indoor',
+                     dir_dataset = './Data/dataset/indoor',
                      eval_threshold = 0.05, 
                      reso_level = 2.0, 
                      check_existence = True):
@@ -317,7 +317,7 @@ def evaluate_3D_mesh_neuris(path_mesh_pred,
 
 def evaluate_3D_mesh_TSDF(path_mesh_pred, 
                             scene_name, 
-                            dir_dataset = '../Data/dataset/indoor',
+                            dir_dataset = './Data/dataset/indoor',
                             eval_threshold = [0.05], 
                             check_existence = True):
     '''
@@ -422,7 +422,7 @@ def compute_chamfer(pcd_pred, pcd_gt, colour_map_np, draw_label=False, Manhattan
 
 def eval_chamfer(path_mesh_pred, 
                      scene_name, 
-                     dir_dataset = '../Data/dataset/indoor',
+                     dir_dataset = './Data/dataset/indoor',
                      down_sample=0.02,
                      MANHATTAN=False):
     dir_scan = f'{dir_dataset}/{scene_name}'

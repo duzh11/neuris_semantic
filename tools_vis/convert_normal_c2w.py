@@ -10,7 +10,7 @@ from utils.utils_geometry import get_world_normal
 import models.dataset as dataset
 import utils.utils_image as ImageUtils
 
-data_root = '../Data/dataset/indoor'
+data_root = './Data/dataset/indoor'
 from confs.path import lis_name_scenes
 
 for scene in lis_name_scenes:

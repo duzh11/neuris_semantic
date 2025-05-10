@@ -31,8 +31,8 @@ if __name__ == '__main__':
     # eval_3D_mesh_neuris， eval_3D_mesh_TSDF， eval_chamfer， eval_mesh_2D_metrices， eval_semantic2D, 
     parser.add_argument('--mode', type=str, default='evaluate_nvs')
     parser.add_argument('--exp_name', type=str, default='deeplab_ce/ce_final')
-    parser.add_argument('--dir_dataset', type=str, default='../Data/dataset/indoor')
-    parser.add_argument('--dir_results_baseline', type=str, default='../exps/indoor/neus')
+    parser.add_argument('--dir_dataset', type=str, default='./Data/dataset/indoor')
+    parser.add_argument('--dir_results_baseline', type=str, default='./exps/indoor/neus')
     parser.add_argument('--acc', type=str, default='fine')
     parser.add_argument('--iter', type=int, default=160000, help='iter')
     parser.add_argument('--semantic_class', type=int, default=40, help='number of semantic class')
@@ -80,7 +80,7 @@ if __name__ == '__main__':
             path_mesh_pred = f'{dir_results_baseline}/{scene_name}/meshes/{scene_name}_clean_bbox.ply'
             metrics_eval =  EvalScanNet.evaluate_3D_mesh_TSDF(path_mesh_pred,
                                                               scene_name,
-                                                              dir_dataset = '../Data/dataset/indoor',
+                                                              dir_dataset = './Data/dataset/indoor',
                                                               eval_threshold = eval_threshold_lis)
             
             metrics_eval_all.append(metrics_eval)
@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
             metric_eval = EvalScanNet.eval_chamfer(path_mesh_pred, 
                                                    scene_name, 
-                                                   dir_dataset = '../Data/dataset/indoor',
+                                                   dir_dataset = './Data/dataset/indoor',
                                                    MANHATTAN=MANHATTAN)
             metrics_eval_all.append(metric_eval)
 

@@ -7,8 +7,8 @@ from glob import glob
 from tqdm import tqdm
 import utils.utils_image as ImageUtils
 
-img_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
-exps_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/exps/indoor/neus'
+img_dir = '/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/Data/dataset/indoor'
+exps_dir = '/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/exps/indoor/neus'
 
 from confs.path import lis_name_scenes
 method_name_lis = ['deeplab_ce_plane/ce_stop_planedepth10', 'deeplab_ce_plane/ce_stop_planedepth30', 'deeplab_ce_plane/ce_stop_planedepth100']

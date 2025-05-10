@@ -16,17 +16,17 @@ data_mode = 'train'
 iter = '00040000'
 H , W = 240, 320
 
-contrast_exps_dir = '../exps/indoor/neus/contrast/contrast_deeplab_ce_sv'
+contrast_exps_dir = './exps/indoor/neus/contrast/contrast_deeplab_ce_sv'
 os.makedirs(contrast_exps_dir, exist_ok=True)
 
 for scene_name in tqdm(lis_name_scenes, desc='processing scene...'):
     lis_exps_dir = os.path.join(contrast_exps_dir, scene_name)
     os.makedirs(lis_exps_dir, exist_ok=True)
 
-    grids_dir = f'../Data/dataset/indoor/{scene_name}/grids/{data_mode}'
+    grids_dir = f'./Data/dataset/indoor/{scene_name}/grids/{data_mode}'
     grids_list = sorted(glob(os.path.join(grids_dir, 'felzenszwalb_100_1_50_a_vis', '*.png')))
 
-    exps_dir = f'../exps/indoor/neus/{method_name_lis[0]}/{scene_name}'
+    exps_dir = f'./exps/indoor/neus/{method_name_lis[0]}/{scene_name}'
     uncertrainty_dir = os.path.join(exps_dir, 'sem_uncertainty_vis', data_mode, 'fine')
     uncertrainty_list = sorted(glob(os.path.join(uncertrainty_dir, f'{iter}_*.png')))
     N_img = len(uncertrainty_list)
@@ -38,7 +38,7 @@ for scene_name in tqdm(lis_name_scenes, desc='processing scene...'):
         lis_img.append(cv2.resize( cv2.imread(uncertrainty_list[idx]), (W, H)))
 
         for method_name in method_name_lis:
-            exps_dir = f'../exps/indoor/neus/{method_name}/{scene_name}'
+            exps_dir = f'./exps/indoor/neus/{method_name}/{scene_name}'
             
             grids_info_dir = os.path.join(exps_dir, 'girds_info', data_mode, 'fine')
             grids_info_list = sorted(glob(os.path.join(grids_info_dir, f'{iter}_*.png')))

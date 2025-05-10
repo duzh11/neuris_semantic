@@ -19,7 +19,7 @@ def random_rgb():
 
 from confs.path import lis_name_scenes
 
-data_base='../Data/dataset/indoor'
+data_base='./Data/dataset/indoor'
 vis_flag=True
 for scene_name in lis_name_scenes:
     logging.info(f'loading instance: {scene_name} ')

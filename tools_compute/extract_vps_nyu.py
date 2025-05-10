@@ -5,7 +5,7 @@ import cv2
 from lu_vp_detect import VPDetection
 from glob import glob
 
-data_root = '../Data/dataset/indoor'
+data_root = './Data/dataset/indoor'
 scene_list = ['scene0435_02', 'scene0616_00']
 
 CROP=16

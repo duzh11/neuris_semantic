@@ -6,7 +6,7 @@ import matplotlib as mpl
 import os
 import cv2
 
-img_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
+img_dir = '/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/Data/dataset/indoor'
 scene_lis = ['test']
 
 def cosine_similarity(x1, x2, dim=2, eps=1e-6):

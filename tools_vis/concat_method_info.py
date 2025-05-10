@@ -17,14 +17,14 @@ data_mode = 'train'
 iter = '00160000'
 H , W = 240, 320
 
-contrast_exps_dir = f'../exps/indoor/neus/SAM_ce_sv/concat/viewAL_svcon'
+contrast_exps_dir = f'./exps/indoor/neus/SAM_ce_sv/concat/viewAL_svcon'
 os.makedirs(contrast_exps_dir, exist_ok=True)
 with open(os.path.join(contrast_exps_dir, f'method_name_lis.txt'), 'w') as f:
     f.writelines(method_name_lis)
 
 for scene_name in tqdm(lis_name_scenes, desc='processing scene...'):
 
-    exps_dir = f'../exps/indoor/neus/{method_name_lis[0]}/{scene_name}'
+    exps_dir = f'./exps/indoor/neus/{method_name_lis[0]}/{scene_name}'
     lis_exps_dir = os.path.join(contrast_exps_dir, scene_name)
     os.makedirs(lis_exps_dir, exist_ok=True)
 
@@ -35,7 +35,7 @@ for scene_name in tqdm(lis_name_scenes, desc='processing scene...'):
     for idx in tqdm(range(N_img), desc = 'concatting'):
         lis_img = []
         for method_name in method_name_lis:
-            exps_dir = f'../exps/indoor/neus/{method_name}/{scene_name}'
+            exps_dir = f'./exps/indoor/neus/{method_name}/{scene_name}'
             grids_info_dir = os.path.join(exps_dir, 'image_valiate_semantics')
             grids_info_list = sorted(glob(os.path.join(grids_info_dir, f'{iter}_*.png')))
 

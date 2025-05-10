@@ -6,8 +6,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import utils.utils_nyu as utils_nyu
 
-Data_dir = '../Data/dataset/indoor'
-exps_dir = '../exps/indoor/neus/'
+Data_dir = './Data/dataset/indoor'
+exps_dir = './exps/indoor/neus/'
 scene_list = ['scene0050_00']
 semantic_type_list = ['semantic_pred']
 method_name_list = ['con_test1', 'con_test2', 'con_test3','pred_40_test1', 'pred_40_test2_compa3', 'pred_40_test10_compa1', 'pred_40_test10_compa2']

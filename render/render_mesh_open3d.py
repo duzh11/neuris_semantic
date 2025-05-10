@@ -63,8 +63,8 @@ scan = sys.argv[1]
 method_name = sys.argv[2]
 data_mode = sys.argv[3]
 
-data_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
-exps_dir = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/exps/indoor/neus/{method_name}/{scan}'
+data_dir = '/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/Data/dataset/indoor'
+exps_dir = f'/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/exps/indoor/neus/{method_name}/{scan}'
 mesh_path = f'{exps_dir}/meshes/{scan}_semantic_surface_clean_bbox.ply'
 
 out_path = f'{exps_dir}/rendering/semmesh/{data_mode}'

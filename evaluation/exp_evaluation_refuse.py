@@ -124,15 +124,15 @@ def evaluate_3D_mesh_byRefuse(scene_name,scene_dir,output_dir,path_mesh_pred,pat
     return metrices_eval
 
 def main(exp_name,lis_name_scenes):
-    dir_dataset = '../Data/dataset/indoor'
+    dir_dataset = './Data/dataset/indoor'
     name_baseline=f'{exp_name}_refuse'
-    dir_results_baseline='../exps/evaluation/'
+    dir_results_baseline='./exps/evaluation/'
     
     eval_threshold = 0.05
     metrics_eval_all = []
     for scene_name in lis_name_scenes:
         logging.info(f'\n\nProcess: {scene_name}')
-        dir_dataset = '../Data/dataset/indoor'
+        dir_dataset = './Data/dataset/indoor'
         scene_dir=os.path.join(dir_dataset,scene_name)
         output_dir=f'{dir_results_baseline}/{name_baseline}'
         os.makedirs(output_dir,exist_ok=True)

@@ -64,8 +64,8 @@ if __name__=='__main__':
     lis_exp_name=['semantic_3_test13']
     lis_name_scenes=['scene0084_00']
 
-    dir_dataset = '../Data/dataset/indoor'
-    dir_results_baseline='../exps/evaluation/'
+    dir_dataset = './Data/dataset/indoor'
+    dir_results_baseline='./exps/evaluation/'
     for exp_name in lis_exp_name:
         logging.info(f'output 3D error mesh of method: {exp_name}')
         name_baseline=f'{exp_name}_refuse'

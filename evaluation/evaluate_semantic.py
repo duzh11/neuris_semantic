@@ -127,9 +127,9 @@ if __name__=='__main__':
     lis_name_scenes=['scene0084_00','scene0616_00']
     numclass=3
     
-    dir_dataset='../Data/dataset/indoor'
-    exp_dir='../exps/indoor/neus'
-    dir_results_baseline = f'../exps/evaluation'
+    dir_dataset='./Data/dataset/indoor'
+    exp_dir='./exps/indoor/neus'
+    dir_results_baseline = f'./exps/evaluation'
     
     for exp_name in lis_exp_name:
         logging.info(f'evaluate semantics: {exp_name}')

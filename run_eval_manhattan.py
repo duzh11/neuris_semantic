@@ -21,7 +21,7 @@ num = 49
 
 dir_results_baseline = '/home/du/Proj/3Dv_Reconstruction/Manhattan_sdf/exp/result/manhattan_sdf'
 str_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
-dir_dataset = '../Data/dataset/indoor'
+dir_dataset = './Data/dataset/indoor'
 #--------------------------------------
 # eval_3D_mesh_TSDF
 eval_threshold_lis = [0.05]
@@ -33,7 +33,7 @@ for scene_name in lis_name_scenes:
     path_mesh_pred = f'{dir_results_baseline}/{dir}/{num}.ply'
     metrics_eval =  EvalScanNet.evaluate_3D_mesh_TSDF(path_mesh_pred,
                                                         scene_name,
-                                                        dir_dataset = '../Data/dataset/indoor',
+                                                        dir_dataset = './Data/dataset/indoor',
                                                         eval_threshold = eval_threshold_lis)
     
     metrics_eval_all.append(metrics_eval)
@@ -57,7 +57,7 @@ path_log = f'{dir_results_baseline}/{exp_name}_eval3Dmesh_TSDF_{str_date}.md'
 #     logging.info(f'Processing {scene_name}...')
 #     dir = exp_name + '_' + scene_name[-7:-3]
 
-#     dir_scan = f'../Data/dataset/indoor/{scene_name}'
+#     dir_scan = f'./Data/dataset/indoor/{scene_name}'
 #     dir_exp = f'{dir_results_baseline}/{dir}/semantic'
 
 #     semantic_GT_list=[]

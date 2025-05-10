@@ -9,13 +9,13 @@ import cv2
 import utils.utils_correspondence as correspondence
 
 def show_results(scene_name, method_name, source_id, x, y):
-    data_dir = f'../Data/dataset/indoor/{scene_name}'
+    data_dir = f'./Data/dataset/indoor/{scene_name}'
     depth_GT= cv2.imread(os.path.join(data_dir, 'depth/train', f'{source_id}.png'), cv2.IMREAD_UNCHANGED)[2*y, 2*x]
     path_trans_n2w = np.loadtxt(f'{data_dir}/trans_n2w.txt')
     scale=path_trans_n2w[0, 0]
     depth_GT = depth_GT/(scale*1000)
 
-    results_dir=f'../exps/indoor/neus/{method_name}/{scene_name}/results_validate'
+    results_dir=f'./exps/indoor/neus/{method_name}/{scene_name}/results_validate'
     file_name=f'00050000_{source_id}_reso2.npz'
 
     # read results
@@ -104,7 +104,7 @@ def main(scene_name, method_name, source_id, target_id, x, y):
 
     target_x, target_y = correspondence.find_correspondence(scene_name, source_id, target_id, 2*x, 2*y)
     target_x, target_y=target_x//2, target_y//2
-    exps_dir=f'../exps/indoor/neus/{method_name}/{scene_name}'
+    exps_dir=f'./exps/indoor/neus/{method_name}/{scene_name}'
     semantic_source = cv2.imread(os.path.join(exps_dir, 'semantic/train/fine', f'00050000_{source_id}_reso2.png'))
     semantic_target = cv2.imread(os.path.join(exps_dir, 'semantic/train/fine', f'00050000_{target_id}_reso2.png'))
     fig, ax = plt.subplots(1, 2)

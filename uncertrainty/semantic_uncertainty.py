@@ -17,7 +17,7 @@ import uncertrainty.compute_viewAL as compute_viewAL
         
 from confs.path import lis_name_scenes
 # lis_name_scenes=['scene0378_00','scene0435_02'] 
-Data_dir = '../Data/dataset/indoor'
+Data_dir = './Data/dataset/indoor'
 lis_semantic_type = ['deeplab']
 uncertainty_type=['viewAL']
 

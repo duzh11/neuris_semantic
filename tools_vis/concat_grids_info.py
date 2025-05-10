@@ -16,7 +16,7 @@ data_mode = 'train'
 H , W = 240, 320
 
 for scene_name in tqdm(lis_name_scenes, desc='processing scene...'):
-    exps_dir = f'../exps/indoor/neus/{method_name}/{scene_name}'
+    exps_dir = f'./exps/indoor/neus/{method_name}/{scene_name}'
     grids_info_dir = os.path.join(exps_dir, 'image_valiate_semantics')
     grids_info_list = sorted(glob(os.path.join(grids_info_dir, '*.png')))
 

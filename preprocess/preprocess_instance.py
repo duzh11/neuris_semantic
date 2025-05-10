@@ -21,7 +21,7 @@ from confs.path import lis_name_scenes
 
 img_h,img_w=480,640
 data_base='/home/du/Proj/Dataset/ScanNet/scans'
-target_base='../Data/dataset/indoor'
+target_base='./Data/dataset/indoor'
 vis_flag=True
 for scene_name in lis_name_scenes:
     logging.info(f'loading instance: {scene_name} ')

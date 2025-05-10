@@ -63,7 +63,7 @@ scan = sys.argv[1]
 method_name = sys.argv[2]
 data_mode = sys.argv[3]
 
-data_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
+data_dir = '/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/Data/dataset/indoor'
 # exps_dir = f'/home/du/Proj/3Dv_Reconstruction/Manhattan_sdf/exp/result/manhattan_sdf/{method_name}_{scan[-7:-3]}'
 # mesh_path = f'{exps_dir}/50.ply'
 # if os.path.exists(mesh_path):
@@ -72,7 +72,7 @@ data_dir = '/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor'
 #     mesh_path = f'{exps_dir}/49.ply'
 #     print(f"{mesh_path}")
 
-exps_dir = f'/home/du/Proj/3Dv_Reconstruction/NeuRIS/Data/dataset/indoor/{scan}'
+exps_dir = f'/home/du/Proj/3Dv_Reconstruction/NeRF-Reconstruction/MOSE/Data/dataset/indoor/{scan}'
 mesh_path = f'{exps_dir}/{scan}_vh_clean_2.ply'
     
 out_path = f'{exps_dir}/rendering/colormesh'
